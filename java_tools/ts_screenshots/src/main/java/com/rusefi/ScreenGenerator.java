@@ -15,16 +15,18 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static com.rusefi.core.FileUtil.RUSEFI_SETTINGS_FOLDER;
+
 public class ScreenGenerator {
     private static final String PNG = "png";
-    private static ArrayList<AbstractButton> topLevelButtons = new ArrayList<>();
+    private static final ArrayList<AbstractButton> topLevelButtons = new ArrayList<>();
 
     private static final int MENU_CLICK_DELAY = 50;
     private static final int TOP_MENU_CLICK_DELAY = 200;
     private static final int WAITING_FOR_FRAME_PERIOD = 1000;
 
-
-    private static final String DESTINATION = "images" + File.separator;
+    private static final String IMG_DESTINATION = RUSEFI_SETTINGS_FOLDER + "images" + File.separator;
+    static final String XML_DUMP = IMG_DESTINATION + "ScreenGeneratorTool.xml";
 
     static ContentModel contentModel = new ContentModel();
     static IniFileModel iniFileModel = null;
@@ -36,20 +38,21 @@ public class ScreenGenerator {
             System.out.println("One parameter expected: path to directory containing rusefi_XXX.ini file");
             System.exit(-1);
         }
+        String iniFileName = args[0];
 
-        iniFileModel = IniFileModelImpl.readIniFile(".");
+        iniFileModel = IniFileModelImpl.readIniFile(iniFileName);
 
-        for (Map.Entry<String, com.opensr5.ini.DialogModel.Field> a : iniFileModel.getAllFields().entrySet()) {
+        for (Map.Entry<String, com.opensr5.ini.DialogModel.Field> a : iniFileModel.getFieldsInUiOrder().entrySet()) {
             String cleanUiName = cleanName(a.getValue().getUiName());
             byCleanUiName.put(cleanUiName, a.getValue());
         }
 
         if (byCleanUiName.isEmpty())
-            throw new IllegalStateException("Something not right with input file. April 29 version is needed");
+            throw new IllegalStateException("Something not right with input file.");
 
 
-        System.out.println("mkdirs " + DESTINATION);
-        new File(DESTINATION).mkdirs();
+        System.out.println("mkdirs " + IMG_DESTINATION);
+        new File(IMG_DESTINATION).mkdirs();
 
         System.out.println("Launching TunerStudioIntegration");
         Frame mainFrame = TunerStudioIntegration.findMainFrame();
@@ -62,7 +65,9 @@ public class ScreenGenerator {
 
         handleTopLevelButtons(mainFrame, topLevelButtons);
 
-        XmlUtil.writeXml(contentModel, ContentModel.class, FILE_NAME);
+        XmlUtil.writeXml(contentModel, ContentModel.class, XML_DUMP);
+        System.out.println(ScreenGenerator.class.getSimpleName() + ": DONE!");
+        System.exit(0);
     }
 
     private static void waitForMainFrame(Frame mainFrame) throws InterruptedException {
@@ -79,6 +84,7 @@ public class ScreenGenerator {
             });
             Thread.sleep(WAITING_FOR_FRAME_PERIOD);
         }
+        System.out.println("top level buttons discovered: " + topLevelButtons);
     }
 
     private static void handleTopLevelButtons(Frame frame, ArrayList<AbstractButton> topLevelButtons) throws Exception {
@@ -91,16 +97,18 @@ public class ScreenGenerator {
         SwingUtilities.invokeAndWait(topLevel::doClick);
         Thread.sleep(TOP_MENU_CLICK_DELAY);
 
-
         String imageName = "top_level_" + cleanName(topLevel.getText()) + "." + PNG;
 
         TopLevelMenuModel topLevelMenuModel = new TopLevelMenuModel(topLevel.getText(), imageName);
         ScreenGenerator.contentModel.getTopLevelMenus().add(topLevelMenuModel);
 
+        new File(IMG_DESTINATION).mkdirs();
+        String pathname = IMG_DESTINATION + imageName;
+        System.out.println("ImageIO Write " + pathname);
         ImageIO.write(
-                UiUtils.getScreenShot(frame),
-                PNG,
-                new File(DESTINATION +  imageName));
+            UiUtils.getScreenShot(frame),
+            PNG,
+            new File(pathname));
 
         List<JMenuItem> menuItems = TunerStudioIntegration.findMenuItems(frame);
 
@@ -120,7 +128,7 @@ public class ScreenGenerator {
         Thread.sleep(MENU_CLICK_DELAY);
         JDialog dialog = ref.get();
         if (dialog == null) {
-            System.out.println("Not found for " + menuItem);
+            System.out.println("handleMenuItem: dialog Not found for " + menuItem);
             return;
         }
 
@@ -146,9 +154,9 @@ public class ScreenGenerator {
 
                 BufferedImage dialogScreenShot = UiUtils.getScreenShot(dialog);
                 ImageIO.write(
-                        dialogScreenShot,
-                        PNG,
-                        new File(DESTINATION + imageName));
+                    dialogScreenShot,
+                    PNG,
+                    new File(IMG_DESTINATION + imageName));
                 dialog.setVisible(false);
                 dialog.dispose();
             } catch (Exception e) {
@@ -190,11 +198,11 @@ public class ScreenGenerator {
                 continue;
 
             String fieldName = f.getKey();
-            String tooltip = iniFileModel.tooltips.get(fieldName);
+            String tooltip = iniFileModel.getTooltips().get(fieldName);
 
             dialogModel.fields.add(new FieldModel(sectionNameWithSpecialCharacters, fieldName, fileName, tooltip));
 
-            File output = new File(DESTINATION + fileName);
+            File output = new File(IMG_DESTINATION + fileName);
             if (output == null) {
                 System.out.println(sectionName + " in " + fileName + " was not a success");
                 continue;
@@ -227,6 +235,10 @@ public class ScreenGenerator {
                 return;
 
             BufferedImage panelImage = UiUtils.getScreenShot(panel);
+            if (panelImage == null) {
+                System.out.println("Skipping empty panel");
+                return;
+            }
 
             Map<Integer, String> yCoordinates = new TreeMap<>();
             int relativeY = panel.getLocationOnScreen().y;

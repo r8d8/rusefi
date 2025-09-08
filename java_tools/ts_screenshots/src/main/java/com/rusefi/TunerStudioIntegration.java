@@ -23,12 +23,13 @@ public class TunerStudioIntegration {
 
             for (Frame frame : all) {
                 String frameTitle = frame.getTitle();
-                System.out.println("I see " + frameTitle);
+                System.out.println("findMainFrame: I see " + frameTitle);
                 if (frameTitle.contains(TUNER_STUDIO)) {
                     if (!frameTitle.contains(VERSION)) {
                         System.out.println("Title does not look right " + frameTitle + " not " + VERSION);
                         System.exit(-1);
                     }
+                    System.out.println("Found main frame for expected version: " + frameTitle);
                     return frame;
                 }
             }
@@ -43,11 +44,13 @@ public class TunerStudioIntegration {
     static java.util.List<JMenuItem> findMenuItems(Frame frame) {
         List<JMenuItem> menuItems = new ArrayList<>();
         UiUtils.visitComponents(frame, "Just clicked ", (parent, component) -> {
-            if (component instanceof JMenuItem && component.getClass().getName().endsWith(TS_POPUP_MAIN_MENU)) {
-                JMenuItem menuItem = (JMenuItem) component;
-                System.out.println("Menu item " + menuItem.getText());
-                menuItems.add(menuItem);
+            if (component instanceof JMenuItem) {
+                if (component.getClass().getName().endsWith(TS_POPUP_MAIN_MENU)) {
+                    JMenuItem menuItem = (JMenuItem) component;
+                    System.out.println("Menu item " + menuItem.getText());
+                    menuItems.add(menuItem);
             }
+        }
         });
         return menuItems;
     }
