@@ -1,0 +1,35 @@
+#Project Attributes.
+#TunerStudio by EFI Analytics, Inc
+#Last Saved on: Mon Sep 15 10:52:45 EEST 2025
+#Mon Sep 15 10:52:45 EEST 2025
+commPort=COM100
+canBusMainCAN\ Bus\ Communication_width=282
+CommSettingK2-P16G2CommDriver.RS232\ Serial\ InterfaceBluetooth\ Port=false
+ecuSettings=AFR|USE_METRIC_UNITS|
+canId=-1
+selectedComDriver=Multi Interface MegaSquirt Driver
+projectDescription=
+projectName=UAV_EFI
+idleSettingsIdle\ settings_Y=155
+idleSettingsIdle\ settings_X=765
+CommSettingCom\ Port=COM100
+CommSettingK2-P16G2CommDriver.controllerInterfaceId=RS232 Serial Interface
+ecuUid=e5677646-c588-421a-bb6e-282a5b9612ca
+ecuConfigFile=mainController.ini
+CommSettingK2-P16G2CommDriver.RS232\ Serial\ InterfaceBaud\ Rate=115200
+CommSettingBaud\ Rate=115200
+canBusMainCAN\ Bus\ Communication_Y=238
+idleSettingsIdle\ settings_height=842
+canBusMainCAN\ Bus\ Communication_X=819
+CommSettingMSCommDriver.RS232\ Serial\ InterfaceBluetooth\ Port=false
+lastDisplayedTuneFile=
+CommSettingMSCommDriver.controllerInterfaceId=RS232 Serial Interface
+useCommonTuneViewDir=false
+useCommonDashboardDir=false
+canBusMainCAN\ Bus\ Communication_height=677
+CommSettingK2-P16G2CommDriver.RS232\ Serial\ InterfaceCom\ Port=COM100
+dashBoardFile=\\dashboard\\\\dashboard.dash
+CommSettingMSCommDriver.RS232\ Serial\ InterfaceCom\ Port=COM100
+idleSettingsIdle\ settings_width=391
+CommSettingMSCommDriver.RS232\ Serial\ InterfaceBaud\ Rate=115200
+baudRate=115200

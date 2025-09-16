@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<msq xmlns="http://www.msefi.com/:msq">
+<bibliography author="TunerStudio MS(Beta) Lite! 3.3.00.00 - EFI Analytics, Inc." tuneComment="" writeDate="Mon Sep 15 11:51:55 EEST 2025"/>
+<versionInfo fileFormat="5.0" firmwareInfo="" nPages="3" signature="rusEFI master.2025.09.10.mre_f4.3280979053"/>
+<page>
+<pcVariable name="tsCanId">"0"</pcVariable>
+<pcVariable cols="1" digits="1" name="wueAfrTargetOffset" rows="16" units=":1">
+         -1.5 
+         -1.4 
+         -1.1 
+         -0.9 
+         -0.8 
+         -0.6 
+         -0.6 
+         -0.5 
+         -0.4 
+         -0.4 
+         -0.3 
+         -0.2 
+         -0.2 
+         -0.1 
+         -0.1 
+         0.0 
+      </pcVariable>
+<pcVariable cols="1" digits="0" name="gearCountArray" rows="10" units="Gear">
+         -1.0 
+         0.0 
+         1.0 
+         2.0 
+         3.0 
+         4.0 
+         5.0 
+         6.0 
+         7.0 
+         8.0 
+      </pcVariable>
+<pcVariable cols="1" digits="0" name="solenoidCountArray" rows="6" units="Solenoid">
+         1.0 
+         2.0 
+         3.0 
+         4.0 
+         5.0 
+         6.0 
+      </pcVariable>
+<pcVariable cols="1" digits="0" name="rangeInputArray" rows="6" units="Input">
+         0.0 
+         1.0 
+         2.0 
+         3.0 
+         4.0 
+         5.0 
+      </pcVariable>
+<pcVariable cols="1" digits="0" name="rangeStateArray" rows="9" units="State">
+         0.0 
+         1.0 
+         2.0 
+         3.0 
+         4.0 
+         5.0 
+         6.0 
+         7.0 
+         8.0 
+      </pcVariable>
+</page>
+<page number="0" size="25804"/>
+<page number="1" size="256"/>
+<page number="2" size="2048"/>
+<settings Comment="These setting are only used if this msq is opened without a project.">
+<setting name="AFR" value="AFR"/>
+<setting name="USE_METRIC_UNITS" value="USE_METRIC_UNITS"/>
+</settings>
+<userComments Comment="These are user comments that can be related to a particular setting or dialog."/>
+</msq>

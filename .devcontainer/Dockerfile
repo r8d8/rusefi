@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # base image from ggrouv: https://github.com/ggurov/rusefibuildcontainer
-FROM ubuntu:mantic
+FROM ubuntu:latest
 RUN apt-get -y update
 RUN apt-get -y install make automake autoconf gcc-12-arm-linux-gnueabi gcc-12-arm-linux-gnueabi-base gcc-arm-none-eabi binutils-arm-none-eabi git nano openjdk-21-jdk-headless mtools dosfstools xxd
 RUN apt-get -y install openssh-server cmake rsync gdb-multiarch build-essential g++-12 gcc-12-multilib g++-12-multilib zip zsh

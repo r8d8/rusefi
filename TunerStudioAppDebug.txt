@@ -1,0 +1,2087 @@
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 10:26:23 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 10:26:23 AM :Debug: no update:defaultFont
+9/15/25 10:26:23 AM :Info: Initializing File Dialogs.
+9/15/25 10:26:24 AM :Debug: hid: 606.7784
+9/15/25 10:26:24 AM :Info: Loading Language Content.
+9/15/25 10:26:26 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 10:26:26 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 10:26:26 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 10:26:26 AM :Info: Initializing Help.
+9/15/25 10:26:26 AM :Info: Initializing Edition Features.
+9/15/25 10:26:26 AM :Info: Initializing App Events.
+9/15/25 10:26:26 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 10:26:26 AM :Debug: Dummy Function Factory Created.
+9/15/25 10:26:26 AM :Info: Initializing User Interface
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:width= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 10:26:26 AM :Warning: Failed to parse tag:height= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 10:26:28 AM :Info: Loading Font list.
+9/15/25 10:26:28 AM :Debug: Time to retreive font name list: 5 ms.
+9/15/25 10:26:28 AM :Info: 
+9/15/25 10:26:28 AM :Info: Initializing UI Components.
+9/15/25 10:26:28 AM :Info: Ready
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 10:26:29 AM :Info: IncUpdate: No updates available.
+9/15/25 10:26:29 AM :Info: IniUpdate: No updates available.
+9/15/25 10:26:30 AM :Info: Opening Project ...
+9/15/25 10:26:30 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_EFI\
+9/15/25 10:26:30 AM :Debug: Reading translation file as plain text
+9/15/25 10:26:30 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:26:30 AM :Debug: Filtered ConfigurationOptionGroup in 12ms.
+9/15/25 10:26:30 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:26:30 AM :Info: Read file canPcVariables.ini: 2.481ms
+9/15/25 10:26:30 AM :Info: Filtered ini: 0.0493ms
+9/15/25 10:26:30 AM :Info: No iniVersion defined
+9/15/25 10:26:30 AM :Info: Loading Trigger Wheels
+9/15/25 10:26:30 AM :Info: Loaded All known ini sections
+9/15/25 10:26:30 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 15ms.
+9/15/25 10:26:30 AM :Info: Read file mainController.ini: 69.5778ms
+9/15/25 10:26:30 AM :Info: Filtered ini: 4.3911ms
+9/15/25 10:26:30 AM :Info: No iniVersion defined
+9/15/25 10:26:30 AM :Debug: ini signature: rusEFI master.2025.09.15.f407-discovery.3057951919
+9/15/25 10:26:30 AM :Info: Set Write Blocks on = true
+9/15/25 10:26:30 AM :Info: Loading Trigger Wheels
+9/15/25 10:26:30 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 10:26:30 AM :Info: Loaded All known ini sections
+9/15/25 10:26:30 AM :Info: Parsed and validated ini "mainController.ini" in : 214ms.
+9/15/25 10:26:30 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 10:26:30 AM :Info: Time to load primary config: 262.8662ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 10:26:30 AM :Debug: set baud to 115200
+9/15/25 10:26:30 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:26:30 AM :Debug: Adding Configuration: UAV_EFI
+9/15/25 10:26:30 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:26:30 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:26:30 AM :Debug: Fill Constants: 43
+9/15/25 10:26:30 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+9/15/25 10:26:30 AM :Info: dirtyData.size(): 0
+9/15/25 10:26:30 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 10:26:30 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 10:26:30 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 10:26:30 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 10:26:30 AM :Info: dirtyData.size(): 0
+9/15/25 10:26:30 AM :Debug: Flush lasted: 71ms.
+9/15/25 10:26:30 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:26:30 AM :Debug: Flush lasted: 0ms.
+9/15/25 10:26:30 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:26:30 AM :Info: !!! Loaded config in 458
+9/15/25 10:26:31 AM :Info: !!! Activated Project 952
+9/15/25 10:26:31 AM :Info: Opening Gauge Cluster..
+9/15/25 10:26:31 AM :Debug: High Speed Paint: true
+9/15/25 10:26:31 AM :Info: 
+9/15/25 10:26:31 AM :Info: Com Thread created: COMM Thread10816.071223364943
+9/15/25 10:26:31 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:26:31 AM :Debug: !!! Opened Dash 1435
+9/15/25 10:26:31 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread10816.071223364943
+9/15/25 10:26:31 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:26:31 AM :Info: UAV_EFI Ready
+9/15/25 10:26:31 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread10816.071223364943
+9/15/25 10:26:31 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 10:26:31 AM :Debug: Tuning View Files loaded in 59.7898ms.
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 10:27:38 AM :Info: Initiating read page 1 : 67:3848
+9/15/25 10:27:41 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:27:41 AM :Debug: Flush lasted: 71ms.
+9/15/25 10:27:41 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:27:46 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:27:46 AM :Debug: Flush lasted: 71ms.
+9/15/25 10:27:46 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:27:47 AM :Info: Com Thread created: COMM Thread15300.890017036894
+9/15/25 10:27:47 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread15300.890017036894
+9/15/25 10:27:47 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:27:47 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread10816.071223364943, new Thread:COMM Thread15300.890017036894
+9/15/25 10:27:47 AM :Info: UAV_EFI ComThread stopped COMM Thread10816.071223364943
+9/15/25 10:27:48 AM :Info: Com Thread created: COMM Thread81184.17255115641
+9/15/25 10:27:48 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread81184.17255115641
+9/15/25 10:27:48 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:27:48 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread15300.890017036894, new Thread:COMM Thread81184.17255115641
+9/15/25 10:27:49 AM :Info: UAV_EFI ComThread stopped COMM Thread15300.890017036894
+9/15/25 10:27:50 AM :Info: Com Thread created: COMM Thread64882.17312938049
+9/15/25 10:27:50 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread64882.17312938049
+9/15/25 10:27:50 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:27:50 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread81184.17255115641, new Thread:COMM Thread64882.17312938049
+9/15/25 10:27:50 AM :Info: UAV_EFI ComThread stopped COMM Thread81184.17255115641
+9/15/25 10:27:57 AM :Info: Com Thread created: COMM Thread66156.775718583
+9/15/25 10:27:57 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread66156.775718583
+9/15/25 10:27:57 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:27:57 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread64882.17312938049, new Thread:COMM Thread66156.775718583
+9/15/25 10:27:58 AM :Info: UAV_EFI ComThread stopped COMM Thread64882.17312938049
+9/15/25 10:28:19 AM :Info: Initiating read page 1 : 56:1524
+9/15/25 10:28:33 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:28:33 AM :Debug: Flush lasted: 70ms.
+9/15/25 10:28:33 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:30:29 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:30:29 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:30:29 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:30:29 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:30:29 AM :Debug: goOffline about to stopProcessing, Time:1
+9/15/25 10:30:29 AM :Debug: goOffline closed port, Time:1
+9/15/25 10:30:29 AM :Debug: goOffline about to stopProcessing, Time:1
+9/15/25 10:30:29 AM :Debug: goOffline closed port, Time:1
+9/15/25 10:30:29 AM :Debug: set baud to 115200
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:30:29 AM :Info: UAV_EFI ComThread stopped COMM Thread66156.775718583
+9/15/25 10:30:29 AM :Debug: goOffline comm thread stopped, Time:305
+9/15/25 10:30:29 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:30:30 AM :Debug: goOffline comm thread stopped, Time:502
+9/15/25 10:30:30 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:30:35 AM :Debug: set baud to 9600
+9/15/25 10:30:35 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread66156.775718583, new Thread:Thread-30
+Sep 15, 2025 10:30:38 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+Sep 15, 2025 10:30:40 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:30:40 AM :Info: No Bluetooth Stack Detected.
+9/15/25 10:30:40 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:30:40 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:30:40 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:30:40 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:30:41 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 10:30:41 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:30:41 AM :Debug: Created CheckThread
+Saved user properties successfully
+9/15/25 10:30:41 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 115200 Baud
+Sep 15, 2025 10:30:41 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:30:41 AM :Info: USB D2XX, Serial #Auto @ 115200 Baud Controller not found
+Saved user properties successfully
+Saved user properties successfully
+9/15/25 10:30:41 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 9600 Baud
+Sep 15, 2025 10:30:41 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:30:41 AM :Info: USB D2XX, Serial #Auto @ 9600 Baud Controller not found
+Saved user properties successfully
+9/15/25 10:30:42 AM :Debug: set baud to 115200
+Saved user properties successfully
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:30:43 AM :Info: Setting connection to: RS232: Port:COM3, Baud:115200
+9/15/25 10:30:43 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:30:44 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:30:44 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:check
+9/15/25 10:30:45 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:30:45 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x53                                                                   S
+9/15/25 10:30:45 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:30:45 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:30:46 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200, completed this port query
+9/15/25 10:30:46 AM :Info: Timeout on: RS232: Port:COM3, Baud:115200
+9/15/25 10:30:46 AM :Info: no Controller found on RS232: Port:COM3, Baud:115200
+Saved user properties successfully
+9/15/25 10:30:46 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:30:46 AM :Info: Setting connection to: RS232: Port:COM3, Baud:9600
+9/15/25 10:30:46 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:30:48 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:30:48 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:30:48 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x53                                                                   S
+9/15/25 10:30:49 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:30:49 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:30:49 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600, completed this port query
+9/15/25 10:30:49 AM :Info: Timeout on: RS232: Port:COM3, Baud:9600
+9/15/25 10:30:49 AM :Info: no Controller found on RS232: Port:COM3, Baud:9600
+Saved user properties successfully
+9/15/25 10:30:49 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:30:50 AM :Info: Setting connection to: RS232: Port:COM4, Baud:115200
+9/15/25 10:30:50 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:30:51 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:30:52 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:30:52 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x53                                                                   S
+9/15/25 10:30:52 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:30:52 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:30:53 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200, completed this port query
+9/15/25 10:30:53 AM :Info: Timeout on: RS232: Port:COM4, Baud:115200
+9/15/25 10:30:53 AM :Info: no Controller found on RS232: Port:COM4, Baud:115200
+Saved user properties successfully
+9/15/25 10:30:53 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:30:53 AM :Info: Setting connection to: RS232: Port:COM4, Baud:9600
+9/15/25 10:30:53 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:30:55 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:30:55 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:30:55 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x53                                                                   S
+9/15/25 10:30:56 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:30:56 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:30:57 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600, completed this port query
+9/15/25 10:30:57 AM :Info: Timeout on: RS232: Port:COM4, Baud:9600
+9/15/25 10:30:57 AM :Info: no Controller found on RS232: Port:COM4, Baud:9600
+Saved user properties successfully
+9/15/25 10:30:57 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:30:57 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:30:57 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:30:58 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:30:59 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:30:59 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x53                                                                   S
+9/15/25 10:30:59 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:30:59 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:31:00 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200, completed this port query
+9/15/25 10:31:00 AM :Info: Timeout on: RS232: Port:COM100, Baud:115200
+9/15/25 10:31:00 AM :Info: no Controller found on RS232: Port:COM100, Baud:115200
+Saved user properties successfully
+9/15/25 10:31:00 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:31:00 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 10:31:00 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:31:02 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:31:02 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:31:02 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x53                                                                   S
+9/15/25 10:31:03 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:31:03 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:31:04 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600, completed this port query
+9/15/25 10:31:04 AM :Info: Timeout on: RS232: Port:COM100, Baud:9600
+9/15/25 10:31:04 AM :Info: no Controller found on RS232: Port:COM100, Baud:9600
+Saved user properties successfully
+9/15/25 10:31:05 AM :Debug: set baud to 115200
+9/15/25 10:31:05 AM :Debug: set baud to 9600
+9/15/25 10:31:06 AM :Debug: Device not found
+9/15/25 10:31:06 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:31:06 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:31:06 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:31:06 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:31:06 AM :Debug: CheckThread exiting
+9/15/25 10:31:06 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 10:31:06 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:31:16 AM :Debug: set baud to 115200
+9/15/25 10:31:16 AM :Info: Comm Read Thread Change! Old Thread:Thread-30, new Thread:Thread-48
+Sep 15, 2025 10:31:19 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+9/15/25 10:31:20 AM :Debug: set baud to 115200
+9/15/25 10:31:20 AM :Info: Com Thread created: COMM Thread13586.701216364128
+9/15/25 10:31:20 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread13586.701216364128
+9/15/25 10:31:20 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:31:20 AM :Info: Comm Read Thread Change! Old Thread:Thread-48, new Thread:COMM Thread13586.701216364128
+9/15/25 10:34:12 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:34:12 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:34:12 AM :Debug: goOffline about to stopProcessing, Time:1
+9/15/25 10:34:12 AM :Debug: goOffline closed port, Time:1
+9/15/25 10:34:12 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:34:12 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:34:12 AM :Debug: goOffline about to stopProcessing, Time:1
+9/15/25 10:34:12 AM :Debug: goOffline closed port, Time:1
+9/15/25 10:34:12 AM :Debug: set baud to 115200
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:34:12 AM :Info: UAV_EFI ComThread stopped COMM Thread13586.701216364128
+9/15/25 10:34:12 AM :Debug: goOffline comm thread stopped, Time:204
+9/15/25 10:34:12 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:34:12 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 10:34:12 AM :Debug: No Remaining Queue Write instructions
+Sep 15, 2025 10:34:14 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:34:14 AM :Info: No Bluetooth Stack Detected.
+9/15/25 10:34:14 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:34:14 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:34:14 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:34:14 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:34:15 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 10:34:15 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:34:15 AM :Debug: Created CheckThread
+Saved user properties successfully
+9/15/25 10:34:15 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 115200 Baud
+Sep 15, 2025 10:34:15 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:34:15 AM :Info: USB D2XX, Serial #Auto @ 115200 Baud Controller not found
+Saved user properties successfully
+Saved user properties successfully
+9/15/25 10:34:15 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 9600 Baud
+Sep 15, 2025 10:34:15 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:34:15 AM :Info: USB D2XX, Serial #Auto @ 9600 Baud Controller not found
+Saved user properties successfully
+9/15/25 10:34:16 AM :Debug: set baud to 115200
+Saved user properties successfully
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:34:17 AM :Info: Setting connection to: RS232: Port:101, Baud:115200
+9/15/25 10:34:17 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:18 AM :Debug: Calling RS232: Port:101, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:34:18 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:check
+9/15/25 10:34:19 AM :Info: Timeout on port: RS232: Port:101, Baud:115200
+9/15/25 10:34:19 AM :Debug: Calling RS232: Port:101, Baud:115200 Command: x53                                                                   S
+9/15/25 10:34:19 AM :Info: Timeout on port: RS232: Port:101, Baud:115200
+9/15/25 10:34:19 AM :Debug: Calling RS232: Port:101, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:34:20 AM :Info: Timeout on port: RS232: Port:101, Baud:115200, completed this port query
+9/15/25 10:34:20 AM :Info: Timeout on: RS232: Port:101, Baud:115200
+9/15/25 10:34:20 AM :Info: no Controller found on RS232: Port:101, Baud:115200
+Saved user properties successfully
+9/15/25 10:34:20 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:34:20 AM :Info: Setting connection to: RS232: Port:101, Baud:9600
+9/15/25 10:34:20 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:22 AM :Debug: Calling RS232: Port:101, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:34:22 AM :Info: Timeout on port: RS232: Port:101, Baud:9600
+9/15/25 10:34:22 AM :Debug: Calling RS232: Port:101, Baud:9600 Command: x53                                                                   S
+9/15/25 10:34:23 AM :Info: Timeout on port: RS232: Port:101, Baud:9600
+9/15/25 10:34:23 AM :Debug: Calling RS232: Port:101, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:34:24 AM :Info: Timeout on port: RS232: Port:101, Baud:9600, completed this port query
+9/15/25 10:34:24 AM :Info: Timeout on: RS232: Port:101, Baud:9600
+9/15/25 10:34:24 AM :Info: no Controller found on RS232: Port:101, Baud:9600
+Saved user properties successfully
+9/15/25 10:34:24 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:34:24 AM :Info: Setting connection to: RS232: Port:COM3, Baud:115200
+9/15/25 10:34:24 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:25 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:34:26 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:34:26 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x53                                                                   S
+9/15/25 10:34:26 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:34:26 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:34:27 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200, completed this port query
+9/15/25 10:34:27 AM :Info: Timeout on: RS232: Port:COM3, Baud:115200
+9/15/25 10:34:27 AM :Info: no Controller found on RS232: Port:COM3, Baud:115200
+Saved user properties successfully
+9/15/25 10:34:27 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:34:27 AM :Info: Setting connection to: RS232: Port:COM3, Baud:9600
+9/15/25 10:34:27 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:29 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:34:29 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:34:29 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x53                                                                   S
+9/15/25 10:34:30 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:34:30 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:34:31 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600, completed this port query
+9/15/25 10:34:31 AM :Info: Timeout on: RS232: Port:COM3, Baud:9600
+9/15/25 10:34:31 AM :Info: no Controller found on RS232: Port:COM3, Baud:9600
+Saved user properties successfully
+9/15/25 10:34:31 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:34:31 AM :Info: Setting connection to: RS232: Port:COM4, Baud:115200
+9/15/25 10:34:31 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:32 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:34:33 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:34:33 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x53                                                                   S
+9/15/25 10:34:34 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:34:34 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:34:34 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200, completed this port query
+9/15/25 10:34:34 AM :Info: Timeout on: RS232: Port:COM4, Baud:115200
+9/15/25 10:34:34 AM :Info: no Controller found on RS232: Port:COM4, Baud:115200
+Saved user properties successfully
+9/15/25 10:34:34 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:34:34 AM :Info: Setting connection to: RS232: Port:COM4, Baud:9600
+9/15/25 10:34:34 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:36 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:34:37 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:34:37 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x53                                                                   S
+9/15/25 10:34:37 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:34:37 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:34:38 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600, completed this port query
+9/15/25 10:34:38 AM :Info: Timeout on: RS232: Port:COM4, Baud:9600
+9/15/25 10:34:38 AM :Info: no Controller found on RS232: Port:COM4, Baud:9600
+Saved user properties successfully
+9/15/25 10:34:38 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:34:38 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:34:38 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:34:40 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:34:40 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:34:40 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x53                                                                   S
+9/15/25 10:34:41 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:34:41 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:34:41 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200, completed this port query
+9/15/25 10:34:41 AM :Info: Timeout on: RS232: Port:COM100, Baud:115200
+9/15/25 10:34:41 AM :Info: no Controller found on RS232: Port:COM100, Baud:115200
+Saved user properties successfully
+9/15/25 10:34:41 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:34:42 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 10:34:42 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:34:43 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:34:44 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:34:44 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x53                                                                   S
+9/15/25 10:34:44 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:34:44 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:34:45 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600, completed this port query
+9/15/25 10:34:45 AM :Info: Timeout on: RS232: Port:COM100, Baud:9600
+9/15/25 10:34:45 AM :Info: no Controller found on RS232: Port:COM100, Baud:9600
+Saved user properties successfully
+9/15/25 10:34:46 AM :Debug: set baud to 115200
+9/15/25 10:34:46 AM :Debug: set baud to 9600
+9/15/25 10:34:47 AM :Debug: Device not found
+9/15/25 10:34:47 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:34:47 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:34:47 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:34:47 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:34:47 AM :Debug: CheckThread exiting
+9/15/25 10:34:47 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 10:34:47 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:35:09 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:35:09 AM :Info: Time to save msq: 20.5077
+9/15/25 10:35:09 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:35:09 AM :Info: closeApp Called
+9/15/25 10:35:09 AM :Debug: TuneLog Editor set text
+9/15/25 10:35:09 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:35:09 AM :Info: Time to save msq: 5.7938
+9/15/25 10:35:09 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:35:09 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:35:09 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:35:09 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:35:09 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:35:09 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 10:35:09 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:35:09 AM :Debug: removing Configuration: UAV_EFI
+9/15/25 10:35:09 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 10:35:10 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:35:10 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 10:41:08 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 10:41:08 AM :Debug: no update:defaultFont
+9/15/25 10:41:08 AM :Info: Initializing File Dialogs.
+9/15/25 10:41:08 AM :Debug: hid: 529.2675
+9/15/25 10:41:08 AM :Info: Loading Language Content.
+9/15/25 10:41:10 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 10:41:10 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 10:41:10 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 10:41:10 AM :Info: Initializing Help.
+9/15/25 10:41:10 AM :Info: Initializing Edition Features.
+9/15/25 10:41:10 AM :Info: Initializing App Events.
+9/15/25 10:41:10 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 10:41:10 AM :Debug: Dummy Function Factory Created.
+9/15/25 10:41:10 AM :Info: Initializing User Interface
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:height= in line:
+	  <img  width=300 " height="110" alt="MLV HD" src="images/Histogram-250px.png"><br>
+9/15/25 10:41:10 AM :Warning: Failed to parse tag:height= in line:
+      <div style="text-align: center;"><img width=300 " height="110" alt="TS Dash" src="images/doubleSweep-400pi.png"><br>
+9/15/25 10:41:12 AM :Info: Loading Font list.
+9/15/25 10:41:12 AM :Debug: Time to retreive font name list: 5 ms.
+9/15/25 10:41:12 AM :Info: 
+9/15/25 10:41:12 AM :Info: Initializing UI Components.
+9/15/25 10:41:12 AM :Info: Ready
+9/15/25 10:41:13 AM :Info: IncUpdate: No updates available.
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 10:41:14 AM :Info: IniUpdate: No updates available.
+9/15/25 10:41:14 AM :Info: Opening Project ...
+9/15/25 10:41:14 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_EFI\
+9/15/25 10:41:14 AM :Debug: Reading translation file as plain text
+9/15/25 10:41:14 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:41:14 AM :Debug: Filtered ConfigurationOptionGroup in 9ms.
+9/15/25 10:41:14 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:41:14 AM :Info: Read file canPcVariables.ini: 2.7642ms
+9/15/25 10:41:14 AM :Info: Filtered ini: 0.0471ms
+9/15/25 10:41:14 AM :Info: No iniVersion defined
+9/15/25 10:41:14 AM :Info: Loading Trigger Wheels
+9/15/25 10:41:14 AM :Info: Loaded All known ini sections
+9/15/25 10:41:14 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 13ms.
+9/15/25 10:41:14 AM :Info: Read file mainController.ini: 70.361ms
+9/15/25 10:41:14 AM :Info: Filtered ini: 5.5333ms
+9/15/25 10:41:14 AM :Info: No iniVersion defined
+9/15/25 10:41:14 AM :Debug: ini signature: rusEFI master.2025.09.15.f407-discovery.3057951919
+9/15/25 10:41:14 AM :Info: Set Write Blocks on = true
+9/15/25 10:41:14 AM :Info: Loading Trigger Wheels
+9/15/25 10:41:14 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 10:41:14 AM :Info: Loaded All known ini sections
+9/15/25 10:41:14 AM :Info: Parsed and validated ini "mainController.ini" in : 207ms.
+9/15/25 10:41:14 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 10:41:14 AM :Info: Time to load primary config: 255.32301ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 10:41:14 AM :Debug: set baud to 115200
+9/15/25 10:41:14 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:41:14 AM :Debug: Adding Configuration: UAV_EFI
+9/15/25 10:41:14 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:41:14 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:41:15 AM :Debug: Fill Constants: 42
+9/15/25 10:41:15 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+9/15/25 10:41:15 AM :Info: dirtyData.size(): 0
+9/15/25 10:41:15 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 10:41:15 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 10:41:15 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 10:41:15 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 10:41:15 AM :Info: dirtyData.size(): 0
+9/15/25 10:41:15 AM :Debug: Flush lasted: 72ms.
+9/15/25 10:41:15 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:41:15 AM :Debug: Flush lasted: 70ms.
+9/15/25 10:41:15 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:41:15 AM :Info: !!! Loaded config in 504
+9/15/25 10:41:15 AM :Info: !!! Activated Project 987
+9/15/25 10:41:15 AM :Info: Opening Gauge Cluster..
+9/15/25 10:41:15 AM :Debug: High Speed Paint: true
+9/15/25 10:41:15 AM :Info: 
+9/15/25 10:41:15 AM :Info: Com Thread created: COMM Thread37120.713252053014
+9/15/25 10:41:15 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:41:15 AM :Debug: !!! Opened Dash 1059
+9/15/25 10:41:15 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread37120.713252053014
+9/15/25 10:41:15 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:41:15 AM :Info: UAV_EFI Ready
+9/15/25 10:41:15 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread37120.713252053014
+9/15/25 10:41:15 AM :Debug: Tuning View Files loaded in 73.6324ms.
+9/15/25 10:41:16 AM :Info: Sig Bytes:x72 x75 x73 x45 x46 x49 x20 x6D x61 x73 x74 x65 x72 x2E x32 x30       rusEFI.master.20
+x32 x35 x2E x30 x39 x2E x31 x35 x2E x66 x34 x30 x37 x2D x64 x69       25.09.15.f407-di
+x73 x63 x6F x76 x65 x72 x79 x2E x32 x33 x31 x35 x38 x32 x36 x39       scovery.23158269
+x31 x38 x00                                                           18.
+9/15/25 10:41:16 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 10:41:16 AM :Warning: OverRun condition! No bytes expected from controller, found 7
+9/15/25 10:41:16 AM :Info: Communicating with sig:rusEFI master.2025.09.15.f407-discovery.2315826918, rusEFI v20250910@2315826918
+9/15/25 10:41:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:16 AM :Info: Looks like rusEFI
+9/15/25 10:41:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:16 AM :Info: Looks like rusEFI
+9/15/25 10:41:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:16 AM :Info: Looks like rusEFI
+9/15/25 10:41:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:16 AM :Info: Looks like rusEFI
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 10:41:23 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:23 AM :Info: Looks like rusEFI
+9/15/25 10:41:24 AM :Debug: Checking for ini at:
+https://rusefi.com/online/ini/rusefi/master/2025/09/15/f407-discovery/2315826918.ini
+9/15/25 10:41:24 AM :Info: Could not get ECU Definition for signature: Signature:rusEFI master.2025.09.15.f407-discovery.2315826918, firmware:rusEFI v20250910@2315826918, Error: The correct ECU Definition not available.
+java.io.FileNotFoundException: C:\Program Files (x86)\EFIAnalytics\TunerStudioMS_beta\config\ecuDef\rusEFI master.2025.09.15.f407-discovery.2315826918.ini (Access is denied)
+	at java.io.FileOutputStream.open0(Native Method)
+	at java.io.FileOutputStream.open(FileOutputStream.java:270)
+	at java.io.FileOutputStream.<init>(FileOutputStream.java:213)
+	at java.io.FileOutputStream.<init>(FileOutputStream.java:162)
+	at bH.t.a(Unknown Source)
+	at bH.t.a(Unknown Source)
+	at bH.t.a(Unknown Source)
+	at bH.t.a(Unknown Source)
+	at aP.iH.a(Unknown Source)
+	at aP.iA.c(Unknown Source)
+	at aP.iA.a(Unknown Source)
+	at aP.iD.run(Unknown Source)
+9/15/25 10:41:52 AM :Warning: Unable to copy ini file to app ecu dir
+9/15/25 10:41:52 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:41:52 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:41:52 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:41:52 AM :Debug: goOffline about to stopProcessing, Time:250
+9/15/25 10:41:52 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:41:52 AM :Debug: goOffline Notified offline, Time:252
+9/15/25 10:41:52 AM :Debug: goOffline closed port, Time:252
+9/15/25 10:41:53 AM :Debug: goOffline comm thread stopped, Time:753
+9/15/25 10:41:53 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:41:53 AM :Info: Copying rusefi_f407-discovery.ini to UAV_EFI's projectCfg
+9/15/25 10:41:53 AM :Info: Copying rusefi_f407-discovery.ini to ecuDef dir for future use.
+9/15/25 10:41:53 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:41:53 AM :Debug: TuneLog Editor set text
+9/15/25 10:41:53 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:41:53 AM :Info: Time to save msq: 20.9367
+9/15/25 10:41:53 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:41:53 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:41:53 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:41:53 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:41:53 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:41:53 AM :Info: UAV_EFI ComThread stopped COMM Thread37120.713252053014
+9/15/25 10:41:54 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 10:41:54 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:41:54 AM :Debug: removing Configuration: UAV_EFI
+9/15/25 10:41:54 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 10:41:54 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:41:54 AM :Info: Opening Project ...
+9/15/25 10:41:54 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_EFI\
+9/15/25 10:41:54 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:41:54 AM :Debug: Filtered ConfigurationOptionGroup in 7ms.
+9/15/25 10:41:54 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:41:54 AM :Info: Read file canPcVariables.ini: 2.6883ms
+9/15/25 10:41:54 AM :Info: Filtered ini: 0.027ms
+9/15/25 10:41:54 AM :Info: No iniVersion defined
+9/15/25 10:41:54 AM :Info: Loading Trigger Wheels
+9/15/25 10:41:54 AM :Info: Loaded All known ini sections
+9/15/25 10:41:54 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 6ms.
+9/15/25 10:41:54 AM :Info: Read file mainController.ini: 12.6652ms
+9/15/25 10:41:54 AM :Info: Filtered ini: 7.5474ms
+9/15/25 10:41:54 AM :Info: No iniVersion defined
+9/15/25 10:41:54 AM :Debug: ini signature: rusEFI master.2025.09.15.f407-discovery.3057951919
+9/15/25 10:41:54 AM :Info: Set Write Blocks on = true
+9/15/25 10:41:54 AM :Info: Loading Trigger Wheels
+9/15/25 10:41:54 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 10:41:54 AM :Info: Loaded All known ini sections
+9/15/25 10:41:54 AM :Info: Parsed and validated ini "mainController.ini" in : 104ms.
+9/15/25 10:41:54 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 10:41:54 AM :Info: Time to load primary config: 123.788895ms. used cached config: false
+9/15/25 10:41:54 AM :Debug: set baud to 115200
+9/15/25 10:41:54 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:41:54 AM :Debug: Adding Configuration: UAV_EFI
+9/15/25 10:41:54 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Deactivating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Deactivating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: Fill Constants: 39
+9/15/25 10:41:54 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+9/15/25 10:41:54 AM :Info: dirtyData.size(): 0
+9/15/25 10:41:54 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 10:41:54 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 10:41:54 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 10:41:54 AM :Info: dirtyData.size(): 0
+9/15/25 10:41:54 AM :Debug: Flush lasted: 70ms.
+9/15/25 10:41:54 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:41:54 AM :Debug: Flush lasted: 0ms.
+9/15/25 10:41:54 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:41:54 AM :Info: !!! Loaded config in 297
+9/15/25 10:41:54 AM :Info: !!! Activated Project 544
+9/15/25 10:41:54 AM :Info: Opening Gauge Cluster..
+9/15/25 10:41:55 AM :Debug: High Speed Paint: true
+9/15/25 10:41:55 AM :Info: 
+9/15/25 10:41:55 AM :Info: Com Thread created: COMM Thread36545.53159826478
+9/15/25 10:41:55 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:41:55 AM :Debug: !!! Opened Dash 811
+9/15/25 10:41:55 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread36545.53159826478
+9/15/25 10:41:55 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:41:55 AM :Info: UAV_EFI Ready
+9/15/25 10:41:55 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread36545.53159826478
+9/15/25 10:41:55 AM :Debug: Tuning View Files loaded in 88.4532ms.
+9/15/25 10:41:55 AM :Info: Sig Bytes:x72 x75 x73 x45 x46 x49 x20 x6D x61 x73 x74 x65 x72 x2E x32 x30       rusEFI.master.20
+x32 x35 x2E x30 x39 x2E x31 x35 x2E x66 x34 x30 x37 x2D x64 x69       25.09.15.f407-di
+x73 x63 x6F x76 x65 x72 x79 x2E x32 x33 x31 x35 x38 x32 x36 x39       scovery.23158269
+x31 x38 x00                                                           18.
+9/15/25 10:41:55 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 10:41:55 AM :Warning: OverRun condition! No bytes expected from controller, found 1
+9/15/25 10:41:55 AM :Info: Communicating with sig:rusEFI master.2025.09.15.f407-discovery.2315826918, rusEFI v20250910@2315826918
+9/15/25 10:41:55 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:55 AM :Info: Looks like rusEFI
+9/15/25 10:41:55 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:55 AM :Info: Looks like rusEFI
+9/15/25 10:41:55 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:55 AM :Info: Looks like rusEFI
+9/15/25 10:41:55 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.15.f407-discovery.3057951919'
+9/15/25 10:41:55 AM :Info: Looks like rusEFI
+
+9/15/25 10:41:57 AM :Debug: Purged 7 orphaned bytes:
+9/15/25 10:41:57 AM :Debug: Time:3.429s. 0x0 0x1 0x84 0x38 0xD7 0xA8 0xB4 
+9/15/25 10:41:57 AM :Debug: Time:3.429s. 
+
+9/15/25 10:41:57 AM :Debug: Time:3.429s.   .    .    .    8    .    .    .  
+9/15/25 10:41:57 AM :Info: CRC Mismatch, will need to refresh page from controller 
+9/15/25 10:41:57 AM :Info:    CRC from controller page 1:x7C x1A xAC x86                                                       |...
+9/15/25 10:41:57 AM :Info:    Local Data CRC for page 1: x7B x64 x87 xF2                                                       {d..
+Sep 15, 2025 10:42:00 AM G.J a
+INFO: Error Reading Page
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 10:42:00 AM :Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+9/15/25 10:42:00 AM :Info: Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+Sep 15, 2025 10:42:00 AM G.J y
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 10:42:00 AM :Debug: result.FAILED: 1 tryCount
+9/15/25 10:42:03 AM :Info: Re-establishing connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:42:08 AM :Info: Timeout reading page 1, increased blockReadTimeout to 3050, trying once more.
+Sep 15, 2025 10:42:17 AM G.J a
+INFO: Error Reading Page
+V.b: Timeout after:3051ms. requested timeout:3050, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 10:42:17 AM :Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+9/15/25 10:42:17 AM :Info: Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+Sep 15, 2025 10:42:17 AM G.J y
+SEVERE: null
+V.b: Timeout after:3051ms. requested timeout:3050, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 10:42:17 AM :Debug: result.FAILED: 2 tryCount
+9/15/25 10:42:20 AM :Info: Re-establishing connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:42:22 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:42:22 AM :Debug: Went offline
+9/15/25 10:42:22 AM :Debug: Deactivated fast paint Main Dashboard
+9/15/25 10:42:22 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:42:22 AM :Info: Went offline 2
+9/15/25 10:51:36 AM :Info: Com Thread created: COMM Thread97735.54338488038
+9/15/25 10:51:36 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread97735.54338488038
+9/15/25 10:51:36 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:51:37 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread36545.53159826478, new Thread:COMM Thread97735.54338488038
+9/15/25 10:51:37 AM :Info: UAV_EFI ComThread stopped COMM Thread36545.53159826478
+9/15/25 10:51:39 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:51:39 AM :Info: Time to save msq: 6.7406
+9/15/25 10:51:39 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:51:39 AM :Info: closeApp Called
+9/15/25 10:51:39 AM :Debug: TuneLog Editor set text
+9/15/25 10:51:39 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:51:39 AM :Info: Time to save msq: 10.6159
+9/15/25 10:51:39 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:51:39 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:51:39 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:51:39 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:51:39 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:51:40 AM :Info: UAV_EFI ComThread stopped COMM Thread97735.54338488038
+9/15/25 10:51:40 AM :Debug: goOffline comm thread stopped, Time:1317
+9/15/25 10:51:40 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:51:40 AM :Debug: removing Configuration: UAV_EFI
+9/15/25 10:51:40 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 10:51:40 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:51:40 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 10:51:45 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 10:51:45 AM :Debug: no update:defaultFont
+9/15/25 10:51:46 AM :Info: Initializing File Dialogs.
+9/15/25 10:51:46 AM :Debug: hid: 650.38226
+9/15/25 10:51:46 AM :Info: Loading Language Content.
+9/15/25 10:51:48 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 10:51:48 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 10:51:48 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 10:51:48 AM :Info: Initializing Help.
+9/15/25 10:51:48 AM :Info: Initializing Edition Features.
+9/15/25 10:51:48 AM :Info: Initializing App Events.
+9/15/25 10:51:48 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 10:51:48 AM :Debug: Dummy Function Factory Created.
+9/15/25 10:51:48 AM :Info: Initializing User Interface
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:width= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 10:51:48 AM :Warning: Failed to parse tag:height= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 10:51:50 AM :Info: Loading Font list.
+9/15/25 10:51:50 AM :Debug: Time to retreive font name list: 7 ms.
+9/15/25 10:51:50 AM :Info: 
+9/15/25 10:51:50 AM :Info: Initializing UI Components.
+9/15/25 10:51:50 AM :Info: Ready
+9/15/25 10:51:51 AM :Info: IniUpdate: No updates available.
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 10:51:51 AM :Info: IncUpdate: No updates available.
+9/15/25 10:51:53 AM :Info: Opening Project ...
+9/15/25 10:51:53 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_EFI\
+9/15/25 10:51:53 AM :Debug: Reading translation file as plain text
+9/15/25 10:51:53 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:51:53 AM :Debug: Filtered ConfigurationOptionGroup in 19ms.
+9/15/25 10:51:53 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:51:53 AM :Info: Read file canPcVariables.ini: 4.9982ms
+9/15/25 10:51:53 AM :Info: Filtered ini: 0.1997ms
+9/15/25 10:51:53 AM :Info: No iniVersion defined
+9/15/25 10:51:53 AM :Info: Loading Trigger Wheels
+9/15/25 10:51:53 AM :Info: Loaded All known ini sections
+9/15/25 10:51:53 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 19ms.
+9/15/25 10:51:53 AM :Info: Read file mainController.ini: 13.0087ms
+9/15/25 10:51:53 AM :Info: Filtered ini: 65.6264ms
+9/15/25 10:51:53 AM :Info: No iniVersion defined
+9/15/25 10:51:53 AM :Debug: ini signature: rusEFI master.2025.09.15.f407-discovery.3057951919
+9/15/25 10:51:53 AM :Info: Set Write Blocks on = true
+9/15/25 10:51:53 AM :Info: Loading Trigger Wheels
+9/15/25 10:51:53 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 10:51:53 AM :Info: Loaded All known ini sections
+9/15/25 10:51:53 AM :Info: Parsed and validated ini "mainController.ini" in : 392ms.
+9/15/25 10:51:53 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 10:51:53 AM :Info: Time to load primary config: 490.406ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 10:51:53 AM :Debug: set baud to 115200
+9/15/25 10:51:53 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:51:53 AM :Debug: Adding Configuration: UAV_EFI
+9/15/25 10:51:53 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:51:53 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:51:54 AM :Debug: Fill Constants: 43
+9/15/25 10:51:54 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+9/15/25 10:51:54 AM :Info: dirtyData.size(): 0
+9/15/25 10:51:54 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 10:51:54 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 10:51:54 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 10:51:54 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 10:51:54 AM :Info: dirtyData.size(): 0
+9/15/25 10:51:54 AM :Debug: Flush lasted: 71ms.
+9/15/25 10:51:54 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:51:54 AM :Debug: Flush lasted: 0ms.
+9/15/25 10:51:54 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:51:54 AM :Info: !!! Loaded config in 713
+9/15/25 10:51:54 AM :Info: !!! Activated Project 1276
+9/15/25 10:51:54 AM :Info: Opening Gauge Cluster..
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 10:51:55 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 10:51:55 AM :Debug: High Speed Paint: true
+9/15/25 10:51:55 AM :Info: 
+9/15/25 10:51:55 AM :Info: Com Thread created: COMM Thread85144.84269091714
+9/15/25 10:51:55 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:51:55 AM :Debug: !!! Opened Dash 1821
+9/15/25 10:51:55 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread85144.84269091714
+9/15/25 10:51:55 AM :Info: UAV_EFI Ready
+9/15/25 10:51:55 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:51:55 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread85144.84269091714
+9/15/25 10:51:55 AM :Debug: Tuning View Files loaded in 112.8738ms.
+9/15/25 10:52:08 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:52:08 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:52:08 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:52:08 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:52:08 AM :Debug: goOffline about to stopProcessing, Time:0
+[Duplicate entry] received 2 times: Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:52:08 AM :Debug: goOffline closed port, Time:0
+[Duplicate entry] received 2 times: Debug: goOffline closed port, Time:0
+9/15/25 10:52:08 AM :Debug: set baud to 115200
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:52:10 AM :Info: UAV_EFI ComThread stopped COMM Thread85144.84269091714
+9/15/25 10:52:10 AM :Debug: goOffline comm thread stopped, Time:1670
+[Duplicate entry] received 2 times: Debug: goOffline comm thread stopped, Time:1670
+9/15/25 10:52:10 AM :Debug: No Remaining Queue Write instructions
+[Duplicate entry] received 2 times: Debug: No Remaining Queue Write instructions
+9/15/25 10:52:12 AM :Debug: set baud to 115200
+9/15/25 10:52:12 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread85144.84269091714, new Thread:Thread-27
+Sep 15, 2025 10:52:15 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+Sep 15, 2025 10:52:16 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:52:16 AM :Info: No Bluetooth Stack Detected.
+9/15/25 10:52:16 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:52:16 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:52:16 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:52:16 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:52:17 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 10:52:17 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:52:17 AM :Debug: Created CheckThread
+Saved user properties successfully
+9/15/25 10:52:17 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 115200 Baud
+Sep 15, 2025 10:52:17 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:52:17 AM :Info: USB D2XX, Serial #Auto @ 115200 Baud Controller not found
+Saved user properties successfully
+Saved user properties successfully
+9/15/25 10:52:17 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 9600 Baud
+Sep 15, 2025 10:52:17 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 10:52:17 AM :Info: USB D2XX, Serial #Auto @ 9600 Baud Controller not found
+Saved user properties successfully
+9/15/25 10:52:18 AM :Debug: set baud to 115200
+Saved user properties successfully
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 10:52:18 AM :Info: Setting connection to: RS232: Port:COM3, Baud:115200
+9/15/25 10:52:18 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:52:20 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:52:20 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:check
+9/15/25 10:52:20 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:52:20 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x53                                                                   S
+9/15/25 10:52:21 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 10:52:21 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:52:22 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200, completed this port query
+9/15/25 10:52:22 AM :Info: Timeout on: RS232: Port:COM3, Baud:115200
+9/15/25 10:52:22 AM :Info: no Controller found on RS232: Port:COM3, Baud:115200
+Saved user properties successfully
+9/15/25 10:52:22 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:52:22 AM :Info: Setting connection to: RS232: Port:COM3, Baud:9600
+9/15/25 10:52:22 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:52:23 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:52:24 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:52:24 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x53                                                                   S
+9/15/25 10:52:25 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 10:52:25 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:52:25 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600, completed this port query
+9/15/25 10:52:25 AM :Info: Timeout on: RS232: Port:COM3, Baud:9600
+9/15/25 10:52:25 AM :Info: no Controller found on RS232: Port:COM3, Baud:9600
+Saved user properties successfully
+9/15/25 10:52:25 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:52:25 AM :Info: Setting connection to: RS232: Port:COM4, Baud:115200
+9/15/25 10:52:25 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:52:27 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:52:28 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:52:28 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x53                                                                   S
+9/15/25 10:52:28 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 10:52:28 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:52:29 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200, completed this port query
+9/15/25 10:52:29 AM :Info: Timeout on: RS232: Port:COM4, Baud:115200
+9/15/25 10:52:29 AM :Info: no Controller found on RS232: Port:COM4, Baud:115200
+Saved user properties successfully
+9/15/25 10:52:29 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:52:29 AM :Info: Setting connection to: RS232: Port:COM4, Baud:9600
+9/15/25 10:52:29 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 10:52:30 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:52:31 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:52:31 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x53                                                                   S
+9/15/25 10:52:32 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 10:52:32 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:52:32 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600, completed this port query
+9/15/25 10:52:32 AM :Info: Timeout on: RS232: Port:COM4, Baud:9600
+9/15/25 10:52:32 AM :Info: no Controller found on RS232: Port:COM4, Baud:9600
+Saved user properties successfully
+9/15/25 10:52:32 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 10:52:33 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:52:33 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:52:34 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x51                                                                   Q
+9/15/25 10:52:35 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:52:35 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x53                                                                   S
+9/15/25 10:52:35 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 10:52:35 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x0D                                                                   .
+9/15/25 10:52:36 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200, completed this port query
+9/15/25 10:52:36 AM :Info: Timeout on: RS232: Port:COM100, Baud:115200
+9/15/25 10:52:36 AM :Info: no Controller found on RS232: Port:COM100, Baud:115200
+Saved user properties successfully
+9/15/25 10:52:36 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 10:52:36 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 10:52:36 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 10:52:38 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x51                                                                   Q
+9/15/25 10:52:38 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:52:38 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x53                                                                   S
+9/15/25 10:52:39 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 10:52:39 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x0D                                                                   .
+9/15/25 10:52:39 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600, completed this port query
+9/15/25 10:52:39 AM :Info: Timeout on: RS232: Port:COM100, Baud:9600
+9/15/25 10:52:39 AM :Info: no Controller found on RS232: Port:COM100, Baud:9600
+Saved user properties successfully
+9/15/25 10:52:40 AM :Debug: set baud to 115200
+9/15/25 10:52:40 AM :Debug: set baud to 9600
+9/15/25 10:52:41 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:52:41 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:52:41 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:52:41 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:52:41 AM :Debug: CheckThread exiting
+9/15/25 10:52:42 AM :Debug: set baud to 115200
+9/15/25 10:52:42 AM :Info: Com Thread created: COMM Thread42466.49652387636
+9/15/25 10:52:42 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread42466.49652387636
+9/15/25 10:52:42 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:52:42 AM :Info: Comm Read Thread Change! Old Thread:Thread-27, new Thread:COMM Thread42466.49652387636
+9/15/25 10:52:42 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 10:52:42 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:52:43 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:52:43 AM :Info: Time to save msq: 27.4695
+9/15/25 10:52:43 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:52:43 AM :Info: closeApp Called
+9/15/25 10:52:43 AM :Debug: TuneLog Editor set text
+9/15/25 10:52:43 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:52:43 AM :Info: Time to save msq: 4.4794
+9/15/25 10:52:43 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:52:43 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:52:43 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:52:43 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:52:43 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:52:45 AM :Info: UAV_EFI ComThread stopped COMM Thread42466.49652387636
+9/15/25 10:52:45 AM :Debug: goOffline comm thread stopped, Time:1769
+9/15/25 10:52:45 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:52:45 AM :Debug: removing Configuration: UAV_EFI
+9/15/25 10:52:45 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 10:52:45 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:52:45 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 10:54:15 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 10:54:15 AM :Debug: no update:defaultFont
+9/15/25 10:54:15 AM :Info: Initializing File Dialogs.
+9/15/25 10:54:15 AM :Debug: hid: 433.60132
+9/15/25 10:54:15 AM :Info: Loading Language Content.
+9/15/25 10:54:17 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 10:54:17 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 10:54:17 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 10:54:17 AM :Info: Initializing Help.
+9/15/25 10:54:17 AM :Info: Initializing Edition Features.
+9/15/25 10:54:17 AM :Info: Initializing App Events.
+9/15/25 10:54:17 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 10:54:17 AM :Debug: Dummy Function Factory Created.
+9/15/25 10:54:17 AM :Info: Initializing User Interface
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:height= in line:
+	  <img  width=300 " height="110" alt="MLV HD" src="images/Histogram-250px.png"><br>
+9/15/25 10:54:18 AM :Warning: Failed to parse tag:height= in line:
+      <div style="text-align: center;"><img width=300 " height="110" alt="TS Dash" src="images/doubleSweep-400pi.png"><br>
+9/15/25 10:54:19 AM :Info: Loading Font list.
+9/15/25 10:54:19 AM :Debug: Time to retreive font name list: 7 ms.
+9/15/25 10:54:19 AM :Info: 
+9/15/25 10:54:19 AM :Info: Initializing UI Components.
+9/15/25 10:54:19 AM :Info: Ready
+9/15/25 10:54:21 AM :Info: IniUpdate: No updates available.
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 10:54:21 AM :Info: IncUpdate: No updates available.
+9/15/25 10:54:21 AM :Info: Opening Project ...
+9/15/25 10:54:21 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_EFI\
+9/15/25 10:54:21 AM :Debug: Reading translation file as plain text
+9/15/25 10:54:21 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:54:21 AM :Debug: Filtered ConfigurationOptionGroup in 8ms.
+9/15/25 10:54:21 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 10:54:21 AM :Info: Read file canPcVariables.ini: 1.1097ms
+9/15/25 10:54:21 AM :Info: Filtered ini: 0.054ms
+9/15/25 10:54:21 AM :Info: No iniVersion defined
+9/15/25 10:54:21 AM :Info: Loading Trigger Wheels
+9/15/25 10:54:21 AM :Info: Loaded All known ini sections
+9/15/25 10:54:21 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 87ms.
+9/15/25 10:54:21 AM :Info: Read file mainController.ini: 5.7374ms
+9/15/25 10:54:21 AM :Info: Filtered ini: 6.5172ms
+9/15/25 10:54:21 AM :Info: No iniVersion defined
+9/15/25 10:54:21 AM :Debug: ini signature: rusEFI master.2025.09.15.f407-discovery.3057951919
+9/15/25 10:54:21 AM :Info: Set Write Blocks on = true
+9/15/25 10:54:21 AM :Info: Loading Trigger Wheels
+9/15/25 10:54:21 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 10:54:21 AM :Info: Loaded All known ini sections
+9/15/25 10:54:21 AM :Info: Parsed and validated ini "mainController.ini" in : 140ms.
+9/15/25 10:54:21 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 10:54:21 AM :Info: Time to load primary config: 260.5012ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 10:54:21 AM :Debug: set baud to 115200
+9/15/25 10:54:21 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 10:54:21 AM :Debug: Adding Configuration: UAV_EFI
+9/15/25 10:54:21 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 10:54:21 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 10:54:21 AM :Debug: Fill Constants: 44
+9/15/25 10:54:21 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_EFI\CurrentTune.msq
+9/15/25 10:54:21 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:54:21 AM :Debug: Flush lasted: 70ms.
+9/15/25 10:54:21 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 10:54:21 AM :Debug: Flush lasted: 0ms.
+9/15/25 10:54:21 AM :Debug: Skip Burn, last write page: -2
+9/15/25 10:54:21 AM :Info: !!! Loaded config in 453
+9/15/25 10:54:21 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 10:54:21 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 10:54:21 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 10:54:21 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 10:54:22 AM :Info: !!! Activated Project 1150
+9/15/25 10:54:22 AM :Info: Opening Gauge Cluster..
+9/15/25 10:54:22 AM :Debug: High Speed Paint: true
+9/15/25 10:54:22 AM :Info: 
+9/15/25 10:54:22 AM :Info: Com Thread created: COMM Thread94734.16967966613
+9/15/25 10:54:22 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 10:54:22 AM :Debug: !!! Opened Dash 1240
+9/15/25 10:54:22 AM :Info: Comm Manager for UAV_EFI Started, thread ID: COMM Thread94734.16967966613
+9/15/25 10:54:22 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 10:54:22 AM :Info: UAV_EFI Ready
+9/15/25 10:54:22 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread94734.16967966613
+9/15/25 10:54:22 AM :Debug: Tuning View Files loaded in 62.5846ms.
+9/15/25 10:54:22 AM :Info: No Persistor set, not activating persisted triggers.
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 10:54:29 AM :Debug: FullScreen
+9/15/25 10:54:44 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:54:44 AM :Info: Time to save msq: 14.6995
+9/15/25 10:54:44 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:54:44 AM :Info: closeApp Called
+9/15/25 10:54:44 AM :Debug: TuneLog Editor set text
+9/15/25 10:54:44 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 10:54:44 AM :Info: Time to save msq: 1.8785
+9/15/25 10:54:44 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 10:54:44 AM :Debug: goOffline Starting, Time:0
+9/15/25 10:54:44 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 10:54:44 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 10:54:44 AM :Debug: goOffline closed port, Time:0
+9/15/25 10:54:45 AM :Info: UAV_EFI ComThread stopped COMM Thread94734.16967966613
+9/15/25 10:54:46 AM :Debug: goOffline comm thread stopped, Time:1316
+9/15/25 10:54:46 AM :Debug: No Remaining Queue Write instructions
+9/15/25 10:54:46 AM :Debug: removing Configuration: UAV_EFI
+9/15/25 10:54:46 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 10:54:46 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 10:54:46 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 11:08:54 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 11:08:54 AM :Debug: no update:defaultFont
+9/15/25 11:08:55 AM :Info: Initializing File Dialogs.
+9/15/25 11:08:55 AM :Debug: hid: 947.0272
+9/15/25 11:08:55 AM :Info: Loading Language Content.
+9/15/25 11:08:57 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 11:08:57 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 11:08:57 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 11:08:57 AM :Info: Initializing Help.
+9/15/25 11:08:57 AM :Info: Initializing Edition Features.
+9/15/25 11:08:57 AM :Info: Initializing App Events.
+9/15/25 11:08:57 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 11:08:57 AM :Debug: Dummy Function Factory Created.
+9/15/25 11:08:57 AM :Info: Initializing User Interface
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:width= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 11:08:58 AM :Warning: Failed to parse tag:height= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 11:08:59 AM :Info: Loading Font list.
+9/15/25 11:08:59 AM :Debug: Time to retreive font name list: 5 ms.
+9/15/25 11:08:59 AM :Info: 
+9/15/25 11:08:59 AM :Info: Initializing UI Components.
+9/15/25 11:08:59 AM :Info: Ready
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 11:09:01 AM :Info: IniUpdate: No updates available.
+9/15/25 11:09:01 AM :Info: IncUpdate: No updates available.
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 11:09:16 AM :Debug: Time to load ini list: 84ms.
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 11:10:10 AM :Info: Supported iniSpecVersion=3.78
+[Duplicate entry] received 2 times: Info: Supported iniSpecVersion=3.78
+9/15/25 11:10:10 AM :Debug: Filtered ConfigurationOptionGroup in 5ms.
+9/15/25 11:10:13 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:10:13 AM :Info: Read file canPcVariables.ini: 2.1809ms
+9/15/25 11:10:13 AM :Info: Filtered ini: 0.0344ms
+9/15/25 11:10:13 AM :Info: No iniVersion defined
+9/15/25 11:10:13 AM :Info: Loading Trigger Wheels
+9/15/25 11:10:13 AM :Info: Loaded All known ini sections
+9/15/25 11:10:13 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 11ms.
+9/15/25 11:10:13 AM :Info: Read file rusefi_mre_f4.ini: 3.837ms
+9/15/25 11:10:13 AM :Info: Filtered ini: 3.9971ms
+9/15/25 11:10:13 AM :Info: No iniVersion defined
+9/15/25 11:10:13 AM :Debug: ini signature: rusEFI master.2025.09.10.mre_f4.3280979053
+9/15/25 11:10:13 AM :Info: Set Write Blocks on = true
+9/15/25 11:10:13 AM :Info: Loading Trigger Wheels
+9/15/25 11:10:13 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 11:10:13 AM :Info: Loaded All known ini sections
+9/15/25 11:10:13 AM :Info: Parsed and validated ini "rusefi_mre_f4.ini" in : 115ms.
+9/15/25 11:10:13 AM :Debug: Adding Configuration: UAV_MRE_F4
+9/15/25 11:10:13 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:10:13 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:10:13 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:13 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:13 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:13 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:10:13 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:13 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:13 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:13 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:10:13 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:13 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:13 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:13 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:10:13 AM :Debug: set baud to 115200
+9/15/25 11:10:14 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 11:10:14 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 11:10:14 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 11:10:14 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 11:10:14 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 11:10:14 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:14 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 11:10:14 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:14 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 11:10:14 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:19 AM :Info: Time to load non-cached dashboard: 39.1383 ms. file:Default (UAV_MRE_F4).dash
+9/15/25 11:10:19 AM :Info: Time to load uncached dash: 118.5895ms, file: Default (UAV_MRE_F4).dash
+9/15/25 11:10:19 AM :Debug: High Speed Paint: true
+9/15/25 11:10:22 AM :Warning: Could not get Firmware signature
+9/15/25 11:10:22 AM :Info: Time to load non-cached dashboard: 10.0087 ms. file:dashboard.dash
+9/15/25 11:10:22 AM :Debug: set baud to 115200
+9/15/25 11:10:22 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:22 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:22 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:22 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:10:23 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 11:10:23 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:23 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 11:10:23 AM :Debug: set baud to 115200
+9/15/25 11:10:23 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:10:23 AM :Debug: removing Configuration: UAV_MRE_F4
+9/15/25 11:10:23 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 11:10:23 AM :Info: Persistor not set, not storing persistent accumulated values.
+9/15/25 11:10:23 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:23 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:23 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:23 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:10:23 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 11:10:23 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:23 AM :Error: Failed to start PaintThrottle Thread: null
+9/15/25 11:10:23 AM :Info: Error: Failed to start PaintThrottle Thread: null
+9/15/25 11:10:23 AM :Debug: removing Configuration: UAV_MRE_F4
+9/15/25 11:10:23 AM :Info: Opening Project ...
+9/15/25 11:10:23 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_MRE_F4
+9/15/25 11:10:23 AM :Debug: Reading translation file as plain text
+9/15/25 11:10:23 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:10:23 AM :Debug: Filtered ConfigurationOptionGroup in 13ms.
+9/15/25 11:10:23 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:10:23 AM :Info: Read file canPcVariables.ini: 3.137ms
+9/15/25 11:10:23 AM :Info: Filtered ini: 0.0093ms
+9/15/25 11:10:23 AM :Info: No iniVersion defined
+9/15/25 11:10:23 AM :Info: Loading Trigger Wheels
+9/15/25 11:10:23 AM :Info: Loaded All known ini sections
+9/15/25 11:10:23 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 4ms.
+9/15/25 11:10:23 AM :Info: Read file mainController.ini: 8.3038ms
+9/15/25 11:10:23 AM :Info: Filtered ini: 4.3698ms
+9/15/25 11:10:23 AM :Info: No iniVersion defined
+9/15/25 11:10:23 AM :Debug: ini signature: rusEFI master.2025.09.10.mre_f4.3280979053
+9/15/25 11:10:23 AM :Info: Set Write Blocks on = true
+9/15/25 11:10:23 AM :Info: Loading Trigger Wheels
+9/15/25 11:10:23 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 11:10:23 AM :Info: Loaded All known ini sections
+9/15/25 11:10:23 AM :Info: Parsed and validated ini "mainController.ini" in : 94ms.
+9/15/25 11:10:23 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 11:10:23 AM :Info: Time to load primary config: 121.9293ms. used cached config: false
+9/15/25 11:10:23 AM :Debug: set baud to 115200
+9/15/25 11:10:23 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 11:10:23 AM :Debug: Adding Configuration: UAV_MRE_F4
+9/15/25 11:10:24 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: Deactivating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: Deactivating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:10:24 AM :Info: !!! Loaded config in 207
+9/15/25 11:10:24 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 11:10:24 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 11:10:24 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 11:10:24 AM :Info: !!! Activated Project 778
+9/15/25 11:10:24 AM :Info: Opening Gauge Cluster..
+9/15/25 11:10:24 AM :Debug: High Speed Paint: true
+9/15/25 11:10:24 AM :Info: 
+9/15/25 11:10:24 AM :Info: Com Thread created: COMM Thread92059.31480570018
+9/15/25 11:10:24 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 11:10:24 AM :Debug: !!! Opened Dash 898
+9/15/25 11:10:24 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread92059.31480570018
+9/15/25 11:10:24 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:115200
+9/15/25 11:10:24 AM :Info: UAV_MRE_F4 Ready
+9/15/25 11:10:24 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread92059.31480570018
+9/15/25 11:10:24 AM :Debug: Tuning View Files loaded in 108.05231ms.
+9/15/25 11:10:25 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 11:10:44 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:44 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:44 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:44 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:10:44 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:10:44 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:10:44 AM :Debug: goOffline closed port, Time:0
+[Duplicate entry] received 2 times: Debug: goOffline closed port, Time:0
+9/15/25 11:10:44 AM :Debug: set baud to 115200
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 11:10:45 AM :Debug: goOffline comm thread stopped, Time:502
+9/15/25 11:10:45 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:46 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread92059.31480570018
+9/15/25 11:10:46 AM :Debug: goOffline comm thread stopped, Time:1363
+9/15/25 11:10:46 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:10:46 AM :Debug: set baud to 115200
+9/15/25 11:10:46 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread92059.31480570018, new Thread:Thread-39
+Sep 15, 2025 11:10:49 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+9/15/25 11:12:36 AM :Debug: set baud to 115200
+9/15/25 11:12:36 AM :Info: Comm Read Thread Change! Old Thread:Thread-39, new Thread:Thread-42
+Sep 15, 2025 11:12:39 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+Sep 15, 2025 11:12:41 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 11:12:41 AM :Info: No Bluetooth Stack Detected.
+9/15/25 11:12:41 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:12:41 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:12:41 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:12:41 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:12:41 AM :Debug: goOffline comm thread stopped, Time:501
+9/15/25 11:12:41 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:12:41 AM :Debug: Created CheckThread
+Saved user properties successfully
+9/15/25 11:12:42 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 115200 Baud
+Sep 15, 2025 11:12:42 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 11:12:42 AM :Info: USB D2XX, Serial #Auto @ 115200 Baud Controller not found
+Saved user properties successfully
+Saved user properties successfully
+9/15/25 11:12:42 AM :Info: Setting connection to: USB D2XX, Serial #Auto @ 9600 Baud
+Sep 15, 2025 11:12:42 AM com.ftdi.FTDevice getDevices
+INFO: Found devs: 0 (All:0)
+9/15/25 11:12:42 AM :Info: USB D2XX, Serial #Auto @ 9600 Baud Controller not found
+Saved user properties successfully
+9/15/25 11:12:43 AM :Debug: set baud to 115200
+Saved user properties successfully
+[Duplicate entry] received 2 times: Debug: set baud to 115200
+9/15/25 11:12:43 AM :Info: Setting connection to: RS232: Port:COM3, Baud:115200
+9/15/25 11:12:43 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 11:12:45 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x51                                                                   Q
+9/15/25 11:12:45 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:check
+9/15/25 11:12:45 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 11:12:45 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x53                                                                   S
+9/15/25 11:12:46 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200
+9/15/25 11:12:46 AM :Debug: Calling RS232: Port:COM3, Baud:115200 Command: x0D                                                                   .
+9/15/25 11:12:46 AM :Info: Timeout on port: RS232: Port:COM3, Baud:115200, completed this port query
+9/15/25 11:12:46 AM :Info: Timeout on: RS232: Port:COM3, Baud:115200
+9/15/25 11:12:46 AM :Info: no Controller found on RS232: Port:COM3, Baud:115200
+Saved user properties successfully
+9/15/25 11:12:46 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 11:12:47 AM :Info: Setting connection to: RS232: Port:COM3, Baud:9600
+9/15/25 11:12:47 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 11:12:48 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x51                                                                   Q
+9/15/25 11:12:49 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 11:12:49 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x53                                                                   S
+9/15/25 11:12:49 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600
+9/15/25 11:12:49 AM :Debug: Calling RS232: Port:COM3, Baud:9600 Command: x0D                                                                   .
+9/15/25 11:12:50 AM :Info: Timeout on port: RS232: Port:COM3, Baud:9600, completed this port query
+9/15/25 11:12:50 AM :Info: Timeout on: RS232: Port:COM3, Baud:9600
+9/15/25 11:12:50 AM :Info: no Controller found on RS232: Port:COM3, Baud:9600
+Saved user properties successfully
+9/15/25 11:12:50 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 11:12:50 AM :Info: Setting connection to: RS232: Port:COM4, Baud:115200
+9/15/25 11:12:50 AM :Debug: !!!!!! Time to Connect = 1
+9/15/25 11:12:52 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x51                                                                   Q
+9/15/25 11:12:52 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 11:12:52 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x53                                                                   S
+9/15/25 11:12:53 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200
+9/15/25 11:12:53 AM :Debug: Calling RS232: Port:COM4, Baud:115200 Command: x0D                                                                   .
+9/15/25 11:12:53 AM :Info: Timeout on port: RS232: Port:COM4, Baud:115200, completed this port query
+9/15/25 11:12:53 AM :Info: Timeout on: RS232: Port:COM4, Baud:115200
+9/15/25 11:12:53 AM :Info: no Controller found on RS232: Port:COM4, Baud:115200
+Saved user properties successfully
+9/15/25 11:12:53 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 11:12:54 AM :Info: Setting connection to: RS232: Port:COM4, Baud:9600
+9/15/25 11:12:54 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 11:12:55 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x51                                                                   Q
+9/15/25 11:12:56 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 11:12:56 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x53                                                                   S
+9/15/25 11:12:56 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600
+9/15/25 11:12:56 AM :Debug: Calling RS232: Port:COM4, Baud:9600 Command: x0D                                                                   .
+9/15/25 11:12:57 AM :Info: Timeout on port: RS232: Port:COM4, Baud:9600, completed this port query
+9/15/25 11:12:57 AM :Info: Timeout on: RS232: Port:COM4, Baud:9600
+9/15/25 11:12:57 AM :Info: no Controller found on RS232: Port:COM4, Baud:9600
+Saved user properties successfully
+9/15/25 11:12:57 AM :Debug: set baud to 115200
+Saved user properties successfully
+9/15/25 11:12:57 AM :Info: Setting connection to: RS232: Port:COM100, Baud:115200
+9/15/25 11:12:57 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 11:12:59 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x51                                                                   Q
+9/15/25 11:12:59 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 11:12:59 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x53                                                                   S
+9/15/25 11:13:00 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200
+9/15/25 11:13:00 AM :Debug: Calling RS232: Port:COM100, Baud:115200 Command: x0D                                                                   .
+9/15/25 11:13:01 AM :Info: Timeout on port: RS232: Port:COM100, Baud:115200, completed this port query
+9/15/25 11:13:01 AM :Info: Timeout on: RS232: Port:COM100, Baud:115200
+9/15/25 11:13:01 AM :Info: no Controller found on RS232: Port:COM100, Baud:115200
+Saved user properties successfully
+9/15/25 11:13:01 AM :Debug: set baud to 9600
+Saved user properties successfully
+9/15/25 11:13:01 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:13:01 AM :Debug: !!!!!! Time to Connect = 0
+9/15/25 11:13:02 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x51                                                                   Q
+9/15/25 11:13:03 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 11:13:03 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x53                                                                   S
+9/15/25 11:13:03 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600
+9/15/25 11:13:03 AM :Debug: Calling RS232: Port:COM100, Baud:9600 Command: x0D                                                                   .
+9/15/25 11:13:04 AM :Info: Timeout on port: RS232: Port:COM100, Baud:9600, completed this port query
+9/15/25 11:13:04 AM :Info: Timeout on: RS232: Port:COM100, Baud:9600
+9/15/25 11:13:04 AM :Info: no Controller found on RS232: Port:COM100, Baud:9600
+Saved user properties successfully
+9/15/25 11:13:05 AM :Debug: set baud to 115200
+9/15/25 11:13:05 AM :Debug: set baud to 9600
+9/15/25 11:13:06 AM :Debug: Device not found
+9/15/25 11:13:06 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:13:06 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:13:06 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:13:06 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:13:06 AM :Debug: CheckThread exiting
+9/15/25 11:13:07 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 11:13:07 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:13:57 AM :Debug: set baud to 115200
+9/15/25 11:13:57 AM :Info: Comm Read Thread Change! Old Thread:Thread-42, new Thread:Thread-60
+Sep 15, 2025 11:14:00 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+9/15/25 11:14:06 AM :Debug: set baud to 9600
+9/15/25 11:14:07 AM :Info: Com Thread created: COMM Thread8879.157984335772
+9/15/25 11:14:07 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread8879.157984335772
+9/15/25 11:14:07 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:9600
+9/15/25 11:14:07 AM :Info: Comm Read Thread Change! Old Thread:Thread-60, new Thread:COMM Thread8879.157984335772
+9/15/25 11:14:10 AM :Info: Com Thread created: COMM Thread89787.24054745096
+9/15/25 11:14:10 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread89787.24054745096
+9/15/25 11:14:10 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:9600
+9/15/25 11:14:11 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread8879.157984335772, new Thread:COMM Thread89787.24054745096
+9/15/25 11:14:11 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread8879.157984335772
+9/15/25 11:14:33 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 11:14:33 AM :Debug: File does not exist, creating new:
+C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+9/15/25 11:14:33 AM :Info: Time to save msq: 3.7735
+9/15/25 11:14:33 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 11:14:33 AM :Info: closeApp Called
+9/15/25 11:14:33 AM :Debug: TuneLog Editor set text
+9/15/25 11:14:33 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 11:14:33 AM :Info: Time to save msq: 3.2263
+9/15/25 11:14:33 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 11:14:33 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:14:33 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:14:33 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:14:33 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:14:34 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread89787.24054745096
+9/15/25 11:14:34 AM :Debug: goOffline comm thread stopped, Time:819
+9/15/25 11:14:34 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:14:34 AM :Debug: removing Configuration: UAV_MRE_F4
+9/15/25 11:14:34 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 11:14:34 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:14:34 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 11:16:58 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 11:16:58 AM :Debug: no update:defaultFont
+9/15/25 11:16:58 AM :Info: Initializing File Dialogs.
+9/15/25 11:16:58 AM :Debug: hid: 442.8461
+9/15/25 11:16:58 AM :Info: Loading Language Content.
+9/15/25 11:17:00 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 11:17:00 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 11:17:00 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 11:17:00 AM :Info: Initializing Help.
+9/15/25 11:17:00 AM :Info: Initializing Edition Features.
+9/15/25 11:17:00 AM :Info: Initializing App Events.
+9/15/25 11:17:00 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 11:17:00 AM :Debug: Dummy Function Factory Created.
+9/15/25 11:17:00 AM :Info: Initializing User Interface
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:height= in line:
+	  <img  width=300 " height="110" alt="MLV HD" src="images/Histogram-250px.png"><br>
+9/15/25 11:17:01 AM :Warning: Failed to parse tag:height= in line:
+      <div style="text-align: center;"><img width=300 " height="110" alt="TS Dash" src="images/doubleSweep-400pi.png"><br>
+9/15/25 11:17:02 AM :Info: Loading Font list.
+9/15/25 11:17:02 AM :Debug: Time to retreive font name list: 5 ms.
+9/15/25 11:17:02 AM :Info: 
+9/15/25 11:17:02 AM :Info: Initializing UI Components.
+9/15/25 11:17:02 AM :Info: Ready
+9/15/25 11:17:04 AM :Info: IncUpdate: No updates available.
+9/15/25 11:17:04 AM :Info: IniUpdate: No updates available.
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 11:17:04 AM :Info: Opening Project ...
+9/15/25 11:17:04 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_MRE_F4
+9/15/25 11:17:04 AM :Debug: Reading translation file as plain text
+9/15/25 11:17:04 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:17:04 AM :Debug: Filtered ConfigurationOptionGroup in 12ms.
+9/15/25 11:17:04 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:17:04 AM :Info: Read file canPcVariables.ini: 2.5839ms
+9/15/25 11:17:04 AM :Info: Filtered ini: 0.0382ms
+9/15/25 11:17:04 AM :Info: No iniVersion defined
+9/15/25 11:17:04 AM :Info: Loading Trigger Wheels
+9/15/25 11:17:04 AM :Info: Loaded All known ini sections
+9/15/25 11:17:04 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 13ms.
+9/15/25 11:17:04 AM :Info: Read file mainController.ini: 76.328ms
+9/15/25 11:17:04 AM :Info: Filtered ini: 6.9546ms
+9/15/25 11:17:04 AM :Info: No iniVersion defined
+9/15/25 11:17:04 AM :Debug: ini signature: rusEFI master.2025.09.10.mre_f4.3280979053
+9/15/25 11:17:04 AM :Info: Set Write Blocks on = true
+9/15/25 11:17:04 AM :Info: Loading Trigger Wheels
+9/15/25 11:17:04 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 11:17:04 AM :Info: Loaded All known ini sections
+9/15/25 11:17:04 AM :Info: Parsed and validated ini "mainController.ini" in : 233ms.
+9/15/25 11:17:04 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 11:17:04 AM :Info: Time to load primary config: 284.5186ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 11:17:04 AM :Debug: set baud to 9600
+9/15/25 11:17:04 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:17:04 AM :Debug: Adding Configuration: UAV_MRE_F4
+9/15/25 11:17:04 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:17:04 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:17:05 AM :Debug: Fill Constants: 41
+9/15/25 11:17:05 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+9/15/25 11:17:05 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 11:17:05 AM :Debug: Flush lasted: 70ms.
+9/15/25 11:17:05 AM :Info: dirtyData.size(): 0
+9/15/25 11:17:05 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 11:17:05 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 11:17:05 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 11:17:05 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 11:17:05 AM :Info: dirtyData.size(): 0
+9/15/25 11:17:05 AM :Debug: Flush lasted: 71ms.
+9/15/25 11:17:05 AM :Debug: Skip Burn, last write page: -2
+9/15/25 11:17:05 AM :Info: !!! Loaded config in 529
+9/15/25 11:17:05 AM :Info: !!! Activated Project 1030
+9/15/25 11:17:05 AM :Info: Opening Gauge Cluster..
+9/15/25 11:17:05 AM :Debug: High Speed Paint: true
+9/15/25 11:17:05 AM :Info: 
+9/15/25 11:17:05 AM :Info: Com Thread created: COMM Thread22423.44877319673
+9/15/25 11:17:05 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 11:17:05 AM :Debug: !!! Opened Dash 1106
+9/15/25 11:17:05 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread22423.44877319673
+9/15/25 11:17:05 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:9600
+9/15/25 11:17:05 AM :Info: UAV_MRE_F4 Ready
+9/15/25 11:17:05 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread22423.44877319673
+9/15/25 11:17:05 AM :Debug: Tuning View Files loaded in 64.2565ms.
+9/15/25 11:17:06 AM :Info: Sig Bytes:x72 x75 x73 x45 x46 x49 x20 x6D x61 x73 x74 x65 x72 x2E x32 x30       rusEFI.master.20
+x32 x35 x2E x30 x39 x2E x31 x35 x2E x6D x72 x65 x5F x66 x34 x2E       25.09.15.mre_f4.
+x31 x30 x31 x37 x31 x31 x32 x33 x39 x34 x00                           1017112394.
+9/15/25 11:17:06 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 11:17:06 AM :Warning: Controller Reported a CRC Mismatch
+9/15/25 11:17:06 AM :Debug: call failed protocol validation, running stats: 1 failed validation, 1 successful.
+9/15/25 11:17:06 AM :Debug: Protocol reported error after write 0x82, waiting 20ms and retry 
+9/15/25 11:17:06 AM :Debug: Protocol retry successful on 2nd try! 
+9/15/25 11:17:06 AM :Info: Communicating with sig:rusEFI master.2025.09.15.mre_f4.1017112394, rusEFI v20250910@1017112394
+9/15/25 11:17:06 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:17:06 AM :Info: Looks like rusEFI
+9/15/25 11:17:06 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:17:06 AM :Info: Looks like rusEFI
+9/15/25 11:17:06 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:17:06 AM :Info: Looks like rusEFI
+9/15/25 11:17:06 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:17:06 AM :Info: Looks like rusEFI
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 11:17:12 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:17:12 AM :Info: Looks like rusEFI
+9/15/25 11:17:12 AM :Debug: Checking for ini at:
+https://rusefi.com/online/ini/rusefi/master/2025/09/15/mre_f4/1017112394.ini
+9/15/25 11:17:12 AM :Info: Could not get ECU Definition for signature: Signature:rusEFI master.2025.09.15.mre_f4.1017112394, firmware:rusEFI v20250910@1017112394, Error: The correct ECU Definition not available.
+9/15/25 11:18:19 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:18:19 AM :Info: Looks like rusEFI
+9/15/25 11:18:19 AM :Debug: Checking for ini at:
+https://rusefi.com/online/ini/rusefi/master/2025/09/15/mre_f4/1017112394.ini
+9/15/25 11:18:19 AM :Info: Could not get ECU Definition for signature: Signature:rusEFI master.2025.09.15.mre_f4.1017112394, firmware:rusEFI v20250910@1017112394, Error: The correct ECU Definition not available.
+9/15/25 11:19:02 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:19:02 AM :Info: Looks like rusEFI
+9/15/25 11:19:02 AM :Debug: Checking for ini at:
+https://rusefi.com/online/ini/rusefi/master/2025/09/15/mre_f4/1017112394.ini
+9/15/25 11:19:03 AM :Info: Could not get ECU Definition for signature: Signature:rusEFI master.2025.09.15.mre_f4.1017112394, firmware:rusEFI v20250910@1017112394, Error: The correct ECU Definition not available.
+9/15/25 11:19:13 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:19:13 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:19:13 AM :Debug: Skip Burn, last write page: -2
+9/15/25 11:19:13 AM :Debug: goOffline about to stopProcessing, Time:250
+9/15/25 11:19:13 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 11:19:13 AM :Debug: goOffline Notified offline, Time:252
+9/15/25 11:19:13 AM :Debug: goOffline closed port, Time:252
+9/15/25 11:19:13 AM :Debug: goOffline comm thread stopped, Time:753
+9/15/25 11:19:13 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:19:14 AM :Info: Copying rusefi_mre_f4.ini to UAV_MRE_F4's projectCfg
+9/15/25 11:19:14 AM :Info: Copying rusefi_mre_f4.ini to ecuDef dir for future use.
+9/15/25 11:19:14 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:19:14 AM :Debug: TuneLog Editor set text
+9/15/25 11:19:14 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 11:19:14 AM :Info: Time to save msq: 26.4123
+9/15/25 11:19:14 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread22423.44877319673
+9/15/25 11:19:14 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 11:19:14 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:19:14 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:19:14 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:19:14 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:19:14 AM :Debug: goOffline comm thread stopped, Time:500
+9/15/25 11:19:14 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:19:14 AM :Debug: removing Configuration: UAV_MRE_F4
+9/15/25 11:19:14 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 11:19:14 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:19:15 AM :Info: Opening Project ...
+9/15/25 11:19:15 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_MRE_F4\
+9/15/25 11:19:15 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:19:15 AM :Debug: Filtered ConfigurationOptionGroup in 19ms.
+9/15/25 11:19:15 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:19:15 AM :Info: Read file canPcVariables.ini: 5.7799ms
+9/15/25 11:19:15 AM :Info: Filtered ini: 0.0496ms
+9/15/25 11:19:15 AM :Info: No iniVersion defined
+9/15/25 11:19:15 AM :Info: Loading Trigger Wheels
+9/15/25 11:19:15 AM :Info: Loaded All known ini sections
+9/15/25 11:19:15 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 7ms.
+9/15/25 11:19:15 AM :Info: Read file mainController.ini: 6.7166ms
+9/15/25 11:19:15 AM :Info: Filtered ini: 4.5959ms
+9/15/25 11:19:15 AM :Info: No iniVersion defined
+9/15/25 11:19:15 AM :Debug: ini signature: rusEFI master.2025.09.10.mre_f4.3280979053
+9/15/25 11:19:15 AM :Info: Set Write Blocks on = true
+9/15/25 11:19:15 AM :Info: Loading Trigger Wheels
+9/15/25 11:19:15 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 11:19:15 AM :Info: Loaded All known ini sections
+9/15/25 11:19:15 AM :Info: Parsed and validated ini "mainController.ini" in : 122ms.
+9/15/25 11:19:15 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 11:19:15 AM :Info: Time to load primary config: 155.62819ms. used cached config: false
+9/15/25 11:19:15 AM :Debug: set baud to 9600
+9/15/25 11:19:15 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:19:15 AM :Debug: Adding Configuration: UAV_MRE_F4
+9/15/25 11:19:15 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Deactivating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Deactivating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: Fill Constants: 39
+9/15/25 11:19:15 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+9/15/25 11:19:15 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 11:19:15 AM :Debug: Flush lasted: 110ms.
+9/15/25 11:19:15 AM :Info: dirtyData.size(): 0
+9/15/25 11:19:15 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 11:19:15 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 11:19:15 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 11:19:15 AM :Info: dirtyData.size(): 0
+9/15/25 11:19:15 AM :Debug: Flush lasted: 71ms.
+9/15/25 11:19:15 AM :Debug: Skip Burn, last write page: -2
+9/15/25 11:19:15 AM :Info: !!! Loaded config in 391
+9/15/25 11:19:15 AM :Info: !!! Activated Project 545
+9/15/25 11:19:15 AM :Info: Opening Gauge Cluster..
+9/15/25 11:19:15 AM :Debug: High Speed Paint: true
+9/15/25 11:19:15 AM :Info: 
+9/15/25 11:19:15 AM :Info: Com Thread created: COMM Thread98136.3863908304
+9/15/25 11:19:15 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 11:19:15 AM :Debug: !!! Opened Dash 812
+9/15/25 11:19:15 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread98136.3863908304
+9/15/25 11:19:15 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:9600
+9/15/25 11:19:15 AM :Info: UAV_MRE_F4 Ready
+9/15/25 11:19:15 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread98136.3863908304
+9/15/25 11:19:16 AM :Debug: Tuning View Files loaded in 87.4954ms.
+9/15/25 11:19:16 AM :Info: Sig Bytes:x72 x75 x73 x45 x46 x49 x20 x6D x61 x73 x74 x65 x72 x2E x32 x30       rusEFI.master.20
+x32 x35 x2E x30 x39 x2E x31 x35 x2E x6D x72 x65 x5F x66 x34 x2E       25.09.15.mre_f4.
+x31 x30 x31 x37 x31 x31 x32 x33 x39 x34 x00                           1017112394.
+9/15/25 11:19:16 AM :Info: No Persistor set, not activating persisted triggers.
+9/15/25 11:19:16 AM :Warning: Controller Reported a CRC Mismatch
+9/15/25 11:19:16 AM :Debug: call failed protocol validation, running stats: 1 failed validation, 1 successful.
+9/15/25 11:19:16 AM :Debug: Protocol reported error after write 0x82, waiting 20ms and retry 
+9/15/25 11:19:16 AM :Debug: Protocol retry successful on 2nd try! 
+9/15/25 11:19:16 AM :Info: Communicating with sig:rusEFI master.2025.09.15.mre_f4.1017112394, rusEFI v20250910@1017112394
+9/15/25 11:19:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:19:16 AM :Info: Looks like rusEFI
+9/15/25 11:19:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:19:16 AM :Info: Looks like rusEFI
+9/15/25 11:19:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:19:16 AM :Info: Looks like rusEFI
+9/15/25 11:19:16 AM :Info: Getting ECU name for signature: 'rusEFI master.2025.09.10.mre_f4.3280979053'
+9/15/25 11:19:16 AM :Info: Looks like rusEFI
+
+9/15/25 11:19:20 AM :Debug: Purged 7 orphaned bytes:
+9/15/25 11:19:20 AM :Debug: Time:5.202s. 0x0 0x1 0x84 0x38 0xD7 0xA8 0xB4 
+9/15/25 11:19:20 AM :Debug: Time:5.202s. 
+
+9/15/25 11:19:20 AM :Debug: Time:5.202s.   .    .    .    8    .    .    .  
+9/15/25 11:19:20 AM :Info: CRC Mismatch, will need to refresh page from controller 
+9/15/25 11:19:20 AM :Info:    CRC from controller page 1:xD2 x78 x4A xDE                                                       .xJ.
+9/15/25 11:19:20 AM :Info:    Local Data CRC for page 1: xAB xDE x5A xCB                                                       ..Z.
+Sep 15, 2025 11:19:23 AM G.J a
+INFO: Error Reading Page
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 11:19:23 AM :Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+9/15/25 11:19:23 AM :Info: Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+Sep 15, 2025 11:19:23 AM G.J y
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 11:19:23 AM :Debug: result.FAILED: 1 tryCount
+9/15/25 11:19:26 AM :Info: Re-establishing connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:19:31 AM :Info: Timeout reading page 1, increased blockReadTimeout to 3050, trying once more.
+Sep 15, 2025 11:19:40 AM G.J a
+INFO: Error Reading Page
+V.b: Timeout after:3051ms. requested timeout:3050, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 11:19:40 AM :Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+9/15/25 11:19:40 AM :Info: Error: Could not process CommInstruction. writing last 0 controller interactions to the log followed by the stack trace
+Sep 15, 2025 11:19:40 AM G.J y
+SEVERE: null
+V.b: Timeout after:3051ms. requested timeout:3050, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.l(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.y(Unknown Source)
+	at A.t.c(Unknown Source)
+	at A.u.run(Unknown Source)
+
+9/15/25 11:19:40 AM :Debug: result.FAILED: 2 tryCount
+9/15/25 11:19:43 AM :Info: Re-establishing connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:19:45 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:19:45 AM :Debug: Went offline
+9/15/25 11:19:45 AM :Debug: Deactivated fast paint Main Dashboard
+9/15/25 11:19:45 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:19:45 AM :Info: Went offline 2
+9/15/25 11:33:50 AM :Debug: TuneLog Editor set text
+9/15/25 11:33:50 AM :Info: file:CurrentTune.msq is not Monitored, cannot pause Monitoring of it.
+9/15/25 11:33:50 AM :Info: Time to save msq: 7.4879
+9/15/25 11:33:50 AM :Info: file:CurrentTune.msq is not Monitored, cannot unpause Monitoring of it.
+9/15/25 11:33:50 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:33:50 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:33:50 AM :Debug: goOffline about to stopProcessing, Time:0
+9/15/25 11:33:50 AM :Debug: goOffline closed port, Time:0
+9/15/25 11:33:51 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread98136.3863908304
+9/15/25 11:33:51 AM :Debug: goOffline comm thread stopped, Time:705
+9/15/25 11:33:51 AM :Debug: No Remaining Queue Write instructions
+9/15/25 11:33:51 AM :Debug: removing Configuration: UAV_MRE_F4
+9/15/25 11:33:51 AM :Info: No Persistor set, not saving active triggers.
+9/15/25 11:33:51 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:33:51 AM :Info: closeApp Called
+9/15/25 11:33:51 AM :Info: Finalizing Sensors
+Saved user properties successfully
+Starting on K2-P16G2
+TunerStudio 3.3.00.00 started on Mon Sep 15 11:33:55 EEST 2025
+JRE 1.8.0_382, Windows 11 10.0, x86
+java.library.path=./lib
+TunerStudioMS.jar
+Look:Metal, ClassName:'javax.swing.plaf.metal.MetalLookAndFeel'
+Look:Nimbus, ClassName:'javax.swing.plaf.nimbus.NimbusLookAndFeel'
+Look:CDE/Motif, ClassName:'com.sun.java.swing.plaf.motif.MotifLookAndFeel'
+Look:Windows, ClassName:'com.sun.java.swing.plaf.windows.WindowsLookAndFeel'
+Look:Windows Classic, ClassName:'com.sun.java.swing.plaf.windows.WindowsClassicLookAndFeel'
+Look:Night Shade, ClassName:'de.muntjak.tinylookandfeel.TinyLookAndFeel'
+Setting Look & Feel to:javax.swing.plaf.metal.MetalLookAndFeel
+ScrollBar.width
+9/15/25 11:33:55 AM :Debug: no update:defaultFont
+9/15/25 11:33:55 AM :Info: Initializing File Dialogs.
+9/15/25 11:33:56 AM :Debug: hid: 630.6692
+9/15/25 11:33:56 AM :Info: Loading Language Content.
+9/15/25 11:33:58 AM :Debug: Command Non-VolatileBytes for F resolved to: x46                                                                   F
+9/15/25 11:33:58 AM :Debug: Command Non-VolatileBytes for I resolved to: x49                                                                   I
+9/15/25 11:33:58 AM :Debug: Command Non-VolatileBytes for f resolved to: x66                                                                   f
+9/15/25 11:33:58 AM :Info: Initializing Help.
+9/15/25 11:33:58 AM :Info: Initializing Edition Features.
+9/15/25 11:33:58 AM :Info: Initializing App Events.
+9/15/25 11:33:58 AM :Debug: App Name:TunerStudio, appEdition:MS(Beta) Lite!
+9/15/25 11:33:58 AM :Debug: Dummy Function Factory Created.
+9/15/25 11:33:58 AM :Info: Initializing User Interface
+9/15/25 11:34:00 AM :Info: Loading Font list.
+9/15/25 11:34:01 AM :Info: IniUpdate: No updates available.
+9/15/25 11:34:01 AM :Info: IncUpdate: No updates available.
+9/15/25 11:34:02 AM :Debug: Time to retreive font name list: 2113 ms.
+9/15/25 11:34:02 AM :Info: 
+9/15/25 11:34:02 AM :Info: Initializing UI Components.
+9/15/25 11:34:02 AM :Info: Ready
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonActive.png" height="35" width="166">
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:width= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:height= in line:
+                  <td align="center" background="images/buttonInactive.png" height="35" width="166">
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:width= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+9/15/25 11:34:02 AM :Warning: Failed to parse tag:height= in line:
+      <center> <a href="https://www.facebook.com/efianalytics/"><img alt="Whats New" src="images/whatsNew.jpg" border="0" height="105" width="120"></a><br>
+MS(Beta)main: No check, last update check=Mon Sep 15 08:05:39 EEST 2025
+9/15/25 11:34:06 AM :Info: Opening Project ...
+9/15/25 11:34:06 AM :Debug: Opening project: C:\Users\user\Workbench\rusefi\UAV_MRE_F4\
+9/15/25 11:34:06 AM :Debug: Reading translation file as plain text
+9/15/25 11:34:06 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:34:06 AM :Debug: Filtered ConfigurationOptionGroup in 13ms.
+9/15/25 11:34:06 AM :Info: Supported iniSpecVersion=3.78
+9/15/25 11:34:06 AM :Info: Read file canPcVariables.ini: 1.8038ms
+9/15/25 11:34:06 AM :Info: Filtered ini: 0.0546ms
+9/15/25 11:34:06 AM :Info: No iniVersion defined
+9/15/25 11:34:06 AM :Info: Loading Trigger Wheels
+9/15/25 11:34:06 AM :Info: Loaded All known ini sections
+9/15/25 11:34:06 AM :Info: Parsed and validated ini "canPcVariables.ini" in : 13ms.
+9/15/25 11:34:06 AM :Info: Read file mainController.ini: 5.8273ms
+9/15/25 11:34:06 AM :Info: Filtered ini: 6.4345ms
+9/15/25 11:34:06 AM :Info: No iniVersion defined
+9/15/25 11:34:06 AM :Debug: ini signature: rusEFI master.2025.09.10.mre_f4.3280979053
+9/15/25 11:34:06 AM :Info: Set Write Blocks on = true
+9/15/25 11:34:06 AM :Info: Loading Trigger Wheels
+9/15/25 11:34:06 AM :Info: Loading Depricated ini section [UserDefined], use [UiDialogs]
+9/15/25 11:34:06 AM :Info: Loaded All known ini sections
+9/15/25 11:34:06 AM :Info: Parsed and validated ini "mainController.ini" in : 215ms.
+9/15/25 11:34:06 AM :Info: Not Loading default Tools because they were already loaded from the project ini(s)
+9/15/25 11:34:06 AM :Info: Time to load primary config: 274.32358ms. used cached config: false
+SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+SLF4J: Defaulting to no-operation (NOP) logger implementation
+SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+9/15/25 11:34:06 AM :Debug: set baud to 9600
+9/15/25 11:34:06 AM :Info: Setting connection to: RS232: Port:COM100, Baud:9600
+9/15/25 11:34:06 AM :Debug: Adding Configuration: UAV_MRE_F4
+9/15/25 11:34:06 AM :Debug: Activating Event Trigger: TriggeredPage 1 Refresh:  triggerPageRefreshFlag 
+9/15/25 11:34:06 AM :Debug: Activating Event Trigger: TriggeredPage 3 Refresh:  ltftPageRefreshFlag 
+9/15/25 11:34:06 AM :Debug: Fill Constants: 42
+9/15/25 11:34:06 AM :Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+[Duplicate entry] received 2 times: Info: Tune opened, 0 bytes updated. File:C:\Users\user\Workbench\rusefi\UAV_MRE_F4\CurrentTune.msq
+9/15/25 11:34:06 AM :Info: dirtyData.size(): 0
+9/15/25 11:34:06 AM :Debug: EventTrigger TriggeredPage 1 Refresh:  triggerPageRefreshFlag  Triggered. expression:  triggerPageRefreshFlag 
+9/15/25 11:34:06 AM :Debug: TriggeredPage 1 Refresh:  triggerPageRefreshFlag : Trigger Expression:  triggerPageRefreshFlag  = NaN
+9/15/25 11:34:06 AM :Debug: EventTrigger TriggeredPage 3 Refresh:  ltftPageRefreshFlag  Triggered. expression:  ltftPageRefreshFlag 
+9/15/25 11:34:06 AM :Debug: TriggeredPage 3 Refresh:  ltftPageRefreshFlag : Trigger Expression:  ltftPageRefreshFlag  = NaN
+9/15/25 11:34:06 AM :Info: dirtyData.size(): 0
+9/15/25 11:34:06 AM :Debug: Flush lasted: 71ms.
+9/15/25 11:34:06 AM :Info: dirtyData.size(): 0
+[Duplicate entry] received 2 times: Info: dirtyData.size(): 0
+9/15/25 11:34:06 AM :Debug: Flush lasted: 0ms.
+9/15/25 11:34:06 AM :Debug: Skip Burn, last write page: -2
+9/15/25 11:34:06 AM :Info: !!! Loaded config in 483
+9/15/25 11:34:07 AM :Info: !!! Activated Project 811
+9/15/25 11:34:07 AM :Info: Opening Gauge Cluster..
+9/15/25 11:34:07 AM :Debug: High Speed Paint: true
+9/15/25 11:34:07 AM :Info: 
+9/15/25 11:34:07 AM :Info: Com Thread created: COMM Thread83397.04889405724
+9/15/25 11:34:07 AM :Info: endModalBlock called, but Root Pane is not a ProgressPane.
+9/15/25 11:34:07 AM :Debug: !!! Opened Dash 1110
+9/15/25 11:34:07 AM :Info: Comm Manager for UAV_MRE_F4 Started, thread ID: COMM Thread83397.04889405724
+9/15/25 11:34:07 AM :Info: Connecting to controller on: RS232: Port:COM100, Baud:9600
+9/15/25 11:34:07 AM :Info: UAV_MRE_F4 Ready
+9/15/25 11:34:07 AM :Info: Comm Read Thread Change! Old Thread:null, new Thread:COMM Thread83397.04889405724
+9/15/25 11:34:07 AM :Debug: Tuning View Files loaded in 87.858ms.
+9/15/25 11:34:07 AM :Info: No Persistor set, not activating persisted triggers.
+MS(Beta)ad: No check, last update check=Mon Sep 15 08:05:44 EEST 2025
+9/15/25 11:35:06 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:35:06 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:35:06 AM :Debug: goOffline Starting, Time:0
+9/15/25 11:35:06 AM :Info: Deactivated Turbo Baud, goOffline
+9/15/25 11:35:06 AM :Debug: goOffline about to stopProcessing, Time:1
+[Duplicate entry] received 2 times: Debug: goOffline about to stopProcessing, Time:1
+9/15/25 11:35:06 AM :Debug: goOffline closed port, Time:1
+[Duplicate entry] received 2 times: Debug: goOffline closed port, Time:1
+9/15/25 11:35:06 AM :Debug: set baud to 9600
+[Duplicate entry] received 2 times: Debug: set baud to 9600
+9/15/25 11:35:06 AM :Info: UAV_MRE_F4 ComThread stopped COMM Thread83397.04889405724
+9/15/25 11:35:06 AM :Debug: goOffline comm thread stopped, Time:454
+[Duplicate entry] received 2 times: Debug: goOffline comm thread stopped, Time:454
+9/15/25 11:35:06 AM :Debug: No Remaining Queue Write instructions
+[Duplicate entry] received 2 times: Debug: No Remaining Queue Write instructions
+9/15/25 11:35:09 AM :Debug: set baud to 9600
+9/15/25 11:35:09 AM :Info: Comm Read Thread Change! Old Thread:COMM Thread83397.04889405724, new Thread:Thread-27
+Sep 15, 2025 11:35:12 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+9/15/25 11:35:17 AM :Debug: set baud to 115200
+9/15/25 11:35:17 AM :Info: Comm Read Thread Change! Old Thread:Thread-27, new Thread:Thread-30
+Sep 15, 2025 11:35:20 AM A.t a
+SEVERE: null
+V.b: Timeout after:3001ms. requested timeout:3000, Expected bytes:3, bytes read:0
+	at A.t.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at G.J.a(Unknown Source)
+	at G.J.b(Unknown Source)
+	at A.t.a(Unknown Source)
+	at G.J.t(Unknown Source)
+	at G.J.c(Unknown Source)
+	at G.J.b(Unknown Source)
+	at aP.ad.o(Unknown Source)
+	at aP.ad.b(Unknown Source)
+	at aP.ap.run(Unknown Source)
+
+9/15/25 11:35:39 AM :Debug: ############################################# Save Project Backup ##########################################
+9/15/25 11:35:39 AM :Debug: TuneLog Editor set text
