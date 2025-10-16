@@ -195,7 +195,10 @@ static void overFireSparkAndPrepareNextSchedule(IgnitionEvent *event) {
 		"cylinder %d %s overcharge %f ms",
 		event->cylinderIndex + 1, event->outputs[0]->getName(), actualDwellMs);
 
-	engine->engineState.overDwellCounter++;
+	// kill pending fire
+	engine->module<TriggerScheduler>()->cancel(&event->sparkEvent);
+
+	engine->engineState.overDwellCanceledCounter++;
 	event->wasSparkCanceled = true;
 	fireSparkAndPrepareNextSchedule(event);
 }
@@ -223,16 +226,19 @@ void fireSparkAndPrepareNextSchedule(IgnitionEvent *event) {
 #if EFI_TOOTH_LOGGER
 	LogTriggerCoilState(nowNt, false, event->coilIndex);
 #endif // EFI_TOOTH_LOGGER
+	if (!event->wasSparkLimited) {
+		/**
+		 * ratio of desired dwell duration to actual dwell duration gives us some idea of how good is input trigger jitter
+		 */
+		float actualDwellMs = event->actualDwellTimer.getElapsedSeconds(nowNt) * 1e3;
+		float ratio = actualDwellMs / event->sparkDwell;
 
-	float actualDwellMs = event->actualDwellTimer.getElapsedSeconds(nowNt) * 1e3;
-	/**
-	 * ratio of desired dwell duration to actual dwell duration gives us some idea of how good is input trigger jitter
-	 */
-	float ratio = actualDwellMs / event->sparkDwell;
-	if (ratio < 0.8 || ratio > 1.2) {
-		if (!event->wasSparkCanceled) {
-			engine->outputChannels.sadDwellRatioCounter++;
+		if (ratio > 1.2) {
+			engine->engineState.dwellOverChargeCounter++;
+		} else if (ratio < 0.8) {
+			engine->engineState.dwellUnderChargeCounter++;
 		}
+		engine->engineState.dwellActualRatio = ratio;
 	}
 
 	// now that we've just fired a coil let's prepare the new schedule for the next engine revolution
