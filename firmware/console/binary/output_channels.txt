@@ -105,6 +105,9 @@ int16_t rpmAcceleration;dRPM;"RPM acceleration/Rate of Change/ROC",1, 0, 0, 5, 2
 	uint16_t autoscale coilDutyCycle;@@GAUGE_NAME_DWELL_DUTY@@;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 0
 ! ETB
 	int16_t autoscale etb1DutyCycle;@@GAUGE_NAME_ETB_DUTY@@;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 1
+! PWM Servo Throttle
+	int16_t autoscale pwmServoPosition;PWM Servo Position;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 1
+	uint16_t pwmServoPulseWidth;PWM Servo Pulse Width;"us", 1, 0, 0, 0, 0
 ! Fuel system
 	int16_t autoscale fuelTankLevel;Fuel level;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 0
 

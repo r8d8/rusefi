@@ -32,6 +32,7 @@
 #include "bench_test.h"
 #include "mmc_card.h"
 #include "electronic_throttle.h"
+#include "pwm_servo_throttle.h"
 #include "trigger_emulator_algo.h"
 #include "high_pressure_fuel_pump.h"
 #include "malfunction_central.h"
@@ -389,6 +390,10 @@ void commonInitEngineController() {
 #if EFI_PROD_CODE
 	addConsoleAction("sensorinfo", printSensorInfo);
 	addConsoleAction("reset_accel", resetAccel);
+	
+#if EFI_PWM_SERVO_THROTTLE
+	addConsoleAction("test_pwm_servo", testPwmServo);
+#endif /* EFI_PWM_SERVO_THROTTLE */
 #endif /* EFI_PROD_CODE */
 
 #if EFI_SIMULATOR || EFI_UNIT_TEST
@@ -461,6 +466,10 @@ void commonInitEngineController() {
 #if EFI_ELECTRONIC_THROTTLE_BODY
 	initElectronicThrottle();
 #endif /* EFI_ELECTRONIC_THROTTLE_BODY */
+
+#if EFI_PWM_SERVO_THROTTLE
+	initPwmServoThrottle();
+#endif /* EFI_PWM_SERVO_THROTTLE */
 
 #if EFI_MAP_AVERAGING && defined (MODULE_MAP_AVERAGING)
 	engine->module<MapAveragingModule>()->init();

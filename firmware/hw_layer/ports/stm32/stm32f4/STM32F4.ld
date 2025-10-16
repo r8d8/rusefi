@@ -33,7 +33,8 @@ SDRAM_SIZE = DEFINED(STM32_HAS_SDRAM) ? 8M : 0;
 bootloader_size = 32k;
 flash_start = 0x08000000 + (DEFINED(HAS_BOOTLOADER) ? bootloader_size : 0);
 /* see also getFlashAddrFirstCopy() method */
-flash_size = DEFINED(IS_BOOTLOADER) ? bootloader_size : 768k;
+/* Allow board-specific override of flash size via EFI_FLASH_SIZE, default to 768k for F407/F427 */
+flash_size = DEFINED(IS_BOOTLOADER) ? bootloader_size : (DEFINED(EFI_FLASH_SIZE) ? EFI_FLASH_SIZE : 768k);
 image_size = DEFINED(HAS_BOOTLOADER) ? (flash_size - bootloader_size) : flash_size;
 
 /* OpenBLT <-> main FW shared area */

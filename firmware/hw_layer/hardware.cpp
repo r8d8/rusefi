@@ -43,6 +43,9 @@
 #include "vvt.h"
 #include "trigger_emulator_algo.h"
 #include "boost_control.h"
+#if EFI_PWM_SERVO_THROTTLE
+#include "pwm_servo_throttle.h"
+#endif
 #if EFI_SOFTWARE_KNOCK
 #include "software_knock.h"
 #endif
@@ -398,6 +401,10 @@ void applyNewHardwareSettings() {
 	startVvtControlPins();
 #endif /* EFI_VVT_PID */
 
+#if EFI_PWM_SERVO_THROTTLE
+	startPwmServoThrottle();
+#endif /* EFI_PWM_SERVO_THROTTLE */
+
 #if EFI_PROD_CODE && EFI_SENT_SUPPORT
 	startSent();
 #endif
@@ -492,6 +499,10 @@ void stopHardware() {
 #if EFI_VVT_PID
 	stopVvtControlPins();
 #endif /* EFI_VVT_PID */
+
+#if EFI_PWM_SERVO_THROTTLE
+	stopPwmServoThrottle();
+#endif /* EFI_PWM_SERVO_THROTTLE */
 }
 
 /**

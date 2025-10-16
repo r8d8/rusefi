@@ -1899,6 +1899,15 @@ end_struct
 
     vvl_s vvlController;
 
+	! PWM Servo Throttle Configuration
+	! For RC-style servo throttle control (50Hz PWM with 1-2ms pulse width)
+	! Alternative to traditional ETB systems - servo has internal position feedback
+	! so no TPS sensor is needed
+	bit enablePwmServoThrottle,"enabled","disabled";Enable PWM RC servo throttle control. Eliminates need for TPS sensor as servo has internal position feedback.
+	output_pin_e pwmServoPin;Pin for PWM servo signal output
+	uint16_t pwmServoMinUs;Minimum servo pulse width (typically 1000us for 0% throttle);"us", 1, 0, 500, 2500, 0
+	uint16_t pwmServoMaxUs;Maximum servo pulse width (typically 2000us for 100% throttle);"us", 1, 0, 500, 2500, 0
+
 ! historically 'unusedOftenChangesDuringFirmwareUpdate' was here - now that's just an anchor reminding where to insert new fields
 
 ! end of engine_configuration_s

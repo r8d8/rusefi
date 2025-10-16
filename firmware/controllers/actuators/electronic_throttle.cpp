@@ -922,8 +922,12 @@ void doInitElectronicThrottle(bool isStartupInit) {
 		anyEtbConfigured |= dcConfigured && controller->isEtbMode();
 	}
 
-	// It's not valid to have a PPS without any ETBs - check that at least one ETB was enabled along with the pedal
-	if (!anyEtbConfigured && Sensor::hasSensor(SensorType::AcceleratorPedalPrimary)) {
+	// It's not valid to have a PPS without any ETBs or PWM servo throttle - check that at least one throttle actuator was enabled along with the pedal
+	bool anyThrottleConfigured = anyEtbConfigured;
+#if EFI_PWM_SERVO_THROTTLE
+	anyThrottleConfigured |= engineConfiguration->enablePwmServoThrottle;
+#endif
+	if (!anyThrottleConfigured && Sensor::hasSensor(SensorType::AcceleratorPedalPrimary)) {
 		criticalError("A pedal position sensor was configured, but no electronic throttles are configured.");
 	}
 

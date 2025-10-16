@@ -438,6 +438,14 @@
 #endif
 
 /**
+ * Do we need PWM Servo Throttle support?
+ * RC-style servo throttle with internal position feedback
+ */
+#ifndef EFI_PWM_SERVO_THROTTLE
+#define EFI_PWM_SERVO_THROTTLE TRUE
+#endif
+
+/**
  * Do we need Malfunction Indicator blinking logic?
  */
 #ifndef EFI_MALFUNCTION_INDICATOR
