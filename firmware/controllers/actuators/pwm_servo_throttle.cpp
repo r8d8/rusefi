@@ -14,11 +14,15 @@
 #include "periodic_thread_controller.h"
 #include "pwm_generator_logic.h"
 #include "pin_repository.h"
+#include "function_pointer_sensor.h"
 
 static SimplePwm servoPwm("PWM Servo");
 static OutputPin servoOutputPin;
 static percent_t currentServoPosition = 0;
 static bool isServoInitialized = false;
+
+// Virtual TPS sensor that reports servo position
+static FunctionPointerSensor servoTpsSensor(SensorType::Tps1, getPwmServoTps);
 
 /**
  * Convert throttle position (0-100%) to PWM duty cycle
@@ -81,6 +85,12 @@ percent_t getPwmServoThrottlePosition() {
 	return currentServoPosition;
 }
 
+float getPwmServoTps() {
+	// Provide servo position as TPS feedback
+	// This allows ETB validation to see "throttle position"
+	return currentServoPosition;
+}
+
 void disablePwmServoThrottle() {
 	if (!isServoInitialized) {
 		return;
@@ -136,6 +146,9 @@ void stopPwmServoThrottle() {
 		return;
 	}
 	
+	// Unregister virtual TPS sensor
+	servoTpsSensor.unregister();
+	
 	// Stop the PWM output
 	servoPwm.stop();
 	
@@ -182,6 +195,12 @@ void startPwmServoThrottle() {
 		positionToDutyCycle(0));
 	
 	isServoInitialized = true;
+	
+	// Register virtual TPS sensor to provide position feedback
+	// This eliminates TPS error in ETB validation
+	if (!servoTpsSensor.Register()) {
+		efiPrintf("PWM Servo: Failed to register TPS sensor");
+	}
 	
 	efiPrintf("PWM Servo: Initialized on pin %s", hwPortname(servoPin));
 	

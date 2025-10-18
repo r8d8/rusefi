@@ -1,0 +1,15 @@
+dialog = pwmServoThrottle, "PWM Servo Throttle (RC Servo)"
+	field = ""
+	field = "! PWM Servo Throttle Configuration"
+	field = "! For RC-style servo actuators used in aircraft/drone throttle bodies"
+	field = ""
+	field = "Enable PWM Servo Throttle", enablePwmServoThrottle
+	field = "Servo Output Pin", pwmServoPin
+	field = "Minimum Pulse Width", pwmServoMinUs, {enablePwmServoThrottle}
+	field = "Maximum Pulse Width", pwmServoMaxUs, {enablePwmServoThrottle}
+	field = ""
+	field = "Note: Typical RC servos use 1000-2000µs pulse width"
+	field = "Note: PWM frequency is fixed at 50Hz"
+	field = "Note: Servo position follows accelerator pedal percentage"
+	field = ""
+	field = "#Live gauges: pwmServoPosition (0-100%) and pwmServoPulseWidth (µs)"

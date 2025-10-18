@@ -26,6 +26,12 @@
 #define PWM_SERVO_NEUTRAL_US 1500     // 1500us neutral/center position
 
 /**
+ * Get servo position as TPS feedback (0-100%)
+ * This provides virtual TPS sensor data for ETB validation
+ */
+float getPwmServoTps();
+
+/**
  * Initialize PWM servo throttle control system (called once at boot)
  */
 void initPwmServoThrottle();
