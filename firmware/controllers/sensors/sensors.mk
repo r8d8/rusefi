@@ -13,6 +13,7 @@ CONTROLLERS_SENSORS_SRC_CPP = \
 	$(PROJECT_DIR)/controllers/sensors/impl/map.cpp \
 	$(PROJECT_DIR)/controllers/sensors/impl/maf.cpp \
 	$(PROJECT_DIR)/controllers/sensors/tps.cpp \
+	$(PROJECT_DIR)/controllers/sensors/pwm_input_tps.cpp \
 	$(PROJECT_DIR)/controllers/sensors/impl/ego.cpp \
 	$(PROJECT_DIR)/controllers/sensors/sensor_info_printing.cpp \
 	$(PROJECT_DIR)/controllers/sensors/sensor_checker.cpp \

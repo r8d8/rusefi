@@ -688,3 +688,49 @@ Validation:
 Open follow-ups:
 - `unit_tests/mocks.cpp:38` still trips GCC 16's `-Wmaybe-uninitialized`; only
   a local concern until CI moves to that compiler (see previous entry).
+
+## 2026-10-02 - PWM input TPS (RC servo pulse as throttle position)
+
+What was done:
+- New sensor `PwmInputTps` (`firmware/controllers/sensors/pwm_input_tps.*`): reads an RC-servo
+  pulse (500-2500 us) on a digital input with both-edge EXTI capture and registers it directly as
+  `SensorType::Tps1`, replacing the analog TPS1 when `pwmInputTpsPin` is set. Target use: a
+  helicopter where the autopilot drives the throttle servo and rusEFI taps the same signal (uaEFI
+  FLEX input, connector D5 / PE11) for alpha-N fueling, so the throttle body needs no TPS.
+
+  | File | Change |
+  |---|---|
+  | `controllers/sensors/pwm_input_tps.h/.cpp` | New sensor: edge handling, conversion, 100 ms timeout, EXTI init/deinit |
+  | `init/sensor/init_tps.cpp` | PWM input takes precedence over SENT and analog TPS1; deinit added |
+  | `integration/rusefi_config.txt` | `pwmInputTpsPin`, `pwmInputTpsMinUs`, `pwmInputTpsMaxUs` |
+  | `controllers/algo/defaults/default_base_engine.cpp` | 1000 / 2000 us defaults via `applyDefaultsOrFixAfterBurn()` |
+  | `tunerstudio/tunerstudio.template.ini`, `secondary_panels.ini` | "PWM input TPS" dialog in the TPS page; analog TPS1 panel hidden while it is active |
+  | `unit_tests/tests/sensor/test_pwm_input_tps.cpp` | 11 tests |
+
+Key decisions and why:
+- Registered as `Tps1` directly (like `SentTps`), not as `Tps1Primary`: there is no second
+  channel to make a redundant pair from.
+- Min > max reverses direction instead of adding an invert flag. Equal min/max -> invalid with
+  `UnexpectedCode::Configuration`.
+- Pulses outside 500-2500 us invalidate the sensor (Low/High); plausible pulses outside the
+  calibrated span clamp to 0/100%.
+- A falling edge with no preceding rising edge is ignored (signal already high at start-up, or a
+  missed edge); the pin level is read in the EXTI callback, so a lost edge cannot invert the
+  measurement.
+- The pulse width is NOT exposed via `getRaw()`/`hasRaw()`: those are consumed as volts by the
+  check engine light range checks and by the TPS "grab closed/open" buttons. Exposed as
+  `getPulseWidthUs()` and printed by `sensorinfo`.
+- No new output channel: TPS1 % is already logged; calibration uses `sensorinfo`.
+
+Validation:
+- Unit tests: 1358 tests / 263 suites pass (GCC 13), including the 11 new `PwmInputTps` tests
+  (conversion, reversed range, implausible pulses, zero span, defaults, Tps1 replacement,
+  50 and 333 Hz frames, stray falling edge, recovery, timeout).
+- Not built for any firmware target (no ARM toolchain in the environment); the EFI_PROD_CODE part
+  is the EXTI enable/disable, modelled on `init_flex.cpp`. Not hardware tested.
+
+Open follow-ups:
+- Bench test on uaEFI: confirm the FLEX input front end (10 k pull-up) switches cleanly on a
+  3.3 V autopilot PWM signal, and check pulse-width accuracy with a scope.
+- A TunerStudio gauge for the measured pulse width would make calibration easier than `sensorinfo`.
+- clang build not run locally; macOS CI covers it.

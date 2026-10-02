@@ -180,6 +180,7 @@ TESTS_SRC_CPP = \
 	tests/test_lambda_monitor.cpp \
 	tests/test_flex_sensor.cpp \
 	tests/sensor/basic_sensor.cpp \
+	tests/sensor/test_pwm_input_tps.cpp \
 	tests/sensor/func_sensor.cpp \
 	tests/sensor/function_pointer_sensor.cpp \
 	tests/sensor/mock_sensor.cpp \
