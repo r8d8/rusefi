@@ -145,6 +145,16 @@ bool applyDefaultsOrFixAfterBurn(const engine_configuration_s* previousConfigura
     changed = true;
   }
 
+  // Standard RC servo range; 0 is outside the field's 500-2500 us range, so it means "never set"
+  if (engineConfiguration->pwmInputTpsMinUs == 0) {
+    engineConfiguration->pwmInputTpsMinUs = 1000;
+    changed = true;
+  }
+  if (engineConfiguration->pwmInputTpsMaxUs == 0) {
+    engineConfiguration->pwmInputTpsMaxUs = 2000;
+    changed = true;
+  }
+
   // Seed the 2D cranking flex table for tunes that predate it (all-zero ethanol axis). Mirror the existing
   // E0 coolant curve at every ethanol level so turning on flexCranking stays neutral with respect to ethanol
   // until the user calibrates it.

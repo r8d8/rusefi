@@ -7,6 +7,7 @@
 #include "proxy_sensor.h"
 #include "linear_func.h"
 #include "tps.h"
+#include "pwm_input_tps.h"
 #include "auto_generated_sensor.h"
 #include "defaults.h"
 #include "board_overrides.h"
@@ -247,6 +248,9 @@ void initTps() {
 			tpsSecondaryMaximum = 20;
 		}
 
+		if (isPwmInputTps1()) {
+			initPwmInputTps();
+		} else
 #if EFI_SENT_SUPPORT
 		if (isDigitalTps1()) {
 			sentTps.Register();
@@ -354,6 +358,8 @@ void deinitTps() {
 #if EFI_SENT_SUPPORT
 	sentTps.unregister();
 #endif
+
+	deinitPwmInputTps();
 
 	wastegate.deinit();
 	idlePos.deinit();
