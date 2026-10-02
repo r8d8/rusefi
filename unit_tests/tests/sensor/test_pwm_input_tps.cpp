@@ -56,11 +56,11 @@ TEST(PwmInputTps, notRegisteredWithoutPin) {
 	deinitTps();
 	initTps();
 
-	EXPECT_NE(&getPwmInputTpsForUnitTest(), Sensor::getSensorOfType(SensorType::Tps1));
+	EXPECT_NE(&getPwmInputTps(), Sensor::getSensorOfType(SensorType::Tps1));
 }
 
 static void sendPulse(EngineTestHelper& eth, int widthUs, int periodUs = 20000) {
-	auto& sensor = getPwmInputTpsForUnitTest();
+	auto& sensor = getPwmInputTps();
 	sensor.onEdge(getTimeNowNt(), true);
 	eth.moveTimeForwardUs(widthUs);
 	sensor.onEdge(getTimeNowNt(), false);
@@ -73,7 +73,7 @@ TEST(PwmInputTps, replacesAnalogTps1) {
 	engineConfiguration->pwmInputTpsPin = Gpio::E11;
 	initTps();
 
-	EXPECT_EQ(&getPwmInputTpsForUnitTest(), Sensor::getSensorOfType(SensorType::Tps1));
+	EXPECT_EQ(&getPwmInputTps(), Sensor::getSensorOfType(SensorType::Tps1));
 	EXPECT_EQ(nullptr, Sensor::getSensorOfType(SensorType::Tps1Primary));
 
 	// No pulse yet
@@ -81,7 +81,7 @@ TEST(PwmInputTps, replacesAnalogTps1) {
 
 	sendPulse(eth, 1500);
 	EXPECT_NEAR(50, Sensor::get(SensorType::Tps1).Value, 0.1);
-	EXPECT_NEAR(1500, getPwmInputTpsForUnitTest().getPulseWidthUs(), 0.1);
+	EXPECT_NEAR(1500, getPwmInputTps().getPulseWidthUs(), 0.1);
 
 	sendPulse(eth, 1800);
 	EXPECT_NEAR(80, Sensor::get(SensorType::Tps1).Value, 0.1);
@@ -101,7 +101,7 @@ TEST(PwmInputTps, ignoresFallingEdgeWithoutRisingEdge) {
 
 	// Signal already high at start-up: the first edge seen is a falling one
 	eth.moveTimeForwardUs(700);
-	getPwmInputTpsForUnitTest().onEdge(getTimeNowNt(), false);
+	getPwmInputTps().onEdge(getTimeNowNt(), false);
 	EXPECT_FALSE(Sensor::get(SensorType::Tps1).Valid);
 
 	eth.moveTimeForwardUs(18000);
@@ -139,7 +139,7 @@ TEST(PwmInputTps, timesOutWhenPulsesStop) {
 	initTps();
 
 	// The value is stamped at the falling edge
-	auto& sensor = getPwmInputTpsForUnitTest();
+	auto& sensor = getPwmInputTps();
 	sensor.onEdge(getTimeNowNt(), true);
 	eth.moveTimeForwardUs(1500);
 	sensor.onEdge(getTimeNowNt(), false);

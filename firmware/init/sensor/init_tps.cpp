@@ -8,6 +8,7 @@
 #include "linear_func.h"
 #include "tps.h"
 #include "pwm_input_tps.h"
+#include "servo_throttle.h"
 #include "auto_generated_sensor.h"
 #include "defaults.h"
 #include "board_overrides.h"
@@ -248,8 +249,14 @@ void initTps() {
 			tpsSecondaryMaximum = 20;
 		}
 
-		if (isPwmInputTps1()) {
-			initPwmInputTps();
+		if (isServoThrottleEnabled()) {
+			// The throttle is commanded by rusEFI: TPS1 is the command, the pulse input is the request
+			initServoThrottleTps();
+			if (isPwmInputTps1()) {
+				initPwmInputTps(/*registerAsTps1*/false);
+			}
+		} else if (isPwmInputTps1()) {
+			initPwmInputTps(/*registerAsTps1*/true);
 		} else
 #if EFI_SENT_SUPPORT
 		if (isDigitalTps1()) {
@@ -360,6 +367,7 @@ void deinitTps() {
 #endif
 
 	deinitPwmInputTps();
+	deinitServoThrottleTps();
 
 	wastegate.deinit();
 	idlePos.deinit();

@@ -2051,6 +2051,13 @@ end_struct
 	uint16_t pwmInputTpsMinUs;PWM input TPS: pulse width at closed throttle (0%). Set higher than the open value to reverse the direction.;"us", 1, 0, 500, 2500, 0
 	uint16_t pwmInputTpsMaxUs;PWM input TPS: pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
 
+	! --- Servo throttle ---
+	! rusEFI drives an RC-style throttle servo. The PWM input TPS pulse becomes the throttle request and TPS1 reports rusEFI's command.
+	output_pin_e servoThrottlePin;Servo throttle: output driving an RC-style throttle servo. When set, rusEFI commands the throttle: the PWM input TPS pulse is the throttle request (e.g. an autopilot's throttle channel) and TPS1 reports rusEFI's command. Mode: passthrough (command follows the request, the last command is held if the request is lost). Use a pin with a hardware timer for a jitter-free pulse. Requires power cycle.
+	uint16_t servoThrottleFrequency;Servo throttle: frame rate. 50 Hz suits any servo, digital servos accept up to 333 Hz. Requires power cycle.;"Hz", 1, 0, 50, 333, 0
+	uint16_t servoThrottleClosedUs;Servo throttle: output pulse width at closed throttle (0%).;"us", 1, 0, 500, 2500, 0
+	uint16_t servoThrottleOpenUs;Servo throttle: output pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
+
 ! end of engine_configuration_s
 	float idleParkNeutralOffset;Signed idle position offset when Lua reports Park or Neutral via setParkNeutral(boolean). Negative values reduce opening, positive values increase it. Added to running open-loop idle, not target RPM. Zero disables the correction.;"%", 1, 0, -100, 100, 1
 end_struct
