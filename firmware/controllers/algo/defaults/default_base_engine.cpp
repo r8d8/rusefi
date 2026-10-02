@@ -154,6 +154,18 @@ bool applyDefaultsOrFixAfterBurn(const engine_configuration_s* previousConfigura
     engineConfiguration->pwmInputTpsMaxUs = 2000;
     changed = true;
   }
+  if (engineConfiguration->servoThrottleFrequency == 0) {
+    engineConfiguration->servoThrottleFrequency = 50;
+    changed = true;
+  }
+  if (engineConfiguration->servoThrottleClosedUs == 0) {
+    engineConfiguration->servoThrottleClosedUs = 1000;
+    changed = true;
+  }
+  if (engineConfiguration->servoThrottleOpenUs == 0) {
+    engineConfiguration->servoThrottleOpenUs = 2000;
+    changed = true;
+  }
 
   // Seed the 2D cranking flex table for tunes that predate it (all-zero ethanol axis). Mirror the existing
   // E0 coolant curve at every ethanol level so turning on flexCranking stays neutral with respect to ethanol

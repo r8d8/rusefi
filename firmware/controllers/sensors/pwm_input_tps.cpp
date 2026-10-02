@@ -72,7 +72,7 @@ static void pwmInputTpsExtiCallback(void*, efitick_t nowNt) {
 }
 #endif // EFI_PROD_CODE
 
-void initPwmInputTps() {
+void initPwmInputTps(bool registerAsTps1) {
 #if EFI_PROD_CODE
 	if (efiExtiEnablePin("PWM input TPS", engineConfiguration->pwmInputTpsPin,
 			PAL_EVENT_MODE_BOTH_EDGES, pwmInputTpsExtiCallback, nullptr) < 0) {
@@ -81,7 +81,9 @@ void initPwmInputTps() {
 	pwmInputTpsPin = engineConfiguration->pwmInputTpsPin;
 #endif // EFI_PROD_CODE
 
-	pwmInputTps.Register();
+	if (registerAsTps1) {
+		pwmInputTps.Register();
+	}
 }
 
 void deinitPwmInputTps() {
@@ -98,8 +100,6 @@ void deinitPwmInputTps() {
 #endif // EFI_PROD_CODE
 }
 
-#if EFI_UNIT_TEST
-PwmInputTps& getPwmInputTpsForUnitTest() {
+PwmInputTps& getPwmInputTps() {
 	return pwmInputTps;
 }
-#endif // EFI_UNIT_TEST

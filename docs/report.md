@@ -734,3 +734,53 @@ Open follow-ups:
   3.3 V autopilot PWM signal, and check pulse-width accuracy with a scope.
 - A TunerStudio gauge for the measured pulse width would make calibration easier than `sensorinfo`.
 - clang build not run locally; macOS CI covers it.
+
+## 2026-10-02 - Servo throttle output, passthrough mode
+
+What was done:
+- rusEFI now drives an RC-style throttle servo (`ServoThrottle` engine module,
+  `firmware/controllers/actuators/servo_throttle.*`). Architecture change for the hybrid
+  helicopter project: the autopilot no longer governs the engine. It sends a throttle request
+  pulse (ArduPilot `H_RSC_MODE=3`, throttle curve), rusEFI owns the servo and will own the rotor
+  speed governor. This first step is passthrough: command = request.
+
+  | File | Change |
+  |---|---|
+  | `controllers/actuators/servo_throttle.h/.cpp` | New module: request -> command (passthrough, hold on loss, closed before first request) -> pulse width -> hardware PWM; TPS1 = command; config-error producer |
+  | `controllers/algo/engine.h` | `ServoThrottle` in the module list, before `TpsAccelEnrichment` |
+  | `controllers/engine_controller.cpp` | `initServoThrottleOutput()` once at boot |
+  | `controllers/core/error_handling.cpp` | `checkServoThrottleConfigError()` in `refreshConfigErrorState()` |
+  | `controllers/sensors/pwm_input_tps.*` | `initPwmInputTps(registerAsTps1)`: in servo mode the pulse is the request and is not TPS1; `getPwmInputTps()` accessor replaces the unit-test-only one |
+  | `init/sensor/init_tps.cpp` | Servo mode registers the command as TPS1 |
+  | `integration/rusefi_config.txt` | `servoThrottlePin`, `servoThrottleFrequency`, `servoThrottleClosedUs`, `servoThrottleOpenUs` |
+  | `controllers/algo/defaults/default_base_engine.cpp` | 50 Hz, 1000 / 2000 us defaults |
+  | `tunerstudio/*.ini` | "Servo throttle" dialog in the TPS page; pin and frame rate require power cycle |
+  | `unit_tests/tests/actuators/test_servo_throttle.cpp` | 9 tests |
+
+Key decisions and why:
+- TPS1 reports rusEFI's command, not the request: once the governor exists the two differ, and
+  fueling must follow what the throttle does.
+- Request lost (timeout or implausible pulse) -> hold the last command. On a helicopter, closing
+  the throttle on a lost signal is the unsafe choice; the coming governor will hold rotor speed.
+  Before the first valid request the command is closed (0%).
+- Output started once at boot: `hardware_pwm::tryInitPin()` takes a new timer channel on every
+  call and never releases one, so restarting on each burn would leak channels. Pin and frame rate
+  are `requiresPowerCycle`; pulse-width calibration applies live.
+- Missing request input is a level-triggered config error (refreshConfigErrorState producer), not
+  a critical error: the output just holds closed.
+- Output calibration (closed/open us) is separate from the input calibration, so the servo travel
+  can be matched to the throttle linkage independently of the autopilot's range.
+
+Validation:
+- Unit tests: 1367 tests / 264 suites pass (GCC 13), including 9 ServoThrottle and 11 PwmInputTps
+  tests. New sources also compiled with clang (`-Wall -Wextra`, syntax only): no diagnostics in them.
+- First full-suite run crashed (ASan SEGV): `ConfigErrorRefresh` tests call
+  `refreshConfigErrorState()` without an engine configuration; the producer now returns false
+  when `engineConfiguration` is null.
+- Not built for firmware (no ARM toolchain), not hardware tested.
+
+Open follow-ups:
+- Bench: confirm hardware PWM on the chosen uaEFI pin (Coil 6 = B10/PB8 TIM4, or Coil 2 =
+  B14/PE5 TIM9) and the pulse width on a scope.
+- Next step: rotor speed governor mode in `ServoThrottle` (request = feed-forward).
+- Live data channels for request / command / pulse width would help tuning.

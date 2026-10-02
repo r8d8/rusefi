@@ -57,6 +57,7 @@
 #include "lambda_monitor.h"
 #include "efi_output.h"
 #include "vvt.h"
+#include "servo_throttle.h"
 #include "closed_loop_fuel.h"
 #include "long_term_fuel_trim.h"
 #include "injector_deadtime_autotune.h"
@@ -192,6 +193,8 @@ public:
 #if EFI_BOOST_CONTROL
         BoostController,
 #endif // EFI_BOOST_CONTROL
+        // before TpsAccelEnrichment: it refreshes TPS1 when the servo throttle is in use
+        ServoThrottle,
         TpsAccelEnrichment,
 #if EFI_LAUNCH_CONTROL
         NitrousController,

@@ -765,6 +765,9 @@ void refreshConfigErrorState() {
 	// core producers go here, worst first, before the board hook
 	bool active = checkSettingsWriteFailure();
 	if (!active) {
+		active = checkServoThrottleConfigError();
+	}
+	if (!active) {
 		active = get_board_override_result(custom_board_updateConfigError, false);
 	}
 	if (active) {
