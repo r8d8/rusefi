@@ -127,3 +127,84 @@ TEST(DleTwin, dle120InjectorDutyAtRatedPower) {
 	EXPECT_LT(duty, 0.85);
 	EXPECT_GT(duty, 0.40);
 }
+
+// ---- Crank trigger wheel candidates (36-1 vs 60-2) ----
+
+// Rising edge at the start of each present tooth, falling edge half a tooth pitch later. Speed ramps
+// linearly from fromRpm to toRpm over the revolutions; edge times are accumulated exactly so that
+// microsecond rounding does not bias the speed at high RPM.
+struct WheelSpinner {
+	EngineTestHelper& eth;
+	int totalTeeth;
+	int missingTeeth;
+	double timeUs = 0;
+	double firedUs = 0;
+
+	void advance(double us) {
+		timeUs += us;
+		int step = (int)(timeUs - firedUs);
+		eth.moveTimeForwardAndInvokeEventsUs(step);
+		firedUs += step;
+	}
+
+	void spin(float fromRpm, float toRpm, int revolutions) {
+		for (int r = 0; r < revolutions; r++) {
+			float rpm = fromRpm + (toRpm - fromRpm) * (r + 1) / revolutions;
+			double halfToothUs = 60e6 / rpm / totalTeeth / 2;
+			for (int tooth = 0; tooth < totalTeeth; tooth++) {
+				bool present = tooth < totalTeeth - missingTeeth;
+				advance(halfToothUs);
+				if (present) {
+					eth.firePrimaryTriggerRise();
+				}
+				advance(halfToothUs);
+				if (present) {
+					eth.firePrimaryTriggerFall();
+				}
+			}
+		}
+	}
+};
+
+static void expectWheelRunsCleanly(engine_type_e type, trigger_type_e wheel, int totalTeeth, int missingTeeth, float maxRpm) {
+	EngineTestHelper eth(type, assignTestPins);
+	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
+	eth.setTriggerType(wheel);
+	Sensor::setMockValue(SensorType::Tps1, 30);
+
+	WheelSpinner spinner{eth, totalTeeth, missingTeeth};
+	// Starter speed, then run-up in realistic ramps (the engine cannot triple its speed in one turn)
+	spinner.spin(1000, 1000, 20);
+	float previousRpm = 1000;
+	for (float rpm : { 1000.0f, 3000.0f, 6000.0f, maxRpm }) {
+		spinner.spin(previousRpm, rpm, 40);
+		previousRpm = rpm;
+		spinner.spin(rpm, rpm, 10);
+		EXPECT_NEAR(rpm, Sensor::getOrZero(SensorType::Rpm), rpm * 0.002) << "at " << rpm;
+
+		auto sparks = engine->engineState.globalSparkCounter;
+		auto injections = engine->engineState.fuelInjectionCounter;
+		spinner.spin(rpm, rpm, 50);
+		EXPECT_NEAR(50, engine->engineState.globalSparkCounter - sparks, 1) << "at " << rpm;
+		EXPECT_NEAR(50, engine->engineState.fuelInjectionCounter - injections, 1) << "at " << rpm;
+	}
+
+	EXPECT_EQ(0, engine->triggerCentral.triggerState.totalTriggerErrorCounter);
+	EXPECT_EQ(0, engine->engineState.sparkOutOfOrderCounter);
+}
+
+TEST(DleTwin, dle60With36minus1Wheel) {
+	expectWheelRunsCleanly(engine_type_e::DLE_60_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_36_1, 36, 1, 8500);
+}
+
+TEST(DleTwin, dle60With60minus2Wheel) {
+	expectWheelRunsCleanly(engine_type_e::DLE_60_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_60_2, 60, 2, 8500);
+}
+
+TEST(DleTwin, dle120With36minus1Wheel) {
+	expectWheelRunsCleanly(engine_type_e::DLE_120_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_36_1, 36, 1, 8000);
+}
+
+TEST(DleTwin, dle120With60minus2Wheel) {
+	expectWheelRunsCleanly(engine_type_e::DLE_120_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_60_2, 60, 2, 8000);
+}

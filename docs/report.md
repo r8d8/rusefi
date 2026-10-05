@@ -924,3 +924,31 @@ Open follow-ups:
 - Live barometric source on uaEFI for `alphaNUseBaro` (analog baro sensor or LPS25 on I2C; the
   start-up MAP reading does not follow altitude changes in flight).
 - Tune VE with a wideband; check two-stroke premix stoichiometry against the wideband reading.
+
+## 2026-10-05 - DLE crank trigger wheel: 36-1 vs 60-2
+
+What was done:
+- The project will fit a toothed crank wheel to both DLE engines instead of using the hub magnet.
+  Both candidate wheels were run through the DLE presets in two-stroke mode
+  (`unit_tests/tests/test_dle_twin.cpp`, 4 new tests: each wheel on each engine, 1000 rpm cranking
+  then ramps to 3000 / 6000 / rated rpm).
+
+Findings:
+- Both decode cleanly: RPM within 0.2%, no trigger errors, no out-of-order sparks, one spark and one
+  injection per revolution at every step.
+- Acceleration tolerance is the same for both (probe, not kept): 1000 -> 6000 rpm in 5 revolutions
+  (~90 ms) is clean; in 3 revolutions (~50 ms, ~100 000 rpm/s) both skip one dwell through the
+  out-of-order guard. Instant steps of 3x speed also trip it on 36-1 - a test artifact.
+- So the choice is mechanical (tooth size for the Hall sensor on a small wheel), not firmware.
+
+Test harness notes:
+- A wheel spinner must accumulate edge times exactly: rounding each half-tooth step to whole
+  microseconds made 60-2 at 8500 rpm read 8618 rpm (59 -> 58 us).
+- The rev limiter cuts fuel above `rpmHardLimit`, so "rated speed" checks must stay below it.
+
+Validation:
+- Unit tests: 1396 tests / 267 suites pass (GCC 13).
+
+Open follow-ups:
+- Switch the DLE presets from `TT_NARROW_SINGLE_TOOTH` to the chosen wheel once decided, and
+  measure the missing-tooth-to-TDC angle on each engine.
