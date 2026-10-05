@@ -166,6 +166,16 @@ bool applyDefaultsOrFixAfterBurn(const engine_configuration_s* previousConfigura
     engineConfiguration->servoThrottleOpenUs = 2000;
     changed = true;
   }
+  // 0 is outside both fields' ranges. A zero minimum request would let the governor fight an idle
+  // request (motor interlock off, autorotation) to hold speed.
+  if (engineConfiguration->servoGovernorEngageWindow == 0) {
+    engineConfiguration->servoGovernorEngageWindow = 300;
+    changed = true;
+  }
+  if (engineConfiguration->servoGovernorMinRequest == 0) {
+    engineConfiguration->servoGovernorMinRequest = 10;
+    changed = true;
+  }
 
   // Seed the 2D cranking flex table for tunes that predate it (all-zero ethanol axis). Mirror the existing
   // E0 coolant curve at every ethanol level so turning on flexCranking stays neutral with respect to ethanol
@@ -318,6 +328,14 @@ void setDefaultBaseEngine() {
 #endif
 
   engineConfiguration->isTuningDetectorEnabled = true;
+
+  // Servo throttle governor starting point (governor itself stays disabled): RPM error in,
+  // percent trim out, +-20% authority
+  engineConfiguration->servoGovernorPid.pFactor = 0.01;
+  engineConfiguration->servoGovernorPid.iFactor = 0.02;
+  engineConfiguration->servoGovernorPid.dFactor = 0;
+  engineConfiguration->servoGovernorPid.minValue = -20;
+  engineConfiguration->servoGovernorPid.maxValue = 20;
 
   for (size_t i = 0; i < engineConfiguration->cylindersCount; i++) {
     // one knock sensor by default. See also 'setLeftRightBanksNeedBetterName()'

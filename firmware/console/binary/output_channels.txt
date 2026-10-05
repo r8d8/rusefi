@@ -499,6 +499,12 @@ float mapFast
 	bit dashHighBeams;Dash: High beams
 	bit dashParkingBrake;Dash: Parking brake
 
+	! Servo throttle (servo_throttle.cpp)
+	int16_t autoscale servoThrottleRequest;Servo throttle: request;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 1
+	uint16_t servoThrottlePulseUs;Servo throttle: output pulse;"us", 1, 0, 0, 2500, 0
+	uint8_t servoGovernorState;Servo throttle: governor state;"", 1, 0, 0, 3, 0
+	pid_status_s servoGovernorStatus
+
 ! TunerStudio/MLV integration requires channel 'engine' and exact log label 'Engine'.
 ! Bits: 0 running, 1 cranking, 2 after-start enrichment, 3 warmup enrichment,
 ! 4 TPS acceleration (including MAP Prediction), 5 TPS deceleration or DFCO.

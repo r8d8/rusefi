@@ -784,3 +784,55 @@ Open follow-ups:
   B14/PE5 TIM9) and the pulse width on a scope.
 - Next step: rotor speed governor mode in `ServoThrottle` (request = feed-forward).
 - Live data channels for request / command / pulse width would help tuning.
+
+## 2026-10-05 - Servo throttle governor (rotor speed)
+
+What was done:
+- Closed-loop engine speed governor in `ServoThrottle` (`controllers/actuators/servo_throttle.*`):
+  the throttle request from the autopilot (ArduPilot `H_RSC_MODE=3`, throttle curve) is the
+  feed-forward, a PID on engine RPM adds a trim. Overspeed protection closes the throttle in both
+  passthrough and governor modes.
+
+  | File | Change |
+  |---|---|
+  | `controllers/actuators/servo_throttle.h/.cpp` | `ServoGovernorState` (Passthrough / Following / Governing / Overspeed), `update(request, rpm, dt)`, governor step, overspeed latch, live data |
+  | `integration/rusefi_config.txt` | `servoGovernorEnabled`, `servoGovernorTargetRpm`, `servoGovernorEngageWindow`, `servoGovernorMinRequest`, `servoThrottleOverspeedRpm`, `pid_s servoGovernorPid` |
+  | `console/binary/output_channels.txt` | `servoThrottleRequest`, `servoThrottlePulseUs`, `servoGovernorState`, `pid_status_s servoGovernorStatus` |
+  | `controllers/algo/defaults/default_base_engine.cpp` | Migration: engage window 300 rpm, minimum request 10%; fresh tunes: PID 0.01 / 0.02 / 0, trim +-20% |
+  | `tunerstudio/tunerstudio.template.ini` | Governor and overspeed fields in the "Servo throttle" dialog |
+  | `unit_tests/tests/actuators/test_servo_throttle.cpp` | 15 ServoGovernor tests |
+
+Key decisions and why:
+- Feed-forward + trim, not a full PID on throttle: the autopilot's throttle curve already carries
+  collective anticipation; the PID only corrects what the curve gets wrong (density altitude,
+  engine condition). Trim authority (`pid_s` min/max) bounds what a bad tune or bad RPM can do.
+- Governor off below `servoGovernorMinRequest`: that is how idle, motor interlock off and
+  autorotation (all sent as a low request by ArduPilot) reach the throttle. A zero minimum would
+  let the governor fight an idle request, so 0 is migrated to 10%.
+- Engages only once RPM is inside the window below target (spool-up follows the request, like
+  ArduPilot's own governor), bumpless (trim starts at 0). Leaving `Governing` resets the PID.
+- Underspeed never disengages the governor: dropping the trim when the engine cannot keep up would
+  remove power exactly when it is needed. The integrator is clamped to the trim authority
+  (`iTermMin/Max`), so it recovers immediately when the load goes away.
+- A lost request keeps governing on the last feed-forward (holds rotor speed).
+- Target 0 never governs (it would trim the throttle towards 0 RPM).
+- Overspeed latches until RPM is back at the governor target (or one engage window below the limit
+  without the governor) to avoid chatter; 0 disables it.
+- Target is engine RPM (rotor speed x gear ratio): the governor only sees engine speed, and there is
+  no ratio parameter to get wrong.
+
+Validation:
+- Unit tests: 1382 tests / 265 suites pass (GCC 13), including 15 new ServoGovernor tests (spool-up,
+  engage window, bumpless engage, integration to the authority limit, overspeed trim, clamping, low
+  request, no RPM, zero target, lost request, overspeed latch in both modes, fast-callback path
+  with mocked RPM and live data).
+- Mutation check: removing the integrator clamp makes the anti-windup test fail.
+- Changed sources compiled with clang (`-Wall -Wextra`, syntax only): no diagnostics in them.
+- Not built for firmware (no ARM toolchain), not hardware tested.
+
+Open follow-ups:
+- Ground-run tuning on the DLE-60: start in passthrough, log `servoThrottleRequest` / TPS1 /
+  RPM, then enable the governor with low gains.
+- Optional fast trim through ignition timing (servo slew limits how fast throttle can correct).
+- RPM source: the governor uses crank RPM, so a clutch slip shows up as rotor underspeed only via
+  the autopilot's own RPM input.

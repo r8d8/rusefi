@@ -2053,10 +2053,18 @@ end_struct
 
 	! --- Servo throttle ---
 	! rusEFI drives an RC-style throttle servo. The PWM input TPS pulse becomes the throttle request and TPS1 reports rusEFI's command.
-	output_pin_e servoThrottlePin;Servo throttle: output driving an RC-style throttle servo. When set, rusEFI commands the throttle: the PWM input TPS pulse is the throttle request (e.g. an autopilot's throttle channel) and TPS1 reports rusEFI's command. Mode: passthrough (command follows the request, the last command is held if the request is lost). Use a pin with a hardware timer for a jitter-free pulse. Requires power cycle.
+	output_pin_e servoThrottlePin;Servo throttle: output driving an RC-style throttle servo. When set, rusEFI commands the throttle: the PWM input TPS pulse is the throttle request (e.g. an autopilot's throttle channel) and TPS1 reports rusEFI's command. The command follows the request (passthrough) or, with the governor enabled, the request plus a governor trim. A lost request is held. Use a pin with a hardware timer for a jitter-free pulse. Requires power cycle.
 	uint16_t servoThrottleFrequency;Servo throttle: frame rate. 50 Hz suits any servo, digital servos accept up to 333 Hz. Requires power cycle.;"Hz", 1, 0, 50, 333, 0
 	uint16_t servoThrottleClosedUs;Servo throttle: output pulse width at closed throttle (0%).;"us", 1, 0, 500, 2500, 0
 	uint16_t servoThrottleOpenUs;Servo throttle: output pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
+
+	! --- Servo throttle governor ---
+	bit servoGovernorEnabled,"enabled","disabled";Servo throttle governor: closed-loop engine speed control. The throttle request becomes feed-forward and a PID adds a trim to hold the target RPM. Follows the request without governing while it is below the minimum request (idle, motor interlock off, autorotation) and until RPM first comes within the engage window.
+	uint16_t servoGovernorTargetRpm;Servo throttle governor: target engine RPM (rotor speed times the gear ratio).;"rpm", 1, 0, 0, 20000, 0
+	uint16_t servoGovernorEngageWindow;Servo throttle governor: engages once engine RPM is within this many RPM below the target.;"rpm", 1, 0, 1, 5000, 0
+	uint8_t servoGovernorMinRequest;Servo throttle governor: below this request the governor is off and the throttle follows the request (idle, motor interlock off, autorotation).;"%", 1, 0, 1, 100, 0
+	uint16_t servoThrottleOverspeedRpm;Servo throttle: above this engine RPM the throttle is closed until RPM falls back to the governor target (or to this limit minus the engage window without the governor). Works in passthrough too. 0 = off.;"rpm", 1, 0, 0, 20000, 0
+	pid_s servoGovernorPid;Servo throttle governor PID. Error is in RPM, output is the trim in percent added to the request. Min/max limit the trim authority.
 
 ! end of engine_configuration_s
 	float idleParkNeutralOffset;Signed idle position offset when Lua reports Park or Neutral via setParkNeutral(boolean). Negative values reduce opening, positive values increase it. Added to running open-loop idle, not target RPM. Zero disables the correction.;"%", 1, 0, -100, 100, 1

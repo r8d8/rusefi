@@ -165,3 +165,233 @@ TEST(ServoThrottle, configErrorWithoutRequestInput) {
 
 	resetConfigErrorStateForUnitTest();
 }
+
+// ---- Governor ----
+
+static constexpr float dt = 0.005f;
+
+static SensorResult rpmOf(float rpm) {
+	return rpm;
+}
+
+static void configureGovernor() {
+	engineConfiguration->servoGovernorEnabled = true;
+	engineConfiguration->servoGovernorTargetRpm = 6000;
+	engineConfiguration->servoGovernorEngageWindow = 300;
+	engineConfiguration->servoGovernorMinRequest = 10;
+	engineConfiguration->servoGovernorPid.pFactor = 0.01;
+	engineConfiguration->servoGovernorPid.iFactor = 0.02;
+	engineConfiguration->servoGovernorPid.dFactor = 0;
+	engineConfiguration->servoGovernorPid.offset = 0;
+	engineConfiguration->servoGovernorPid.minValue = -20;
+	engineConfiguration->servoGovernorPid.maxValue = 20;
+	servo().reset();
+}
+
+TEST(ServoGovernor, defaults) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	EXPECT_FALSE(engineConfiguration->servoGovernorEnabled);
+	EXPECT_EQ(300, engineConfiguration->servoGovernorEngageWindow);
+	EXPECT_EQ(10, engineConfiguration->servoGovernorMinRequest);
+	EXPECT_EQ(0, engineConfiguration->servoThrottleOverspeedRpm);
+	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
+	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
+}
+
+TEST(ServoGovernor, disabledIsPassthrough) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorEnabled = false;
+
+	servo().update(40.0f, rpmOf(5000), dt);
+	EXPECT_EQ(ServoGovernorState::Passthrough, servo().getState());
+	EXPECT_NEAR(40, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, followsRequestDuringSpoolUp) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(50.0f, rpmOf(3000), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	EXPECT_NEAR(50, servo().getCommandPercent(), EPS4D);
+
+	// Still one RPM short of the engage window
+	servo().update(50.0f, rpmOf(5699), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+}
+
+TEST(ServoGovernor, engagesBumplessInsideWindow) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(50.0f, rpmOf(5000), dt);
+	servo().update(50.0f, rpmOf(5800), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	// First step: P = 0.01 * 200 = 2%, I = 0.02 * 0.005 * 200 = 0.02%
+	EXPECT_NEAR(2.02, servo().getTrim(), 1e-3);
+	EXPECT_NEAR(52.02, servo().getCommandPercent(), 1e-3);
+}
+
+TEST(ServoGovernor, onTargetCommandEqualsRequest) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(45.0f, rpmOf(6000), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(45, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, sustainedUnderspeedIntegratesToTheAuthorityLimit) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	for (int i = 0; i < 10000; i++) {
+		servo().update(50.0f, rpmOf(5800), dt);
+	}
+	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(70, servo().getCommandPercent(), EPS4D);
+
+	// Anti-windup: the integrator stopped at the 20% limit, so the first overspeed step already
+	// pulls the trim down (P -2%). A wound-up integrator would keep it pinned at 20%.
+	servo().update(50.0f, rpmOf(6200), dt);
+	EXPECT_NEAR(17.98, servo().getTrim(), 1e-3);
+}
+
+TEST(ServoGovernor, overspeedTrimsDown) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	servo().update(50.0f, rpmOf(6200), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_LT(servo().getTrim(), -1.9);
+	EXPECT_LT(servo().getCommandPercent(), 48.1);
+}
+
+TEST(ServoGovernor, commandClampedToThrottleRange) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	for (int i = 0; i < 10000; i++) {
+		servo().update(95.0f, rpmOf(5800), dt);
+	}
+	EXPECT_NEAR(100, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, lowRequestTurnsGovernorOff) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	for (int i = 0; i < 100; i++) {
+		servo().update(50.0f, rpmOf(5800), dt);
+	}
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	// Motor interlock off / autorotation: the autopilot requests idle
+	servo().update(5.0f, rpmOf(5800), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	EXPECT_NEAR(5, servo().getCommandPercent(), EPS4D);
+	EXPECT_NEAR(0, servo().getTrim(), EPS4D);
+
+	// Re-engages from a fresh integrator
+	servo().update(50.0f, rpmOf(6000), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(50, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, noRpmFollowsRequest) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	servo().update(50.0f, UnexpectedCode::Timeout, dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	EXPECT_NEAR(50, servo().getCommandPercent(), EPS4D);
+
+	servo().update(50.0f, rpmOf(0), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+}
+
+TEST(ServoGovernor, zeroTargetNeverGoverns) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorTargetRpm = 0;
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	EXPECT_NEAR(50, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	servo().update(UnexpectedCode::Timeout, rpmOf(5900), dt);
+	EXPECT_FALSE(servo().isRequestValid());
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	// Feed-forward held at 50%, governor adds a positive trim for the underspeed
+	EXPECT_GT(servo().getCommandPercent(), 50.9);
+}
+
+TEST(ServoGovernor, overspeedClosesThrottleUntilBackOnTarget) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoThrottleOverspeedRpm = 7000;
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	servo().update(50.0f, rpmOf(7100), dt);
+	EXPECT_EQ(ServoGovernorState::Overspeed, servo().getState());
+	EXPECT_NEAR(0, servo().getCommandPercent(), EPS4D);
+
+	// Latched until the governor target
+	servo().update(50.0f, rpmOf(6500), dt);
+	EXPECT_EQ(ServoGovernorState::Overspeed, servo().getState());
+
+	servo().update(50.0f, rpmOf(5990), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_GT(servo().getCommandPercent(), 50);
+}
+
+TEST(ServoGovernor, overspeedProtectsPassthroughToo) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorEnabled = false;
+	engineConfiguration->servoThrottleOverspeedRpm = 7000;
+
+	servo().update(60.0f, rpmOf(7100), dt);
+	EXPECT_EQ(ServoGovernorState::Overspeed, servo().getState());
+	EXPECT_NEAR(0, servo().getCommandPercent(), EPS4D);
+
+	// Released one engage window below the limit
+	servo().update(60.0f, rpmOf(6750), dt);
+	EXPECT_EQ(ServoGovernorState::Overspeed, servo().getState());
+	servo().update(60.0f, rpmOf(6650), dt);
+	EXPECT_EQ(ServoGovernorState::Passthrough, servo().getState());
+	EXPECT_NEAR(60, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, fastCallbackUsesRpmSensorAndPostsLiveData) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureServoThrottle();
+	configureGovernor();
+
+	Sensor::setMockValue(SensorType::Rpm, 5800);
+	sendRequestPulse(eth, 1500);
+	servo().onFastCallback();
+
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(servo().getCommandPercent(), Sensor::get(SensorType::Tps1).Value, 1e-3);
+	EXPECT_EQ((uint8_t)ServoGovernorState::Governing, engine->outputChannels.servoGovernorState);
+	EXPECT_NEAR(50, engine->outputChannels.servoThrottleRequest, 0.1);
+	EXPECT_NEAR(servo().getCommandPulseUs(), engine->outputChannels.servoThrottlePulseUs, 1);
+
+	Sensor::resetMockValue(SensorType::Rpm);
+	deinitTps();
+}
