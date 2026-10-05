@@ -952,3 +952,36 @@ Validation:
 Open follow-ups:
 - Switch the DLE presets from `TT_NARROW_SINGLE_TOOTH` to the chosen wheel once decided, and
   measure the missing-tooth-to-TDC angle on each engine.
+
+## 2026-10-05 - DLE presets switched to a 36-1 crank wheel
+
+What was done:
+- `setDle60Twin()` / `setDle120Twin()`: trigger `TT_NARROW_SINGLE_TOOTH` -> `TT_TOOTHED_WHEEL_36_1`
+  (two-stroke mode kept). `globalTriggerAngleOffset` placeholder changed 28 -> 90: the wheel is to be
+  fitted so that the first tooth after the gap passes the sensor ~90 deg BTDC; must be measured with
+  a timing light before the first start.
+- `test_dle_twin.cpp`: single-pulse helper removed; the injector-duty tests now spin the preset's
+  36-1 wheel; the wheel tests use the preset as-is for 36-1 and switch the trigger only for the 60-2
+  alternative. The two single-pulse per-revolution tests were dropped (the wheel tests assert the
+  same one spark and one injection per revolution at every speed step).
+
+Sensor review (ZF GS100701, planned by the user):
+- Single back-biased Hall, 5-24 V, open-collector sink output (needs a pull-up), ~1.5 mm typical
+  air gap, 15/32-32 aluminium housing. Its recommended target is 2.5 mm teeth with 10 mm spaces and
+  6.35 mm thickness, i.e. ~12.5 mm pitch -> a 36-1 wheel of ~143 mm diameter. A 50-70 mm wheel has a
+  4.4-6.1 mm pitch (2.2-3.1 mm teeth and slots) - far below that guidance.
+- Recommended instead: a differential (dual-element) gear-tooth sensor rated for small features,
+  e.g. Honeywell SNDH-T (min 2.0 mm tooth and 2.0 mm slot, 0-2 mm air gap, 4.5-18 V, gear width
+  > 5 mm recommended); SNG-Q has the same target figures. Differential sensors must be aligned with
+  the direction of rotation.
+- uaEFI wiring: open-collector Hall to C5 (HALL1, 4.7K pull-up, `MM100_IN_D1`) as
+  `triggerInputPins[0]`; the board default is the MAX9924 VR2 input (C17), so the pin is set per
+  installation, not by the engine preset.
+
+Validation:
+- Unit tests: 1394 tests / 267 suites pass (GCC 13; 1396 before minus the two dropped tests).
+- Clang `-fsyntax-only` on the changed files: no diagnostics in them.
+
+Open follow-ups:
+- Wheel outside diameter (>= 60 mm keeps 36-1 teeth above the 2.0 mm minimum), steel rim >= 5 mm
+  wide, sensor bracket; measure the trigger angle on each engine.

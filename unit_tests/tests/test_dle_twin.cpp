@@ -2,16 +2,6 @@
 
 #include "dle_twin.h"
 
-// One narrow magnet pulse per revolution
-static void runAtRpm(EngineTestHelper& eth, float rpm, int revolutions) {
-	float periodMs = 60000 / rpm;
-	float pulseMs = 0.3;
-	for (int i = 0; i < revolutions; i++) {
-		eth.smartFireRise(periodMs - pulseMs);
-		eth.smartFireFall(pulseMs);
-	}
-}
-
 template<typename TValue, int TSize>
 static void expectStrictlyAscending(const TValue (&bins)[TSize]) {
 	for (int i = 1; i < TSize; i++) {
@@ -22,7 +12,7 @@ static void expectStrictlyAscending(const TValue (&bins)[TSize]) {
 static void expectDleTwinCommon() {
 	EXPECT_TRUE(engineConfiguration->twoStroke);
 	EXPECT_EQ(1, engineConfiguration->cylindersCount);
-	EXPECT_EQ(trigger_type_e::TT_NARROW_SINGLE_TOOTH, engineConfiguration->trigger.type);
+	EXPECT_EQ(trigger_type_e::TT_TOOTHED_WHEEL_36_1, engineConfiguration->trigger.type);
 	EXPECT_EQ(engine_load_mode_e::LM_ALPHA_N, engineConfiguration->fuelAlgorithm);
 	EXPECT_TRUE(engineConfiguration->alphaNUseBaro);
 	EXPECT_TRUE(engineConfiguration->alphaNUseIat);
@@ -70,66 +60,6 @@ static void assignTestPins(engine_configuration_s* c) {
 	c->ignitionPins[0] = Gpio::A2;
 }
 
-static void expectOneSparkAndInjectionPerRevolution(engine_type_e type) {
-	EngineTestHelper eth(type, assignTestPins);
-	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
-	Sensor::setMockValue(SensorType::Tps1, 30);
-
-	// Starter, then run-up
-	// (a jump from standstill straight to 6000 rpm makes the spark logic skip one dwell on purpose)
-	runAtRpm(eth, 1500, 20);
-	runAtRpm(eth, 3000, 30);
-	runAtRpm(eth, 6000, 50);
-	EXPECT_NEAR(6000, Sensor::getOrZero(SensorType::Rpm), 10);
-	EXPECT_EQ(0, engine->triggerCentral.triggerState.totalTriggerErrorCounter);
-
-	auto sparks = engine->engineState.globalSparkCounter;
-	auto injections = engine->engineState.fuelInjectionCounter;
-	runAtRpm(eth, 6000, 100);
-
-	EXPECT_NEAR(100, engine->engineState.globalSparkCounter - sparks, 2);
-	EXPECT_NEAR(100, engine->engineState.fuelInjectionCounter - injections, 2);
-	EXPECT_EQ(0, engine->engineState.sparkOutOfOrderCounter);
-	EXPECT_EQ(0, engine->triggerCentral.triggerState.totalTriggerErrorCounter);
-}
-
-TEST(DleTwin, dle60RunsOneSparkAndOneInjectionPerRevolution) {
-	expectOneSparkAndInjectionPerRevolution(engine_type_e::DLE_60_TWIN);
-}
-
-TEST(DleTwin, dle120RunsOneSparkAndOneInjectionPerRevolution) {
-	expectOneSparkAndInjectionPerRevolution(engine_type_e::DLE_120_TWIN);
-}
-
-// The suggested injector must deliver rated-power fuel below ~85% duty, and not be so large that
-// it runs at a tiny duty
-static float injectorDutyAtWot(engine_type_e type, float rpm) {
-	EngineTestHelper eth(type, assignTestPins);
-	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
-	Sensor::setMockValue(SensorType::Tps1, 100);
-	runAtRpm(eth, 1500, 20);
-	runAtRpm(eth, rpm, 100);
-	EXPECT_NEAR(rpm, Sensor::getOrZero(SensorType::Rpm), 20);
-
-	// Two-stroke: one injection per revolution
-	float revolutionMs = 60000 / rpm;
-	return engine->engineState.injectionDuration / revolutionMs;
-}
-
-TEST(DleTwin, dle60InjectorDutyAtRatedPower) {
-	float duty = injectorDutyAtWot(engine_type_e::DLE_60_TWIN, 8500);
-	EXPECT_LT(duty, 0.85);
-	EXPECT_GT(duty, 0.40);
-}
-
-TEST(DleTwin, dle120InjectorDutyAtRatedPower) {
-	float duty = injectorDutyAtWot(engine_type_e::DLE_120_TWIN, 8000);
-	EXPECT_LT(duty, 0.85);
-	EXPECT_GT(duty, 0.40);
-}
-
-// ---- Crank trigger wheel candidates (36-1 vs 60-2) ----
-
 // Rising edge at the start of each present tooth, falling edge half a tooth pitch later. Speed ramps
 // linearly from fromRpm to toRpm over the revolutions; edge times are accumulated exactly so that
 // microsecond rounding does not bias the speed at high RPM.
@@ -166,10 +96,46 @@ struct WheelSpinner {
 	}
 };
 
+// The suggested injector must deliver rated-power fuel below ~85% duty, and not be so large that
+// it runs at a tiny duty
+static float injectorDutyAtWot(engine_type_e type, float rpm) {
+	EngineTestHelper eth(type, assignTestPins);
+	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
+	Sensor::setMockValue(SensorType::Tps1, 100);
+
+	// The preset's 36-1 wheel
+	WheelSpinner spinner{eth, 36, 1};
+	spinner.spin(1000, 1000, 20);
+	spinner.spin(1000, rpm, 80);
+	spinner.spin(rpm, rpm, 20);
+	EXPECT_NEAR(rpm, Sensor::getOrZero(SensorType::Rpm), 20);
+
+	// Two-stroke: one injection per revolution
+	float revolutionMs = 60000 / rpm;
+	return engine->engineState.injectionDuration / revolutionMs;
+}
+
+TEST(DleTwin, dle60InjectorDutyAtRatedPower) {
+	float duty = injectorDutyAtWot(engine_type_e::DLE_60_TWIN, 8500);
+	EXPECT_LT(duty, 0.85);
+	EXPECT_GT(duty, 0.40);
+}
+
+TEST(DleTwin, dle120InjectorDutyAtRatedPower) {
+	float duty = injectorDutyAtWot(engine_type_e::DLE_120_TWIN, 8000);
+	EXPECT_LT(duty, 0.85);
+	EXPECT_GT(duty, 0.40);
+}
+
+// ---- Crank trigger wheels: the presets' 36-1, and 60-2 as the alternative ----
+
+// One spark and one injection per revolution (two-stroke) from starter speed to rated RPM
 static void expectWheelRunsCleanly(engine_type_e type, trigger_type_e wheel, int totalTeeth, int missingTeeth, float maxRpm) {
 	EngineTestHelper eth(type, assignTestPins);
 	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
-	eth.setTriggerType(wheel);
+	if (engineConfiguration->trigger.type != wheel) {
+		eth.setTriggerType(wheel);
+	}
 	Sensor::setMockValue(SensorType::Tps1, 30);
 
 	WheelSpinner spinner{eth, totalTeeth, missingTeeth};

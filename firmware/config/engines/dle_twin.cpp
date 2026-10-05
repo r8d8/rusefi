@@ -11,16 +11,19 @@
  * a two-tower (wasted-spark style) coil that fires both plugs in series. Confirm simultaneous
  * firing on the actual engine with a timing light on both plugs.
  *
- * Trigger: the stock hub magnet passing a Hall sensor, one narrow pulse per revolution
- * (TT_NARROW_SINGLE_TOOTH, two-stroke cycle = 360 degrees).
+ * Trigger: a 36-1 crank wheel fitted to the engine, read by a Hall gear-tooth sensor
+ * (TT_TOOTHED_WHEEL_36_1, two-stroke cycle = 360 degrees). 36-1 rather than 60-2: both decode
+ * equally well in two-stroke mode (see test_dle_twin.cpp), and on a small wheel 36-1 gives ~1.7x
+ * larger teeth, which suits the sensor's minimum tooth size and air gap. The stock hub magnet and
+ * DLE ignition module are not used.
  *
  * Load: alpha-N (TPS = rusEFI's own servo command), with barometric and IAT correction because the
  * helicopter operates at altitude. A live barometric sensor is needed for alphaNUseBaro to help.
  *
  * Everything below is a STARTING POINT, not a tune:
- * - globalTriggerAngleOffset assumes the magnet passes the sensor 28 degrees BTDC. MEASURE IT with a
- *   timing light (cranking timing is fixed) before the first start - an error here goes straight
- *   into ignition timing.
+ * - globalTriggerAngleOffset assumes the wheel is fitted so that the first tooth after the gap
+ *   passes the sensor 90 degrees BTDC. MEASURE IT with a timing light (cranking timing is fixed)
+ *   before the first start - an error here goes straight into ignition timing.
  * - VE and timing tables are generic shapes; tune VE with a wideband sensor.
  * - Injector flow is for the injector size suggested for each engine; set the real one.
  *
@@ -35,8 +38,8 @@
 
 #define ENGINE_MAKE_DLE "DLE"
 
-// Magnet-to-TDC angle, assumed until measured (see header comment)
-#define DLE_TRIGGER_ANGLE_BTDC 28
+// First tooth after the gap to TDC, assumed until measured (see header comment)
+#define DLE_TRIGGER_ANGLE_BTDC 90
 
 /**
  * Quadratic TPS spacing: alpha-N needs resolution at small throttle openings, where airflow
@@ -96,7 +99,7 @@ static void setDleTwinCommon(float maxRpm) {
 	engineConfiguration->firingOrder = FO_1;
 	engineConfiguration->twoStroke = true;
 
-	engineConfiguration->trigger.type = trigger_type_e::TT_NARROW_SINGLE_TOOTH;
+	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_36_1;
 	engineConfiguration->globalTriggerAngleOffset = DLE_TRIGGER_ANGLE_BTDC;
 
 	// One output, two-tower coil firing both plugs
