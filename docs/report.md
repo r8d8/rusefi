@@ -1016,3 +1016,22 @@ Open follow-ups:
 - Measure each engine's front stack (crankcase nose to drive hub, hub bolt pattern) for the two
   adapters, and the sensor bracket location at r = 41 mm from the shaft axis.
 - Wheel runout <= 0.1 mm TIR so the ~1 mm air gap holds.
+
+## 2026-10-05 - DLE trigger wheel tooth shape and sensor
+
+Decisions (user): crank sensor Honeywell SNDH-T (dual differential Hall, min 2.0 mm tooth and slot);
+narrow-tooth 36-1 wheel - 2.5 mm teeth, 4.5 mm gaps at the 80 mm OD, 5 mm tooth height - which also
+gives the cheaper single-element candidates (ZF GS101205, Honeywell SNG-SPRC-001, OEM VW Hall crank
+sensors) a better chance on the bench. Spec text updated in the `dle_twin.cpp` header comment;
+the full wheel spec and sensor comparison live in hybrid_ctrl `docs/heli-hybrid-architecture.md`.
+
+Check: the 36-1 decoder syncs on one edge, so tooth duty should not matter. Verified by temporarily
+running the DLE wheel tests (`test_dle_twin.cpp`, WheelSpinner) with 36% tooth duty instead of 50%:
+all 8 pass, same RPM accuracy and no trigger errors. The probe was not kept (the test file is
+unchanged).
+
+Validation: comment-only firmware change.
+
+Open follow-ups:
+- Bench the SNDH-T and GS101205 on the real wheel (scope at 0.5 / 1.0 / 1.5 mm air gap, cranking to
+  9000 rpm).
