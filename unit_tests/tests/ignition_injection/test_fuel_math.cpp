@@ -95,6 +95,45 @@ TEST(AirmassModes, AlphaNUseIat) {
 	EXPECT_NEAR(dut.getAirmass(1200, false).CylinderAirmass, expectedAirmassHot, EPS4D);
 }
 
+static mass_t alphaNAirmassAt(float baroKpa, bool useBaro) {
+	engineConfiguration->displacement = 4.0f;
+	engineConfiguration->cylindersCount = 4;
+	engineConfiguration->alphaNUseIat = false;
+	engineConfiguration->alphaNUseBaro = useBaro;
+
+	StrictMock<MockVp3d> veTable;
+	EXPECT_CALL(veTable, getValue(1200, FloatNear(50, EPS4D)))
+		.WillRepeatedly(Return(35.0f));
+	AlphaNAirmass dut(veTable);
+
+	Sensor::setMockValue(SensorType::Tps1, 50);
+	if (baroKpa > 0) {
+		Sensor::setMockValue(SensorType::BarometricPressure, baroKpa);
+	} else {
+		Sensor::resetMockValue(SensorType::BarometricPressure);
+	}
+
+	return dut.getAirmass(1200, false).CylinderAirmass;
+}
+
+TEST(AirmassModes, AlphaNUseBaro) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	// Mass of 1 liter of air * VE at the standard atmosphere
+	mass_t seaLevel = 1.2047f * 0.35f;
+
+	// Disabled: the baro reading is ignored
+	EXPECT_NEAR(seaLevel, alphaNAirmassAt(80, false), EPS4D);
+
+	// Enabled: airmass scales with pressure - 80 kPa is about 2000 m
+	EXPECT_NEAR(seaLevel * 80 / STD_ATMOSPHERE, alphaNAirmassAt(80, true), EPS4D);
+
+	// Enabled but no baro sensor: standard atmosphere
+	EXPECT_NEAR(seaLevel, alphaNAirmassAt(0, true), EPS4D);
+
+	Sensor::resetMockValue(SensorType::BarometricPressure);
+}
+
 TEST(AirmassModes, AlphaNFailedTps) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 

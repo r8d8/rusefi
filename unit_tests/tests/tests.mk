@@ -179,6 +179,7 @@ TESTS_SRC_CPP = \
 	tests/test_bench_test.cpp \
 	tests/test_lambda_monitor.cpp \
 	tests/test_flex_sensor.cpp \
+	tests/test_dle_twin.cpp \
 	tests/sensor/basic_sensor.cpp \
 	tests/sensor/test_pwm_input_tps.cpp \
 	tests/sensor/func_sensor.cpp \

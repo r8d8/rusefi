@@ -870,3 +870,57 @@ Open follow-ups:
   holds the last command itself and a wiring fault should not open the throttle to mid travel.
 - Measure the real stroke time on the bench (step command, video or scope on the servo pot) and
   set `servoThrottleFullTravelMs` from it.
+
+## 2026-10-05 - DLE-60 / DLE-120 twin engine presets, Alpha-N barometric correction
+
+What was done:
+- Engine presets for the DLE-60 Twin (engine type 106) and DLE-120 Twin (107), two-stroke boxer
+  twins converted to fuel injection for the hybrid helicopter project (`config/engines/dle_twin.*`).
+- Opt-in barometric correction for Alpha-N (`alphaNUseBaro`): Alpha-N airmass used a hard-coded
+  standard atmosphere (there was a TODO for it), so at the project's 1500-2000 m operating altitude
+  every Alpha-N engine ran ~18-21% rich.
+
+  | File | Change |
+  |---|---|
+  | `config/engines/dle_twin.h/.cpp` | `setDle60Twin()`, `setDle120Twin()` + shared base |
+  | `controllers/algo/engine_type_e.h`, `engine_type_impl.cpp`, `config/engines/engines.mk` | `DLE_60_TWIN = 106`, `DLE_120_TWIN = 107`, board-independent |
+  | `controllers/algo/airmass/alphan_airmass.cpp` | Pressure = `BarometricPressure` sensor when `alphaNUseBaro`, standard atmosphere otherwise or on sensor failure |
+  | `integration/rusefi_config.txt`, `tunerstudio/tunerstudio.template.ini` | `alphaNUseBaro` bit, field next to "Alpha-N uses IAT" |
+  | `unit_tests/tests/test_dle_twin.cpp` | 6 tests: configuration, one spark + one injection per revolution while running up, WOT injector duty |
+  | `unit_tests/tests/ignition_injection/test_fuel_math.cpp` | `AirmassModes.AlphaNUseBaro` |
+
+Key decisions and why:
+- Both engines are twins (earlier project notes called the DLE-60 a single - wrong). The boxer's
+  pistons reach TDC together and the stock DLE "TWIN" ignition fires both plugs at once, so the
+  preset models one two-stroke cylinder of the full displacement: `cylindersCount = 1`,
+  `IM_ONE_COIL` into a two-tower coil firing both plugs. Simultaneous firing still to be confirmed
+  with a timing light on the real engines.
+- Trigger: the stock hub magnet on a Hall sensor = `TT_NARROW_SINGLE_TOOTH`, `twoStroke`.
+  `globalTriggerAngleOffset` = 28 is an assumption (typical magnet-to-TDC for these CDIs); an error
+  goes straight into spark timing, and a larger offset errs towards retard.
+- Alpha-N on TPS = servo command, with IAT and barometric correction. VE starting map rises to ~90%
+  at WOT: at rated power these engines move about their swept air mass per revolution (DLE-60:
+  7 hp x ~540 g/kWh at AFR ~12.5 = ~95%). A 70% ceiling (first draft) would have been ~25% lean at
+  WOT - seizure risk on an air-cooled two-stroke. Lambda target 1.0 below 40% TPS, 0.85 at 80%+.
+- RPM-only timing (stock-CDI-like): 10 deg up to 1500 rpm, 22 deg at 3000, 26 deg from 4000.
+- Injectors sized by the WOT duty test: DLE-60 100 cc/min -> 75% at 8500 rpm; DLE-120 150 cc/min
+  gave 87%, raised to 180 cc/min -> 76% at 8000 rpm.
+- Servo throttle defaults for the KST SV12-12 reference servo (333 Hz, 180 ms stroke); overspeed
+  closes the throttle 300 rpm below the hard rev limit (9000 / 8500).
+
+Validation:
+- Unit tests: 1392 tests / 267 suites pass (GCC 13); changed sources compile cleanly with clang
+  (`-Wall -Wextra`, syntax only).
+- Running test: starter 1500 rpm -> 3000 -> 6000 rpm on a 0.3 ms magnet pulse: RPM correct, no
+  trigger errors, no out-of-order sparks, one spark and one injection per revolution. A jump from
+  standstill straight to 6000 rpm makes the spark logic skip one dwell on purpose (out-of-order
+  guard) - not a fault.
+- Not run on an engine.
+
+Open follow-ups:
+- Measure the magnet-to-TDC angle (timing light at fixed cranking timing) and set
+  `globalTriggerAngleOffset`.
+- Choose real injectors and coil; set flow, dead times and dwell.
+- Live barometric source on uaEFI for `alphaNUseBaro` (analog baro sensor or LPS25 on I2C; the
+  start-up MAP reading does not follow altitude changes in flight).
+- Tune VE with a wideband; check two-stroke premix stoichiometry against the wideband reading.

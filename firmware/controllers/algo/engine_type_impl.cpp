@@ -19,6 +19,7 @@
 #include "hyundai.h"
 
 #include "GY6_139QMB.h"
+#include "dle_twin.h"
 
 #include "nissan_vq.h"
 #include "tc_4.h"
@@ -328,6 +329,14 @@ void applyEngineType(engine_type_e engineType) {
 
 	case engine_type_e::TEST_ISSUE_6451:
 		testEngine6451();
+		break;
+
+	// Board-independent: available on every board
+	case engine_type_e::DLE_60_TWIN:
+		setDle60Twin();
+		break;
+	case engine_type_e::DLE_120_TWIN:
+		setDle120Twin();
 		break;
 
 #if defined(HW_FRANKENSO) || EFI_SIMULATOR || defined(HW_NUCLEO_F767) || defined(HW_NUCLEO_H743) || defined(SUPPORT_GY6)

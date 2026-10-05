@@ -207,6 +207,10 @@ enum class engine_type_e : uint16_t {
 	HYUNDAI_PB = 104,
   UNUSED_105 = 105,
 
+	// DLE two-stroke boxer twins with fuel injection, see dle_twin.cpp
+	DLE_60_TWIN = 106,
+	DLE_120_TWIN = 107,
+
 // board_engine_types_tag
 };
 

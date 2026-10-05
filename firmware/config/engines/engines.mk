@@ -25,6 +25,7 @@ ENGINES_SRC_CPP = $(PROJECT_DIR)/config/engines/ford_aspire.cpp \
 	$(PROJECT_DIR)/config/engines/hyundai.cpp \
 	$(PROJECT_DIR)/config/engines/subaru.cpp \
 	$(PROJECT_DIR)/config/engines/GY6_139QMB.cpp \
+	$(PROJECT_DIR)/config/engines/dle_twin.cpp \
 	$(PROJECT_DIR)/config/engines/sachs.cpp \
 	$(PROJECT_DIR)/config/engines/slingshot.cpp \
 	$(PROJECT_DIR)/config/engines/test_engine.cpp \

@@ -22,10 +22,15 @@ AirmassResult AlphaNAirmass::getAirmass(float rpm, bool postState) {
 
 	float iatK = iat + 273/* todo reuse C_K_OFFSET which would require adjusting unit tests*/;
 
-	// TODO: should this be barometric pressure and/or temperature compensated?
+	// optionally use real barometric pressure instead of the standard atmosphere, for engines
+	// running at altitude. A failed sensor falls back to sea level, which errs rich.
+	float pressureKpa = engineConfiguration->alphaNUseBaro
+		? Sensor::get(SensorType::BarometricPressure).value_or(STD_ATMOSPHERE)
+		: STD_ATMOSPHERE;
+
 	mass_t airmass = getAirmassImpl(
 		ve,
-		STD_ATMOSPHERE,
+		pressureKpa,
 		iatK
 	);
 
