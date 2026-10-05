@@ -15,7 +15,9 @@
  * (TT_TOOTHED_WHEEL_36_1, two-stroke cycle = 360 degrees). 36-1 rather than 60-2: both decode
  * equally well in two-stroke mode (see test_dle_twin.cpp), and on a small wheel 36-1 gives ~1.7x
  * larger teeth, which suits the sensor's minimum tooth size and air gap. The stock hub magnet and
- * DLE ignition module are not used.
+ * DLE ignition module are not used. One wheel serves both engines: 80 mm OD steel ring, 6 mm wide,
+ * 4 mm teeth (3.5 mm tooth and gap), on an engine-specific adapter hub, balanced for the missing
+ * tooth; read radially by a differential Hall gear-tooth sensor at ~1 mm air gap.
  *
  * Load: alpha-N (TPS = rusEFI's own servo command), with barometric and IAT correction because the
  * helicopter operates at altitude. A live barometric sensor is needed for alphaNUseBaro to help.

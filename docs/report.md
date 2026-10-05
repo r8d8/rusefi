@@ -985,3 +985,34 @@ Validation:
 Open follow-ups:
 - Wheel outside diameter (>= 60 mm keeps 36-1 teeth above the 2.0 mm minimum), steel rim >= 5 mm
   wide, sensor bracket; measure the trigger angle on each engine.
+
+## 2026-10-05 - DLE trigger wheel size: 80 mm 36-1 for both engines
+
+Decision: one 80 mm 36-1 wheel for both DLE-60 and DLE-120 (user). Only the adapter hub differs per
+engine; the ring, sensor, air gap and rusEFI trigger settings are common. Spec recorded in the
+`dle_twin.cpp` header comment and in hybrid_ctrl `docs/heli-hybrid-architecture.md`.
+
+Check of the 80 mm wheel (36-1, 4 mm tooth height, 6 mm wide, 64 mm ring ID, steel):
+
+| Item | Value | Limit / note |
+|------|-------|--------------|
+| Tooth pitch | 6.98 mm | |
+| Tooth / gap width at OD | 3.49 mm | SNDH-T min 2.0 mm -> 1.75x margin |
+| Missing-tooth gap | 10.5 mm | |
+| Signal frequency | 180 Hz @ 300 rpm, 5.4 kHz @ 9000 rpm | SNDH-T 20 kHz max |
+| Rim speed / hoop stress @ 9000 rpm | 37.7 m/s / 11 MPa | negligible for steel |
+| Ring mass | ~62 g (+ aluminium adapter) | |
+| Inertia | ~8e-5 kg m^2 | negligible vs. rotor |
+| Missing-tooth imbalance | ~24 g mm -> ~21 N @ 9000 rpm | balance it |
+| Balance hole (start value) | dia ~4.7 mm through, r = 29 mm, opposite the gap | trim by spin balancing |
+
+- 60-2 at 80 mm would give 2.1 mm teeth - right at the sensor minimum, so 36-1 stays.
+- The ZF GS100701 is still outside its recommended target at 80 mm (3.5 mm gaps vs 10 mm).
+- Material: magnetic steel (1018 / C15 / S235, zinc or black-oxide finish); not 304 stainless.
+
+Validation: comment-only firmware change; no rebuild needed beyond the earlier run (1394 pass).
+
+Open follow-ups:
+- Measure each engine's front stack (crankcase nose to drive hub, hub bolt pattern) for the two
+  adapters, and the sensor bracket location at r = 41 mm from the shaft axis.
+- Wheel runout <= 0.1 mm TIR so the ~1 mm air gap holds.
