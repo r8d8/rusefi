@@ -395,3 +395,61 @@ TEST(ServoGovernor, fastCallbackUsesRpmSensorAndPostsLiveData) {
 	Sensor::resetMockValue(SensorType::Rpm);
 	deinitTps();
 }
+
+// ---- Servo position model (TPS1) ----
+
+TEST(ServoPositionModel, zeroTravelTimeFollowsCommandInstantly) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorEnabled = false;
+	engineConfiguration->servoThrottleFullTravelMs = 0;
+
+	servo().update(80.0f, rpmOf(5000), dt);
+	EXPECT_NEAR(80, servo().getPositionPercent(), EPS4D);
+}
+
+TEST(ServoPositionModel, followsCommandAtServoSpeed) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorEnabled = false;
+	// KST SV12-12 at 12 V over a 100 degree stroke: 0.11 s/60 deg -> ~183 ms, rounded to 200 ms here
+	engineConfiguration->servoThrottleFullTravelMs = 200;
+
+	// 0 -> 100% step: halfway after 100 ms, there after 200 ms
+	for (int i = 0; i < 20; i++) {
+		servo().update(100.0f, rpmOf(5000), dt);
+	}
+	EXPECT_NEAR(100, servo().getCommandPercent(), EPS4D);
+	EXPECT_NEAR(50, servo().getPositionPercent(), 0.01);
+	// The output pulse is the command - the servo does its own slewing
+	EXPECT_NEAR(2000, servo().getCommandPulseUs(), EPS4D);
+
+	for (int i = 0; i < 20; i++) {
+		servo().update(100.0f, rpmOf(5000), dt);
+	}
+	EXPECT_NEAR(100, servo().getPositionPercent(), 0.01);
+
+	// Small move inside one step lands exactly on the command
+	servo().update(99.9f, rpmOf(5000), dt);
+	EXPECT_NEAR(99.9, servo().getPositionPercent(), EPS4D);
+
+	// Closing moves at the same rate
+	for (int i = 0; i < 10; i++) {
+		servo().update(0.0f, rpmOf(5000), dt);
+	}
+	EXPECT_NEAR(74.9, servo().getPositionPercent(), 0.01);
+}
+
+TEST(ServoPositionModel, tps1ReportsModelledPosition) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureServoThrottle();
+	engineConfiguration->servoThrottleFullTravelMs = 200;
+
+	sendRequestPulse(eth, 2000);
+	servo().onFastCallback();
+	EXPECT_NEAR(100, servo().getCommandPercent(), 0.1);
+	// One 5 ms fast-callback step at 100% per 200 ms
+	EXPECT_NEAR(2.5, Sensor::get(SensorType::Tps1).Value, 0.01);
+
+	deinitTps();
+}

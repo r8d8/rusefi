@@ -836,3 +836,37 @@ Open follow-ups:
 - Optional fast trim through ignition timing (servo slew limits how fast throttle can correct).
 - RPM source: the governor uses crank RPM, so a clutch slip shows up as rotor underspeed only via
   the autopilot's own RPM input.
+
+## 2026-10-05 - Servo position model for TPS1 (KST SV12-12 as reference servo)
+
+What was done:
+- The project picked the KST SV12-12 (12 V rated, 8.4-13.0 V) as reference throttle servo, so no
+  buck converter is needed. Its datasheet figures (vendor listings; the KST datasheet host is not
+  reachable from this environment): 0.11 s/60 deg at 12 V, 8.0 kgf.cm at 12 V, 333 Hz frame rate,
+  1000/1500/2000 us = -50/0/+50 deg, 800-2200 us = +-70 deg full travel.
+- New optional servo position model: with `servoThrottleFullTravelMs` set, TPS1 follows the command
+  at the servo's speed instead of jumping to it. At 0.11 s/60 deg a 100 deg stroke takes ~183 ms, so
+  without the model alpha-N acceleration enrichment fires before the throttle has moved.
+
+  | File | Change |
+  |---|---|
+  | `controllers/actuators/servo_throttle.h/.cpp` | `m_positionPercent` rate-limited towards the command; TPS1 reports it; output pulse stays the command |
+  | `integration/rusefi_config.txt` | `servoThrottleFullTravelMs` (0 = off, TPS1 = command) |
+  | `tunerstudio/tunerstudio.template.ini` | Field in the "Servo throttle" dialog |
+  | `unit_tests/tests/actuators/test_servo_throttle.cpp` | 3 ServoPositionModel tests |
+
+Key decisions and why:
+- Model, not measurement: the servo has an internal potentiometer but no feedback wire.
+- Default 0 keeps the previous behaviour; the tooltip gives the formula and the SV12-12 number.
+- Frame rate default stays 50 Hz (safe for any servo); 333 Hz is recommended for the SV12-12.
+
+Validation:
+- Unit tests: 1385 tests / 266 suites pass (GCC 13), including the 3 new model tests; changed sources
+  compile cleanly with clang (`-Wall -Wextra`, syntax only).
+
+Open follow-ups:
+- Reported KST factory failsafe: after ~1-1.5 s without pulses the servo moves to 1500 us (mid
+  stroke). Verify on the actual servo and reprogram (KST programming card) to hold, since rusEFI
+  holds the last command itself and a wiring fault should not open the throttle to mid travel.
+- Measure the real stroke time on the bench (step command, video or scope on the servo pot) and
+  set `servoThrottleFullTravelMs` from it.

@@ -5,8 +5,9 @@
  *
  * The throttle request arrives as a servo pulse on pwmInputTpsPin, e.g. the throttle-curve channel
  * of an autopilot (collective feed-forward plus idle / motor interlock / autorotation states).
- * rusEFI turns the request into the servo command and TPS1 reports that command, because the
- * throttle has no position sensor.
+ * rusEFI turns the request into the servo command. The throttle has no position sensor, so TPS1
+ * reports the command - or, with servoThrottleFullTravelMs set, a model of the servo position that
+ * follows the command at the servo's speed (so acceleration enrichment sees the real throttle motion).
  *
  * Request handling: if the request is lost (no pulses, or an implausible pulse) the last request
  * is held; before the first valid request the throttle is commanded closed.
@@ -55,6 +56,11 @@ public:
 		return m_commandPercent;
 	}
 
+	// Modelled servo position, reported as TPS1
+	percent_t getPositionPercent() const {
+		return m_positionPercent;
+	}
+
 	float getCommandPulseUs() const {
 		return m_commandPulseUs;
 	}
@@ -80,6 +86,7 @@ private:
 	Pid m_pid;
 	percent_t m_feedForward = 0;
 	percent_t m_commandPercent = 0;
+	percent_t m_positionPercent = 0;
 	percent_t m_trim = 0;
 	float m_commandPulseUs = 0;
 	bool m_requestValid = false;

@@ -8,7 +8,7 @@
 #include "pwm_input_tps.h"
 #include "tps.h"
 
-// TPS1 reports the servo command. The module refreshes it at the fast callback rate, so a
+// TPS1 reports the (modelled) servo position. The module refreshes it at the fast callback rate, so a
 // timeout only fires if the module stops running.
 static StoredValueSensor commandTps(SensorType::Tps1, MS2NT(100));
 
@@ -32,6 +32,7 @@ void ServoThrottle::reset() {
 	m_pid.reset();
 	m_feedForward = 0;
 	m_commandPercent = 0;
+	m_positionPercent = 0;
 	m_trim = 0;
 	m_commandPulseUs = 0;
 	m_requestValid = false;
@@ -117,6 +118,16 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 		m_pid.reset();
 	}
 
+	// Servo position model: the servo needs servoThrottleFullTravelMs for the whole closed-to-open
+	// stroke, so the position moves towards the command at a limited rate. 0 = no model.
+	float fullTravelMs = engineConfiguration->servoThrottleFullTravelMs;
+	if (fullTravelMs <= 0) {
+		m_positionPercent = m_commandPercent;
+	} else {
+		float maxStep = POSITION_FULLY_OPEN * dtSeconds * 1000 / fullTravelMs;
+		m_positionPercent += clampF(-maxStep, m_commandPercent - m_positionPercent, maxStep);
+	}
+
 	m_commandPulseUs = positionToPulseUs(m_commandPercent,
 		engineConfiguration->servoThrottleClosedUs,
 		engineConfiguration->servoThrottleOpenUs);
@@ -129,7 +140,7 @@ void ServoThrottle::onFastCallback() {
 
 	update(getPwmInputTps().get(), Sensor::get(SensorType::Rpm), FAST_CALLBACK_PERIOD_MS / 1000.0f);
 
-	commandTps.setValidValue(m_commandPercent, getTimeNowNt());
+	commandTps.setValidValue(m_positionPercent, getTimeNowNt());
 
 #if EFI_TUNER_STUDIO
 	engine->outputChannels.servoThrottleRequest = m_feedForward;

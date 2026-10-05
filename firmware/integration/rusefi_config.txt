@@ -2057,6 +2057,7 @@ end_struct
 	uint16_t servoThrottleFrequency;Servo throttle: frame rate. 50 Hz suits any servo, digital servos accept up to 333 Hz. Requires power cycle.;"Hz", 1, 0, 50, 333, 0
 	uint16_t servoThrottleClosedUs;Servo throttle: output pulse width at closed throttle (0%).;"us", 1, 0, 500, 2500, 0
 	uint16_t servoThrottleOpenUs;Servo throttle: output pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
+	uint16_t servoThrottleFullTravelMs;Servo throttle: time the servo needs for the whole closed-to-open stroke. TPS1 then follows the command at this rate instead of jumping, so acceleration enrichment matches the real throttle motion. Servo speed in s per 60 deg times stroke in deg / 60. KST SV12-12 at 12 V over 1000-2000 us (100 deg): 0.11 x 100 / 60 = 183 ms. 0 = TPS1 equals the command.;"ms", 1, 0, 0, 2000, 0
 
 	! --- Servo throttle governor ---
 	bit servoGovernorEnabled,"enabled","disabled";Servo throttle governor: closed-loop engine speed control. The throttle request becomes feed-forward and a PID adds a trim to hold the target RPM. Follows the request without governing while it is below the minimum request (idle, motor interlock off, autorotation) and until RPM first comes within the engage window.
