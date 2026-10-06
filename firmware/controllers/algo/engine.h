@@ -193,8 +193,10 @@ public:
 #if EFI_BOOST_CONTROL
         BoostController,
 #endif // EFI_BOOST_CONTROL
+#if EFI_SERVO_THROTTLE
         // before TpsAccelEnrichment: it refreshes TPS1 when the servo throttle is in use
         ServoThrottle,
+#endif // EFI_SERVO_THROTTLE
         TpsAccelEnrichment,
 #if EFI_LAUNCH_CONTROL
         NitrousController,

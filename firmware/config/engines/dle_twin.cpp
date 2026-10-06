@@ -43,6 +43,8 @@
 
 #include "dle_twin.h"
 
+#if EFI_SERVO_THROTTLE
+
 #define ENGINE_MAKE_DLE "DLE"
 
 // First tooth after the gap to TDC, assumed until measured (see header comment)
@@ -199,3 +201,5 @@ void setDle120Twin() {
 	engineConfiguration->rpmHardLimit = 8500;
 	engineConfiguration->servoThrottleOverspeedRpm = 8200;
 }
+
+#endif // EFI_SERVO_THROTTLE

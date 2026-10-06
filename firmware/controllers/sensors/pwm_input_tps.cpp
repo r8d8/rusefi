@@ -6,6 +6,8 @@
 
 #include "pwm_input_tps.h"
 
+#if EFI_SERVO_THROTTLE
+
 #include "digital_input_exti.h"
 #include "tps.h"
 
@@ -103,3 +105,5 @@ void deinitPwmInputTps() {
 PwmInputTps& getPwmInputTps() {
 	return pwmInputTps;
 }
+
+#endif // EFI_SERVO_THROTTLE

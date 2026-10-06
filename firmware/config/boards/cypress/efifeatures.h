@@ -327,3 +327,5 @@
 		chThdSleepMilliseconds(20); \
 	} \
 }
+
+#define EFI_SERVO_THROTTLE FALSE

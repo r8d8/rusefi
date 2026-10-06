@@ -331,12 +331,18 @@ void applyEngineType(engine_type_e engineType) {
 		testEngine6451();
 		break;
 
-	// Board-independent: available on every board
+	// Board-independent, on every board built with the servo throttle
 	case engine_type_e::DLE_60_TWIN:
-		setDle60Twin();
-		break;
 	case engine_type_e::DLE_120_TWIN:
-		setDle120Twin();
+#if EFI_SERVO_THROTTLE
+		if (engineType == engine_type_e::DLE_60_TWIN) {
+			setDle60Twin();
+		} else {
+			setDle120Twin();
+		}
+#else
+		firmwareError(ObdCode::CUSTOM_UNEXPECTED_ENGINE_TYPE, "DLE presets need a build with EFI_SERVO_THROTTLE");
+#endif // EFI_SERVO_THROTTLE
 		break;
 
 #if defined(HW_FRANKENSO) || EFI_SIMULATOR || defined(HW_NUCLEO_F767) || defined(HW_NUCLEO_H743) || defined(SUPPORT_GY6)

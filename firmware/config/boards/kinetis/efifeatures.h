@@ -322,3 +322,5 @@
 		uart_lld_blocking_send(TS_PRIMARY_UxART_PORT, strlen(__debugBuffer), (void *)__debugBuffer); \
 	} \
 }
+
+#define EFI_SERVO_THROTTLE FALSE

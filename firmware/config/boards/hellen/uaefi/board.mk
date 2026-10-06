@@ -18,6 +18,14 @@ DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 DDEFS += -DEFI_HPFP=FALSE
 MODULE_MIL = no
 
+# Hybrid helicopter (DLE twin): rusEFI drives the throttle servo from the autopilot's request
+DDEFS += -DEFI_SERVO_THROTTLE=TRUE
+ifeq ($(PROJECT_CPU),ARCH_STM32F4)
+	# Makes room for the servo throttle on 1 MB: a two-stroke DLE has no alternator field
+	# control and no VVT
+	DDEFS += -DEFI_ALTERNATOR_CONTROL=FALSE -DEFI_VVT_PID=FALSE
+endif
+
 #no mux on mm100
 
 # Add them all together

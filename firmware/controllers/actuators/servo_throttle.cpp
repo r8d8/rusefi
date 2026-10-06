@@ -5,6 +5,8 @@
 #include "pch.h"
 
 #include "servo_throttle.h"
+
+#if EFI_SERVO_THROTTLE
 #include "pwm_input_tps.h"
 #include "tps.h"
 
@@ -203,3 +205,5 @@ bool checkServoThrottleConfigError() {
 	}
 	return false;
 }
+
+#endif // EFI_SERVO_THROTTLE

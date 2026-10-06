@@ -764,9 +764,11 @@ static uint32_t refreshRaisedSeq = 0;
 void refreshConfigErrorState() {
 	// core producers go here, worst first, before the board hook
 	bool active = checkSettingsWriteFailure();
+#if EFI_SERVO_THROTTLE
 	if (!active) {
 		active = checkServoThrottleConfigError();
 	}
+#endif // EFI_SERVO_THROTTLE
 	if (!active) {
 		active = get_board_override_result(custom_board_updateConfigError, false);
 	}

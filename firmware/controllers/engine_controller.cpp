@@ -436,8 +436,10 @@ void commonInitEngineController() {
 	initVvtActuators();
 #endif /* EFI_VVT_PID */
 
+#if EFI_SERVO_THROTTLE
 	// Once per boot: hardware PWM channels are not released, so pin changes need a power cycle
 	initServoThrottleOutput();
+#endif // EFI_SERVO_THROTTLE
 
 #if !EFI_UNIT_TEST
 	// This is tested independently - don't configure sensors for tests.

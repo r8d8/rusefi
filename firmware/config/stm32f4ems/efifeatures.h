@@ -42,6 +42,15 @@
 #define EFI_LAUNCH_CONTROL TRUE
 #endif
 
+/* rusEFI driving an RC throttle servo (helicopter): servo throttle output with governor and
+ * servo position model, its request input (PWM input TPS) and the DLE twin presets using them.
+ * Off by default - it does not fit next to everything else on 1 MB F4 boards with a bootloader;
+ * boards that need it enable it in board.mk (uaEFI, nucleo_f429 HITL variant). Its settings
+ * stay in the configuration (same layout on every board) and do nothing without it. */
+#ifndef EFI_SERVO_THROTTLE
+#define EFI_SERVO_THROTTLE FALSE
+#endif
+
 /* Long Term Fuel Trims */
 /* [tag:disable_engine_module] CAVEAT: EFI_LTFT_CONTROL gates TS page TS_PAGE_LTFT_TRIMS
  * so a board must NOT flip it here or via board.mk DDEFS - declare `#define EFI_LTFT_CONTROL FALSE` in the

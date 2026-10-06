@@ -1116,3 +1116,51 @@ Open follow-ups:
 - Confirm the variant (and every board) builds and links in CI with the official toolchain.
 - On the bench: rusEFI syncs on the plant's 36-1 signal, servo pulse and coil output reach the plant,
   verbose CAN reaches the HCU at 500 kbit/s.
+
+## 2026-10-06 - Servo throttle as a build option (EFI_SERVO_THROTTLE); F4 Hellen boards back under 1 MB
+
+Problem: the first firmware CI run after the servo throttle build fix (401de58afa8) linked every
+board except four 1 MB F4 Hellen boards with OpenBLT (736 KB application region):
+
+| Board | Over by | Free at 241ea57 (last good) |
+|-------|---------|-----------------------------|
+| uaefi | 500 B | - |
+| hellen121nissan | 1460 B | - |
+| hellen-honda-k | 1720 B | - |
+| uaefi121 | 4056 B | 628 B |
+
+They were already over before; the servo throttle compile error since 7ac9aae3b12 hid it. The fork's
+additions since upstream dcb730b10cc (PWM input TPS, servo throttle + governor + position model, DLE
+presets, alpha-N baro, ~21 config fields) cost ~4.7 KB on uaefi121.
+
+Decision (user, option 1): make the helicopter features a build option, on only where used, and trim
+features a two-stroke helicopter does not use on uaEFI F4.
+
+| File | Change |
+|------|--------|
+| `config/stm32f4ems/efifeatures.h` | `EFI_SERVO_THROTTLE` default FALSE (F7/H7 inherit); simulator and unit tests TRUE; kinetis/cypress FALSE |
+| `controllers/actuators/servo_throttle.cpp`, `controllers/sensors/pwm_input_tps.cpp`, `config/engines/dle_twin.cpp` | bodies under `EFI_SERVO_THROTTLE` |
+| `controllers/algo/engine.h` | `ServoThrottle` module entry gated |
+| `controllers/engine_controller.cpp`, `controllers/core/error_handling.cpp`, `init/sensor/init_tps.cpp` | call sites gated |
+| `controllers/algo/engine_type_impl.cpp` | DLE presets only with the feature; otherwise a clear firmwareError instead of "unexpected engine type" |
+| `config/boards/hellen/uaefi/board.mk` | `EFI_SERVO_THROTTLE=TRUE` (all uaEFI variants); F4 only: `EFI_ALTERNATOR_CONTROL=FALSE`, `EFI_VVT_PID=FALSE` |
+| `config/boards/nucleo_f429/board.mk` | HITL variant: `EFI_SERVO_THROTTLE=TRUE` |
+| `config/boards/hellen/uaefi121/board.mk` | `EFI_ALTERNATOR_CONTROL=FALSE` (its margin was 628 B before the fork) |
+
+The settings (pins, frequency, governor) stay in the configuration on every board, so the layout and
+tunes are unchanged; without the feature they do nothing. Not a TS page owner, so no prepend.txt flag.
+
+Sizes, non-LTO objects compiled with GCC 14.3 (no linker here): servo throttle 1457 B, PWM input TPS
+831 B, DLE presets 1124 B, alternator control 1227 B, VVT control part of vvt.cpp ~500 B. uaEFI F4
+text -2971 B and data -460 B against its 500 B overflow; uaefi121 -3412 B plus alternator against
+4056 B (tight - CI decides); nissan and honda-k -3.4 KB against 1.5/1.7 KB.
+
+Also checked: uaEFI F4 disables TIM1 PWM and TIM9 PWM is off on F4 by default, so the servo throttle
+on uaEFI Coil 2 (PE5, TIM9 only) would fall back to software PWM. Use Coil 6 (PB8, TIM4).
+
+Validation: unit tests 1395/1395 (feature on); uaefi (on, trimmed) and uaefi121 (off) compiled with
+the GCC 14.3 shim: only the same newlib/picolibc-related objects fail as before, no new errors.
+Linking and the final sizes come from CI.
+
+Open follow-ups:
+- Confirm all four boards link in CI; if uaefi121 is still over, the next candidate trim is chosen there.

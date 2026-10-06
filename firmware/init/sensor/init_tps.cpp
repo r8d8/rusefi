@@ -249,6 +249,7 @@ void initTps() {
 			tpsSecondaryMaximum = 20;
 		}
 
+#if EFI_SERVO_THROTTLE
 		if (isServoThrottleEnabled()) {
 			// The throttle is commanded by rusEFI: TPS1 is the command, the pulse input is the request
 			initServoThrottleTps();
@@ -258,6 +259,7 @@ void initTps() {
 		} else if (isPwmInputTps1()) {
 			initPwmInputTps(/*registerAsTps1*/true);
 		} else
+#endif // EFI_SERVO_THROTTLE
 #if EFI_SENT_SUPPORT
 		if (isDigitalTps1()) {
 			sentTps.Register();
@@ -366,8 +368,10 @@ void deinitTps() {
 	sentTps.unregister();
 #endif
 
+#if EFI_SERVO_THROTTLE
 	deinitPwmInputTps();
 	deinitServoThrottleTps();
+#endif // EFI_SERVO_THROTTLE
 
 	wastegate.deinit();
 	idlePos.deinit();
