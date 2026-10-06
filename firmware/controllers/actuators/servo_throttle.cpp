@@ -188,10 +188,14 @@ void initServoThrottleOutput() {
 }
 
 bool checkServoThrottleConfigError() {
-	// refreshConfigErrorState() can run before a configuration exists (unit tests of the mechanism)
+#if EFI_UNIT_TEST
+	// refreshConfigErrorState() can run before a configuration exists (unit tests of the
+	// mechanism). In firmware engineConfiguration is a fixed address: the check would not
+	// compile there (-Werror=address)
 	if (engineConfiguration == nullptr) {
 		return false;
 	}
+#endif // EFI_UNIT_TEST
 
 	if (isServoThrottleEnabled() && !isPwmInputTps1()) {
 		configError("Servo throttle output needs a PWM input TPS pin for its throttle request");

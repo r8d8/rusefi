@@ -17,8 +17,16 @@ BUNDLE_OPENOCD = yes
 # because of RAM
 MODULE_DTC_MANAGER = no
 
+ifeq ($(SHORT_BOARD_NAME),stm32f429_nucleo_hitl)
+# Hybrid controller hardware-in-the-loop bench: the Nucleo (F429ZI or F439ZI) stands in for
+# uaEFI running the DLE-60 preset, with the bench pins set in board_configuration.cpp
+DDEFS += -DHW_NUCLEO_F429_HITL=1
+DDEFS += -DFIRMWARE_ID=\"nucleo_f429_hitl\"
+DDEFS += -DDEFAULT_ENGINE_TYPE=engine_type_e::DLE_60_TWIN
+else
 DDEFS += -DFIRMWARE_ID=\"nucleo_f429\"
 DDEFS += -DDEFAULT_ENGINE_TYPE=engine_type_e::MINIMAL_PINS
+endif
 DDEFS += -DSTATIC_BOARD_ID=STATIC_BOARD_ID_NUCLEO_F429
 
 # reducing RAM consumption for EFI_ETHERNET to fit

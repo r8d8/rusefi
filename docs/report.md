@@ -1074,3 +1074,45 @@ warnings in the changed files; the link fails in this container only because cla
 Open follow-ups:
 - Bench: compare the HCU's `hcu ecu` with rusEFI's console; F4 CAN RX load with the VESC traffic.
 - Baro in the broadcast once uaEFI has a live barometric sensor (would change the CAN format).
+
+## 2026-10-06 - Hybrid controller HITL bench: nucleo_f429 HITL variant; servo throttle firmware build fix
+
+Request (user): set up hardware-in-the-loop testing of the hybrid controller (HCU) with the parts on
+hand - NUCLEO-H755 (HCU), NUCLEO-G474RE (plant emulator), NUCLEO-F439ZI, ArduPilot autopilot, Flipsky
+75200 VESC. The F439 stands in for uaEFI (same STM32F4 family), so the real rusEFI firmware with the
+DLE-60 preset is in the loop: crank decoding, servo throttle, tach, start/stop and the CAN broadcast.
+Bench design and wiring: r8d8/hybrid_ctrl `docs/hitl.md`.
+
+| File | Change |
+|------|--------|
+| `config/boards/nucleo_f429/meta-info-nucleo_f429_hitl.env` | New build variant `stm32f429_nucleo_hitl` (picked up by CI's matrix scan) |
+| `config/boards/nucleo_f429/compile_stm32f429_nucleo_hitl.sh` | Build script for it |
+| `config/boards/nucleo_f429/board.mk` | Variant: `HW_NUCLEO_F429_HITL`, default engine `DLE_60_TWIN`, own `FIRMWARE_ID`; plain build unchanged (MINIMAL_PINS) |
+| `config/boards/nucleo_f429/board_configuration.cpp` | `custom_board_DefaultConfiguration` for the variant: HITL pins on the Zio header |
+| `controllers/actuators/servo_throttle.cpp` | `engineConfiguration == nullptr` check only under `EFI_UNIT_TEST` |
+
+HITL pins (Zio header, same positions as the HCU's Nucleo-144 signals): trigger PF13 (D7), PWM input
+TPS PE11 (D5), servo throttle PE9 (D6, TIM1_CH1 hardware PWM), tach PE13 (D3), coil 1 PD15 (D9),
+injector 1 PD14 (D10, unwired), start/stop button PF14 (D4, pull-down, the HCU drives it active high),
+CAN1 TX PB9 / RX PB8 (D14/D15). None collide with the board's Ethernet, LED or VCP pins. Board
+defaults are applied before the engine preset and the DLE preset sets no pins, so they survive.
+
+Servo throttle build fix: since 7ac9aae3b12 `checkServoThrottleConfigError()` compared
+`engineConfiguration` with nullptr. In firmware that name is the address of a global, so GCC 12+
+rejects the comparison (`-Werror=address`) and every firmware build failed; unit tests, where it is a
+pointer, compiled fine. Same idiom as `trigger_structure.cpp`: the check only exists under
+`EFI_UNIT_TEST`.
+
+Validation:
+- No arm-none-eabi toolchain here (developer.arm.com blocked, rusefi/build_support not reachable).
+  Compiled the HITL variant with the Zephyr SDK's GCC 14.3 behind an `arm-none-eabi-` shim: all 633
+  objects compile except ChibiOS's newlib `syscalls.c` (that toolchain has picolibc, not newlib), so
+  no link and no size figure. The servo throttle error showed up in that build, then passed after the
+  fix. CI builds the variant with the real toolchain.
+- `make -n` of the plain nucleo_f429 build: MINIMAL_PINS, FIRMWARE_ID nucleo_f429, no HITL flag.
+- Unit tests 1395/1395 pass (GCC).
+
+Open follow-ups:
+- Confirm the variant (and every board) builds and links in CI with the official toolchain.
+- On the bench: rusEFI syncs on the plant's 36-1 signal, servo pulse and coil output reach the plant,
+  verbose CAN reaches the HCU at 500 kbit/s.
