@@ -23,6 +23,10 @@
  * Load: alpha-N (TPS = rusEFI's own servo command), with barometric and IAT correction because the
  * helicopter operates at altitude. A live barometric sensor is needed for alphaNUseBaro to help.
  *
+ * CAN: the standard rusEFI verbose broadcast (rusEFI_CAN_verbose.dbc, 11-bit IDs 0x200-0x20B,
+ * every 50 ms) is the engine status for the hybrid controller, which forwards it to the autopilot
+ * as DroneCAN ICE status. Its byte layout is pinned by test_dle_twin.cpp.
+ *
  * Everything below is a STARTING POINT, not a tune:
  * - globalTriggerAngleOffset assumes the wheel is fitted so that the first tooth after the gap
  *   passes the sensor 90 degrees BTDC. MEASURE IT with a timing light (cranking timing is fixed)
@@ -119,6 +123,13 @@ static void setDleTwinCommon(float maxRpm) {
 
 	// One pulse per revolution for the autopilot's RPM input and the hybrid controller
 	engineConfiguration->tachPulsePerRev = 1;
+
+	// Engine status for the hybrid controller (see header comment)
+	engineConfiguration->canWriteEnabled = true;
+	engineConfiguration->enableVerboseCanTx = true;
+	engineConfiguration->verboseCanBaseAddress = CAN_DEFAULT_BASE;
+	engineConfiguration->rusefiVerbose29b = false;
+	engineConfiguration->canSleepPeriodMs = 50;
 
 	// Tables
 	setTpsLoadBins(config->veLoadBins);

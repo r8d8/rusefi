@@ -1035,3 +1035,42 @@ Validation: comment-only firmware change.
 Open follow-ups:
 - Bench the SNDH-T and GS101205 on the real wheel (scope at 0.5 / 1.0 / 1.5 mm air gap, cranking to
   9000 rpm).
+
+## 2026-10-06 - DLE presets: rusEFI verbose CAN broadcast as the hybrid controller's engine status
+
+Request (user): wire rusEFI's CAN status to the hybrid controller (HCU, r8d8/hybrid_ctrl), which
+forwards it to ArduPilot as DroneCAN ICE status.
+
+Decision: no new CAN frame. rusEFI's standard verbose broadcast (`can_verbose.cpp`,
+`rusEFI_CAN_verbose.dbc`, 12 frames at base 0x200) already carries everything the ICE status can
+use: RPM, timing, TPS1 (= the servo command in servo mode), MAP, CLT, IAT, EGT 1/2, lambda, injector
+pulse, fuel used / flow, battery, warning counter, fuel/spark cut. Reusing it keeps the fork's CAN
+format identical to upstream and the DBC valid. Not in the broadcast: baro, oil and fuel pressure,
+spark dwell - the HCU sends those as unknown.
+
+| File | Change |
+|------|--------|
+| `firmware/config/engines/dle_twin.cpp` | `setDleTwinCommon`: `canWriteEnabled`, `enableVerboseCanTx`, base `CAN_DEFAULT_BASE` (0x200), 11-bit, `canSleepPeriodMs` 50; header comment |
+| `unit_tests/tests/test_dle_twin.cpp` | Preset expectations for the above; new `DleTwin.verboseCanLayoutForHybridController` |
+
+The new test mocks sensors, sends one broadcast through `canTransmitMock` and pins the exact bytes
+the HCU decodes (offsets, scales, signedness, +40 temperature offset, 11-bit IDs). The HCU's tests
+(`firmware/tests/platform`, `fake_rusefi_broadcast()`) use the same values, so a layout change on
+either side fails a test. uaEFI already enabled the broadcast in its board defaults; the preset
+makes it board-independent.
+
+Notes:
+- Bus load on the power CAN (500 kbit/s): the broadcast adds 240 frames/s (~30 kbit/s) to the HCU's
+  1 kHz VESC current commands and VESC status - ~40-55% total. rusEFI receives all of it; its CAN RX
+  load on the F4 is a bench item.
+- CLT on the air-cooled DLE is the cylinder head temperature sensor; the HCU reports it as such.
+- `Sensor::getOrZero()` for CLT/IAT means a failed sensor reads 0 C on CAN; rusEFI's warning counter
+  (reported by the HCU as a general engine error) is the signal for that.
+
+Validation: unit tests 1395/1395 pass (GCC, clean build). Clang (`make CC=clang`): everything compiles, no
+warnings in the changed files; the link fails in this container only because clang's ASan runtime
+(`libclang_rt.asan*.a`) is not installed. HCU side: hybrid_ctrl `tools/check.sh` all green (16de0a9).
+
+Open follow-ups:
+- Bench: compare the HCU's `hcu ecu` with rusEFI's console; F4 CAN RX load with the VESC traffic.
+- Baro in the broadcast once uaEFI has a live barometric sensor (would change the CAN format).

@@ -2,6 +2,12 @@
 
 #include "dle_twin.h"
 
+#include "can_msg_tx.h"
+#include "trip_odometer.h"
+
+#include <array>
+#include <map>
+
 template<typename TValue, int TSize>
 static void expectStrictlyAscending(const TValue (&bins)[TSize]) {
 	for (int i = 1; i < TSize; i++) {
@@ -33,6 +39,13 @@ static void expectDleTwinCommon() {
 
 	// Overspeed closes the throttle before the hard rev limit cuts
 	EXPECT_LT(engineConfiguration->servoThrottleOverspeedRpm, engineConfiguration->rpmHardLimit);
+
+	// Verbose CAN broadcast = engine status for the hybrid controller
+	EXPECT_TRUE(engineConfiguration->canWriteEnabled);
+	EXPECT_TRUE(engineConfiguration->enableVerboseCanTx);
+	EXPECT_EQ(0x200u, engineConfiguration->verboseCanBaseAddress);
+	EXPECT_FALSE(engineConfiguration->rusefiVerbose29b);
+	EXPECT_EQ(50, engineConfiguration->canSleepPeriodMs);
 }
 
 // EngineTestHelper swaps fuelAlgorithm for a mock airmass model after applying the engine type,
@@ -173,4 +186,93 @@ TEST(DleTwin, dle120With36minus1Wheel) {
 
 TEST(DleTwin, dle120With60minus2Wheel) {
 	expectWheelRunsCleanly(engine_type_e::DLE_120_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_60_2, 60, 2, 8000);
+}
+
+namespace {
+
+CANDriver verboseCan;
+std::map<uint32_t, std::array<uint8_t, 8>> verboseFrames;
+
+msg_t captureVerboseFrame(CANDriver*, canmbx_t, CANTxFrame* frame, can_sysinterval_t) {
+	EXPECT_EQ(CAN_IDE_STD, frame->IDE);
+	std::array<uint8_t, 8> data{};
+	memcpy(data.data(), frame->data8, data.size());
+	verboseFrames[CAN_ID(*frame)] = data;
+	return MSG_OK;
+}
+
+int u16At(uint32_t id, int offset) {
+	const auto& d = verboseFrames.at(id);
+	return d[offset] | (d[offset + 1] << 8);
+}
+
+int s16At(uint32_t id, int offset) {
+	return static_cast<int16_t>(u16At(id, offset));
+}
+
+} // namespace
+
+/**
+ * The hybrid controller (r8d8/hybrid_ctrl, firmware/src/rusefi_link.c) decodes these bytes of the
+ * verbose broadcast and forwards them to the autopilot. A layout change here breaks it: update both.
+ */
+TEST(DleTwin, verboseCanLayoutForHybridController) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	engine->allowCanTx = true;
+	canTransmitMock = captureVerboseFrame;
+	CanTxMessage::setDevice(0, &verboseCan);
+	verboseFrames.clear();
+
+	Sensor::setMockValue(SensorType::Rpm, 7250);
+	Sensor::setMockValue(SensorType::Tps1, 42.5);
+	Sensor::setMockValue(SensorType::Map, 85.5);
+	Sensor::setMockValue(SensorType::Clt, 152);
+	Sensor::setMockValue(SensorType::Iat, 23);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
+	Sensor::setMockValue(SensorType::Lambda1, 0.87);
+	Sensor::setMockValue(SensorType::EGT1, 610);
+	Sensor::setMockValue(SensorType::EGT2, 640);
+	engine->engineState.warnings.warningCounter = 3;
+	engine->engineState.warnings.lastErrorCode = ObdCode::OBD_Map_Timeout;
+	engine->engineState.timingAdvance[0] = 24.5;
+	engine->outputChannels.actualLastInjection = 2.4;
+#ifdef MODULE_ODOMETER
+	engine->module<TripOdometer>()->consumeFuel(37.5, getTimeNowNt());
+#endif
+
+	void sendCanVerbose();
+	sendCanVerbose();
+	while (CanTxMessage::serviceOne(0)) {
+	}
+	CanTxMessage::removeDevice(0);
+	canTransmitMock = nullptr;
+
+	ASSERT_EQ(12u, verboseFrames.size());
+	// 0x200: warning counter, last error code, bit 0 of byte 4 = fuel or spark cut active
+	EXPECT_EQ(3, u16At(0x200, 0));
+	EXPECT_EQ(static_cast<int>(ObdCode::OBD_Map_Timeout), u16At(0x200, 2));
+	EXPECT_EQ(0, verboseFrames.at(0x200)[4] & 1);
+	// 0x201: RPM, ignition timing x50
+	EXPECT_EQ(7250, u16At(0x201, 0));
+	EXPECT_EQ(1225, s16At(0x201, 2));
+	// 0x202: TPS1 (the servo command) x100
+	EXPECT_EQ(4250, s16At(0x202, 2));
+	// 0x203: MAP x30, CLT and IAT +40
+	EXPECT_EQ(2565, u16At(0x203, 0));
+	EXPECT_EQ(192, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(63, verboseFrames.at(0x203)[3]);
+	// 0x204: battery x1000
+	EXPECT_EQ(12400, u16At(0x204, 6));
+	// 0x205: injector pulse x300
+	EXPECT_EQ(720, u16At(0x205, 4));
+#ifdef MODULE_ODOMETER
+	// 0x206: fuel used, whole grams
+	EXPECT_EQ(37, u16At(0x206, 0));
+#endif
+	// 0x207: lambda 1 x10000
+	EXPECT_EQ(8700, u16At(0x207, 0));
+	// 0x209: EGT 1 and 2 / 5
+	EXPECT_EQ(122, verboseFrames.at(0x209)[0]);
+	EXPECT_EQ(128, verboseFrames.at(0x209)[1]);
 }
