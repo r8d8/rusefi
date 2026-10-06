@@ -44,6 +44,9 @@ ifeq ($(PROJECT_CPU),ARCH_STM32F4)
 
     # This board has LIN/K-line interface
     DDEFS += -DEFI_KLINE=TRUE
+
+    # 1 MB F4 with OpenBLT: the shared code grew past the limit (2026-10)
+    DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 endif
 
 DDEFS += -DKLINE_SERIAL_DEVICE_RX=D9 -DKLINE_SERIAL_DEVICE_TX=D8

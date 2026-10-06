@@ -1164,3 +1164,29 @@ Linking and the final sizes come from CI.
 
 Open follow-ups:
 - Confirm all four boards link in CI; if uaefi121 is still over, the next candidate trim is chosen there.
+
+## 2026-10-06 - Last 1 MB F4 overflows; Simulator clang build fixed
+
+CI run 37475463726 (95834543ab1): uaefi, uaefi_pro, uaefi_pro_h7, super-uaefi and hellen-honda-k
+link. Still over: uaefi121 by 252 B and mre_f4 by 112 B (mre_f4 had been skipped by the random
+SKIP_RATE before).
+
+The Simulator workflow had failed on every fork commit since 7ac9aae3b1 (master and 241ea57eee
+pass), only in the clang job: `binary_mlg_logging.cpp` stores the constant `recordLength` byte-wise
+into a `char` buffer, and the fork's extra output channels made its low byte 0x81 -> clang
+`-Werror,-Wconstant-conversion`. GCC accepts it silently. Not caused by the servo code itself, just
+by the record size it changed.
+
+| File | Change |
+|------|--------|
+| `config/boards/hellen/uaefi121/board.mk` | also `EFI_VVT_PID=FALSE` (as on uaEFI F4; ~500 B non-LTO) |
+| `config/boards/microrusefi/board.mk` | F4 only: `EFI_LOGIC_ANALYZER=FALSE` (1504 B non-LTO; common trim on 1 MB boards) |
+| `console/binary_mlg_log/binary_mlg_logging.cpp` | explicit `static_cast<char>` for the record-length bytes |
+
+Validation: mre_f4 compiled non-LTO with the GCC shim before the trim (logic_analyzer.o 1504 B
+text); simulator compiled with clang 18 (`make USE_CLANG=yes`), every object builds, the link needs
+clang's i386 ASan runtime, which this container lacks (CI has it). Final links come from CI.
+
+Open follow-ups:
+- A full firmware matrix run (workflow_dispatch builds every board; push runs skip some at random)
+  to confirm no other 1 MB F4 board is over.

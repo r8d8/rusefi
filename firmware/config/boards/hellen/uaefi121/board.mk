@@ -17,8 +17,8 @@ DDEFS += -DEFI_MAX_31855=TRUE
 DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 DDEFS += -DEFI_MISFIRE_DETECTION=FALSE
 DDEFS += -DEFI_HPFP=FALSE
-# alternator field control, after the shared code grew past the 1 MB limit (2026-10)
-DDEFS += -DEFI_ALTERNATOR_CONTROL=FALSE
+# alternator field control and VVT, after the shared code grew past the 1 MB limit (2026-10)
+DDEFS += -DEFI_ALTERNATOR_CONTROL=FALSE -DEFI_VVT_PID=FALSE
 
 DDEFS += -DBOARD_SERIAL="\"000200000000000000000000\""
 

@@ -96,8 +96,9 @@ size_t writeFileHeader(Writer& outBuffer) {
 	buffer[19] = headerSize & 0xFF;
 
 	// Record length - length of a single data record: sum size of all fields
-	buffer[20] = recordLength >> 8;
-	buffer[21] = recordLength & 0xFF;
+	// explicit narrowing: recordLength is a constant, clang rejects an implicit one once the low byte exceeds 0x7F
+	buffer[20] = static_cast<char>(recordLength >> 8);
+	buffer[21] = static_cast<char>(recordLength & 0xFF);
 
 	// Number of logger fields
 	int fieldsCount = efi::size(fields);
