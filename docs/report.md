@@ -1190,3 +1190,18 @@ clang's i386 ASan runtime, which this container lacks (CI has it). Final links c
 Open follow-ups:
 - A full firmware matrix run (workflow_dispatch builds every board; push runs skip some at random)
   to confirm no other 1 MB F4 board is over.
+
+## 2026-10-06 - Full firmware matrix after the flash trims
+
+Full `workflow_dispatch` run 37490910717 on 55bbb6a756f: 46 of 47 jobs pass, including uaefi,
+uaefi121, mre_f4, hellen121nissan, hellen-honda-k and all alphax boards; Simulator (both
+compilers) green again (run 37490906300).
+
+The one failure was the HITL variant `nucleo_f429_hitl`: its meta-info copied
+`OPENBLT_WIPE_FLASH_END_EXCLUSIVE` from the plain nucleo_f429, and `OpenBltWipeSrecGenerator` only
+accepts an allow-list of bundle/bootloader names ("Unsupported wipe profile
+nucleo_f429_hitl/stm32f429_nucleo_hitl/ARCH_STM32F4"). A bench board does not need the wipe image,
+so the variable is dropped from the HITL meta-info instead of widening the Java allow-list.
+
+Open follow-ups:
+- Confirm the HITL variant builds (commit message `only:nucleo_f429_hitl`).
