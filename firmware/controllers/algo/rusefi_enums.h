@@ -953,6 +953,14 @@ enum class SDLoggerMode : uint8_t {
 	Dtc = 4,
 };
 
+// Servo throttle request source, see servo_throttle.h
+enum class ServoThrottleRequestSource : uint8_t {
+	// RC pulse on pwmInputTpsPin
+	PwmInput = 0,
+	// HCU_ENGINE_CMD CAN frame from the hybrid controller, see servo_throttle_can.h
+	Can = 1,
+};
+
 #endif // __cplusplus
 
 #include "generated/enums/rusefi_config_generated_enums.h"

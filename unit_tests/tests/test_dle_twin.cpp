@@ -46,6 +46,23 @@ static void expectDleTwinCommon() {
 	EXPECT_EQ(0x200u, engineConfiguration->verboseCanBaseAddress);
 	EXPECT_FALSE(engineConfiguration->rusefiVerbose29b);
 	EXPECT_EQ(50, engineConfiguration->canSleepPeriodMs);
+
+	// Throttle request, governor target and run/stop from the hybrid controller's HCU_ENGINE_CMD
+	EXPECT_EQ(ServoThrottleRequestSource::Can, engineConfiguration->servoThrottleRequestSource);
+	EXPECT_EQ(0x1A0, engineConfiguration->servoThrottleCanId);
+	EXPECT_TRUE(engineConfiguration->canReadEnabled);
+	// CAN user control: engine stop only
+	EXPECT_TRUE(engineConfiguration->canUserControlStopOnly);
+	// Above the HCU's 12% idle feed-forward, so idle / interlock off / autorotation drop the governor
+	EXPECT_EQ(20, engineConfiguration->servoGovernorMinRequest);
+	// rusEFI governs; gains from the SITL sweep, engage window wide enough for a loaded run-up
+	EXPECT_TRUE(engineConfiguration->servoGovernorEnabled);
+	EXPECT_NEAR(0.04, engineConfiguration->servoGovernorPid.pFactor, 1e-6);
+	EXPECT_NEAR(0.1, engineConfiguration->servoGovernorPid.iFactor, 1e-6);
+	EXPECT_NEAR(0, engineConfiguration->servoGovernorPid.dFactor, 1e-6);
+	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
+	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
+	EXPECT_EQ(600, engineConfiguration->servoGovernorEngageWindow);
 }
 
 // EngineTestHelper swaps fuelAlgorithm for a mock airmass model after applying the engine type,

@@ -503,6 +503,8 @@ float mapFast
 	int16_t autoscale servoThrottleRequest;Servo throttle: request;"%",{1/@@PACK_MULT_PERCENT@@}, 0, 0, 0, 1
 	uint16_t servoThrottlePulseUs;Servo throttle: output pulse;"us", 1, 0, 0, 2500, 0
 	uint8_t servoGovernorState;Servo throttle: governor state;"", 1, 0, 0, 3, 0
+	! HCU_ENGINE_CMD with the CAN request source (servo_throttle_can.h): 0 no frame yet, 1 fresh, 2 lost (last command held)
+	uint8_t servoThrottleCanCommand;Servo throttle: CAN command state;"", 1, 0, 0, 2, 0
 	pid_status_s servoGovernorStatus
 
 ! TunerStudio/MLV integration requires channel 'engine' and exact log label 'Engine'.

@@ -160,6 +160,30 @@ TEST(BenchTest, unknownBenchCommandWarnsWithoutQueuingOutput) {
 	EXPECT_EQ(nullptr, takePendingBenchRequestForUnitTest().pin);
 }
 
+// ECU_CAN_BUS_USER_CONTROL with canUserControlStopOnly (DLE presets): a node on the CAN bus may stop
+// the engine, every other TS command (engine type, bench tests, reboot, DFU...) is ignored
+TEST(BenchTest, canUserControlStopOnly) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->engineShutDownPeriod = 3;
+	auto& shutdown = getLimpManager()->shutdownController;
+	engineConfiguration->canUserControlStopOnly = true;
+
+	executeCanUserControlCommand(TS_BENCH_CATEGORY, BENCH_HPFP_VALVE);
+	EXPECT_EQ(nullptr, takePendingBenchRequestForUnitTest().pin);
+	executeCanUserControlCommand(TS_SET_ENGINE_TYPE, (uint16_t)engine_type_e::MINIMAL_PINS);
+	EXPECT_EQ(engine_type_e::TEST_ENGINE, engineConfiguration->engineType);
+
+	ASSERT_FALSE(shutdown.isEngineStop(getTimeNowNt()));
+	executeCanUserControlCommand(TS_STOP_ENGINE, 0);
+	EXPECT_TRUE(shutdown.isEngineStop(getTimeNowNt()));
+	EXPECT_EQ((uint8_t)StopRequestedReason::TsCommand, engine->outputChannels.stopEngineCode);
+
+	// Guard off: every command, as before
+	engineConfiguration->canUserControlStopOnly = false;
+	executeCanUserControlCommand(TS_BENCH_CATEGORY, BENCH_HPFP_VALVE);
+	EXPECT_EQ(&enginePins.hpfpValve, takePendingBenchRequestForUnitTest().pin);
+}
+
 TEST(BenchTest, secondIdleSolenoidIgnoresPwmWritesDuringBench) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	auto request = dispatch(BENCH_SECOND_IDLE_VALVE);

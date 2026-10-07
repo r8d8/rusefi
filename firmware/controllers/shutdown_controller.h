@@ -18,6 +18,9 @@ enum class StopRequestedReason : uint8_t {
     Board2,
     Board3,
 
+    // Hybrid controller's HCU_ENGINE_CMD frame: RUN = 0 (servo_throttle_can.h). Appended so the
+    // stopEngineCode values above stay as logged before.
+    CanCommand, // 8
 };
 
 void doScheduleStopEngine(StopRequestedReason reason);

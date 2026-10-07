@@ -36,6 +36,8 @@ void milBench();
 void starterRelayBench();
 
 void executeTSCommand(uint16_t subsystem, uint16_t index);
+// ECU_CAN_BUS_USER_CONTROL frame: executeTSCommand(), or only TS_STOP_ENGINE with canUserControlStopOnly
+void executeCanUserControlCommand(uint16_t subsystem, uint16_t index);
 void handleBenchCategory(uint16_t index);
 // TS Lua button press counters, incremented by the LUA_COMMAND_1..10 bench commands and the lua_button console command
 extern int luaCommandCounters[LUA_BUTTON_COUNT];

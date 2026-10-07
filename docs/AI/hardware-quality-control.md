@@ -185,7 +185,10 @@ CLT, IAT, VBatt, aux analogs...), `BOARD_STATUS` (Hellen board ID, uptime, engin
 
 `ECU_CAN_BUS_USER_CONTROL` (0x77000C, `data[0]=0x66`) unpacks subsystem/index and calls
 `executeTSCommand` - the *entire* TS bench/command surface is drivable over CAN, e.g.
-`0x77000C 0x66 0x00 0x14 0x00 0x09 0x00` = start/stop engine. Also here:
+`0x77000C 0x66 0x00 0x14 0x00 0x09 0x00` = start/stop engine. With `canUserControlStopOnly` set
+(`executeCanUserControlCommand()`) only `TS_STOP_ENGINE` is executed and every other subsystem is
+ignored; the other packet types below, ISO-TP TS, the CAN QC protocol and the OpenBLT jump frame
+are not covered by that bit. Also here:
 `ECU_REQ_CALIBRATION` - query any scalar calibration by field hash (see `fields_api.txt`),
 reply in `ECU_GET_CALIBRATION`; `DASH_ALIVE` -> `ECU_IMAGE_INFO`. There is also an ISO-TP
 wrapper of the full TS protocol over CAN (see `can_common.h` `ECU_ISO_TP_SETTINGS`).

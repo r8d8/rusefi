@@ -218,6 +218,7 @@ TESTS_SRC_CPP = \
 	tests/actuators/test_antilag.cpp \
 	tests/actuators/test_boost.cpp \
 	tests/actuators/test_servo_throttle.cpp \
+	tests/actuators/test_servo_throttle_can.cpp \
 	tests/actuators/test_dc_hardware_pool.cpp \
 	tests/actuators/test_dc_motor.cpp \
 	tests/actuators/test_etb.cpp \

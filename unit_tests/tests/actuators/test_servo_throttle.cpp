@@ -301,6 +301,35 @@ TEST(ServoGovernor, lowRequestTurnsGovernorOff) {
 	EXPECT_NEAR(50, servo().getCommandPercent(), EPS4D);
 }
 
+// DLE presets: the hybrid controller sends a 12% idle feed-forward (ArduPilot H_RSC_IDLE) while
+// disarmed or with the motor interlock off. With the preset's 20% minimum request that turns the
+// governor off; at the default 10% it would keep governing and pull the engine back up to the
+// target, e.g. in a practice autorotation.
+TEST(ServoGovernor, hcuIdleFeedForwardTurnsGovernorOffWithMinRequest20) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorMinRequest = 20;
+
+	for (int i = 0; i < 100; i++) {
+		servo().update(50.0f, rpmOf(5800), dt);
+	}
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	servo().update(12.0f, rpmOf(5800), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	EXPECT_NEAR(12, servo().getCommandPercent(), EPS4D);
+	EXPECT_NEAR(0, servo().getTrim(), EPS4D);
+
+	// The default 10% minimum keeps governing on the idle feed-forward
+	configureGovernor();
+	for (int i = 0; i < 100; i++) {
+		servo().update(50.0f, rpmOf(5800), dt);
+	}
+	servo().update(12.0f, rpmOf(5800), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_GT(servo().getCommandPercent(), 12);
+}
+
 TEST(ServoGovernor, noRpmFollowsRequest) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	configureGovernor();

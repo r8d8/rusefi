@@ -59,6 +59,7 @@
 #include "vr_pwm.h"
 #include "adc_subscription.h"
 #include "gc_generic.h"
+#include "servo_throttle_can.h"
 
 #if EFI_TUNER_STUDIO
 #include "tunerstudio.h"
@@ -439,6 +440,8 @@ void commonInitEngineController() {
 #if EFI_SERVO_THROTTLE
 	// Once per boot: hardware PWM channels are not released, so pin changes need a power cycle
 	initServoThrottleOutput();
+	// HCU_ENGINE_CMD listener, also once per boot: it checks the request source and ID per frame
+	initServoThrottleCan();
 #endif // EFI_SERVO_THROTTLE
 
 #if !EFI_UNIT_TEST

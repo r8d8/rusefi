@@ -2052,12 +2052,17 @@ end_struct
 	uint16_t pwmInputTpsMaxUs;PWM input TPS: pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
 
 	! --- Servo throttle ---
-	! rusEFI drives an RC-style throttle servo. The PWM input TPS pulse becomes the throttle request and TPS1 reports rusEFI's command.
-	output_pin_e servoThrottlePin;Servo throttle: output driving an RC-style throttle servo. When set, rusEFI commands the throttle: the PWM input TPS pulse is the throttle request (e.g. an autopilot's throttle channel) and TPS1 reports rusEFI's command. The command follows the request (passthrough) or, with the governor enabled, the request plus a governor trim. A lost request is held. Use a pin with a hardware timer for a jitter-free pulse. Requires power cycle.
+	! rusEFI drives an RC-style throttle servo. The PWM input TPS pulse (or a CAN command, see servoThrottleRequestSource) becomes the throttle request and TPS1 reports rusEFI's command.
+	output_pin_e servoThrottlePin;Servo throttle: output driving an RC-style throttle servo. When set, rusEFI commands the throttle: the PWM input TPS pulse (e.g. an autopilot's throttle channel) or a CAN command is the throttle request and TPS1 reports rusEFI's command. The command follows the request (passthrough) or, with the governor enabled, the request plus a governor trim. A lost request is held. Use a pin with a hardware timer for a jitter-free pulse. Requires power cycle.
 	uint16_t servoThrottleFrequency;Servo throttle: frame rate. 50 Hz suits any servo, digital servos accept up to 333 Hz. Requires power cycle.;"Hz", 1, 0, 50, 333, 0
 	uint16_t servoThrottleClosedUs;Servo throttle: output pulse width at closed throttle (0%).;"us", 1, 0, 500, 2500, 0
 	uint16_t servoThrottleOpenUs;Servo throttle: output pulse width at wide open throttle (100%).;"us", 1, 0, 500, 2500, 0
 	uint16_t servoThrottleFullTravelMs;Servo throttle: time the servo needs for the whole closed-to-open stroke. TPS1 then follows the command at this rate instead of jumping, so acceleration enrichment matches the real throttle motion. Servo speed in s per 60 deg times stroke in deg / 60. KST SV12-12 at 12 V over 1000-2000 us (100 deg): 0.11 x 100 / 60 = 183 ms. 0 = TPS1 equals the command.;"ms", 1, 0, 0, 2000, 0
+
+	! Request source: the PWM input TPS pulse, or the hybrid controller's HCU_ENGINE_CMD CAN frame (servo_throttle_can.h)
+	custom ServoThrottleRequestSource 1 bits, U08, @OFFSET@, [0:0], "PWM input", "CAN"
+	ServoThrottleRequestSource servoThrottleRequestSource;Servo throttle: request source. PWM input: the PWM input TPS pulse. CAN: the hybrid controller's HCU_ENGINE_CMD frame (feed-forward, governor target and on/off, run/stop). A lost request is held.
+	uint16_t servoThrottleCanId;Servo throttle: 11-bit CAN ID of HCU_ENGINE_CMD. 0 = 416 (0x1A0).;"", 1, 0, 0, 2047, 0
 
 	! --- Servo throttle governor ---
 	bit servoGovernorEnabled,"enabled","disabled";Servo throttle governor: closed-loop engine speed control. The throttle request becomes feed-forward and a PID adds a trim to hold the target RPM. Follows the request without governing while it is below the minimum request (idle, motor interlock off, autorotation) and until RPM first comes within the engage window.
@@ -2067,6 +2072,8 @@ end_struct
 	uint16_t servoThrottleOverspeedRpm;Servo throttle: above this engine RPM the throttle is closed until RPM falls back to the governor target (or to this limit minus the engage window without the governor). Works in passthrough too. 0 = off.;"rpm", 1, 0, 0, 20000, 0
 	! --- Alpha-N altitude compensation ---
 	bit alphaNUseBaro,"yes","no";When set to yes, Alpha-N airmass is scaled by the measured barometric pressure instead of standard sea-level pressure. Needed when the engine runs at altitude. Use a live barometric sensor (analog baro sensor or LPS25), not the start-up MAP reading, if altitude changes while running. Falls back to standard pressure if the sensor fails.
+	! --- CAN user control guard (ECU_CAN_BUS_USER_CONTROL frames), shares the bit word above ---
+	bit canUserControlStopOnly,"stop only","all commands";CAN user control: only the engine stop command is executed, every other command (reboot, DFU, engine type, bench tests) is ignored.
 
 	pid_s servoGovernorPid;Servo throttle governor PID. Error is in RPM, output is the trim in percent added to the request. Min/max limit the trim authority.
 

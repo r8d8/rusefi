@@ -3,14 +3,20 @@
  *
  * Throttle driven by an RC-style servo (1-2 ms pulse) on servoThrottlePin.
  *
- * The throttle request arrives as a servo pulse on pwmInputTpsPin, e.g. the throttle-curve channel
- * of an autopilot (collective feed-forward plus idle / motor interlock / autorotation states).
+ * The throttle request (servoThrottleRequestSource) arrives either
+ * - as a servo pulse on pwmInputTpsPin, e.g. the throttle-curve channel of an autopilot (collective
+ *   feed-forward plus idle / motor interlock / autorotation states), or
+ * - as the hybrid controller's HCU_ENGINE_CMD CAN frame (servo_throttle_can.h), which also carries
+ *   the governor target and on/off and a run/stop request. With it the governor target is the
+ *   frame's TARGET_RPM (servoGovernorTargetRpm when that is 0) and the governor runs only while
+ *   both servoGovernorEnabled and the frame's GOV_ON are set.
  * rusEFI turns the request into the servo command. The throttle has no position sensor, so TPS1
  * reports the command - or, with servoThrottleFullTravelMs set, a model of the servo position that
  * follows the command at the servo's speed (so acceleration enrichment sees the real throttle motion).
  *
- * Request handling: if the request is lost (no pulses, or an implausible pulse) the last request
- * is held; before the first valid request the throttle is commanded closed.
+ * Request handling: if the request is lost (no pulses, an implausible pulse, or no fresh CAN
+ * command) the last request is held - for CAN with its governor target and on/off; before the first
+ * valid request the throttle is commanded closed.
  *
  * Modes:
  * - passthrough (governor disabled): command = request.
@@ -46,8 +52,11 @@ class ServoThrottle : public EngineModule {
 public:
 	void onFastCallback() override;
 
-	// One control step: request (may be invalid), engine RPM (may be invalid), time step
+	// One control step: request (may be invalid), engine RPM (may be invalid), time step. Governor
+	// target and enable from the configuration.
 	void update(SensorResult request, SensorResult rpm, float dtSeconds);
+	// Same with the effective governor target and enable (CAN request source)
+	void update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled);
 
 	// Output pulse width for a throttle position: closedUs at 0%, openUs at 100%
 	static float positionToPulseUs(percent_t position, float closedUs, float openUs);
@@ -81,7 +90,7 @@ public:
 	void reset();
 
 private:
-	ServoGovernorState governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds);
+	ServoGovernorState governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds, float target);
 
 	Pid m_pid;
 	percent_t m_feedForward = 0;
@@ -103,5 +112,5 @@ void deinitServoThrottleTps();
 void initServoThrottleOutput();
 
 // refreshConfigErrorState() producer: raises a config error and returns true while the servo
-// output is configured without a request input
+// output is configured without a request input (no PWM input pin, or CAN source with CAN read off)
 bool checkServoThrottleConfigError();

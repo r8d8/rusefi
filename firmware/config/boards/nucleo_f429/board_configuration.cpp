@@ -52,14 +52,15 @@ static void nucleoHardwareCiConfigOverrides() {
 #if HW_NUCLEO_F429_HITL
 /**
  * Hybrid controller (HCU) hardware-in-the-loop bench, see r8d8/hybrid_ctrl docs/hitl.md: this
- * Nucleo stands in for uaEFI running the DLE-60 preset, between a plant emulator (G474: crank
+ * Nucleo stands in for uaEFI running the DLE-120 preset, between a plant emulator (G474: crank
  * wheel, engine and rotor model) and the HCU (H755). Pins on the Zio (Arduino) header, at the
  * same positions as the HCU's Nucleo-144 signals.
  */
 static void nucleoHitlDefaultConfiguration() {
 	// D7 <- plant 36-1 crank signal
 	engineConfiguration->triggerInputPins[0] = Gpio::F13;
-	// D5 <- throttle request pulse (plant, or the autopilot's HeliRSC output)
+	// D5 <- throttle request pulse (plant, or the autopilot's HeliRSC output). The DLE presets take
+	// the request from the HCU over CAN (HCU_ENGINE_CMD); the pin stays for the PWM request source.
 	engineConfiguration->pwmInputTpsPin = Gpio::E11;
 	// D6 -> plant servo input; TIM1_CH1 for a hardware PWM pulse
 	engineConfiguration->servoThrottlePin = Gpio::E9;
@@ -72,7 +73,7 @@ static void nucleoHitlDefaultConfiguration() {
 	// D4 <- HCU ecu-stop output (active high pulse)
 	engineConfiguration->startStopButtonPin = Gpio::F14;
 	engineConfiguration->startStopButtonMode = PI_PULLDOWN;
-	// D14/D15: CAN1 to the power CAN transceiver (verbose broadcast for the HCU)
+	// D14/D15: CAN1 to the power CAN transceiver (verbose broadcast for the HCU, HCU_ENGINE_CMD from it)
 	engineConfiguration->canTxPin = Gpio::B9;
 	engineConfiguration->canRxPin = Gpio::B8;
 }

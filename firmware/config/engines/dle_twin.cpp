@@ -3,7 +3,7 @@
  *
  * DLE two-stroke boxer twins (DLE-60, DLE-120) converted to fuel injection, as used on a hybrid
  * helicopter: throttle body with one injector, rusEFI-driven ignition, throttle servo driven by
- * rusEFI from an autopilot request (see servo_throttle.h).
+ * rusEFI from the hybrid controller's CAN command (see servo_throttle.h).
  *
  * Engine model: both pistons of the boxer reach TDC together and the stock DLE "TWIN" ignition
  * fires both plugs at once from one hub magnet. For fueling and spark scheduling that is one
@@ -25,7 +25,9 @@
  *
  * CAN: the standard rusEFI verbose broadcast (rusEFI_CAN_verbose.dbc, 11-bit IDs 0x200-0x20B,
  * every 50 ms) is the engine status for the hybrid controller, which forwards it to the autopilot
- * as DroneCAN ICE status. Its byte layout is pinned by test_dle_twin.cpp.
+ * as DroneCAN ICE status. Its byte layout is pinned by test_dle_twin.cpp. In the other direction the
+ * hybrid controller sends HCU_ENGINE_CMD (0x1A0, servo_throttle_can.h): throttle feed-forward,
+ * governor target and on/off, run/stop. CAN user control is limited to the engine stop.
  *
  * Everything below is a STARTING POINT, not a tune:
  * - globalTriggerAngleOffset assumes the wheel is fitted so that the first tooth after the gap
@@ -44,6 +46,7 @@
 #include "dle_twin.h"
 
 #if EFI_SERVO_THROTTLE
+#include "servo_throttle_can.h"
 
 #define ENGINE_MAKE_DLE "DLE"
 
@@ -163,6 +166,35 @@ static void setDleTwinCommon(float maxRpm) {
 	// Inert until servoThrottlePin is assigned. Overspeed closes the throttle just below the rev limit.
 	engineConfiguration->servoThrottleFrequency = 333;
 	engineConfiguration->servoThrottleFullTravelMs = 180;
+
+	// Throttle request, governor target and run/stop come from the hybrid controller's
+	// HCU_ENGINE_CMD frame (servo_throttle_can.h); rusEFI's governor holds speed and keeps the last
+	// command when the link is lost. Default ID 0x1A0.
+	engineConfiguration->servoThrottleRequestSource = ServoThrottleRequestSource::Can;
+	engineConfiguration->servoThrottleCanId = HCU_ENGINE_CMD_DEFAULT_ID;
+	engineConfiguration->canReadEnabled = true;
+	// The HCU may stop the engine over CAN user control, nothing else (no reboot, DFU, preset...)
+	engineConfiguration->canUserControlStopOnly = true;
+	// The HCU sends a 12% idle feed-forward (ArduPilot H_RSC_IDLE) while disarmed or with the motor
+	// interlock off. The governor drops out only below this minimum request: at the default 10% it
+	// would stay engaged at idle and pull the engine back up to the target in a practice
+	// autorotation. 20% matches the HCU's arming level.
+	engineConfiguration->servoGovernorMinRequest = 20;
+
+	// rusEFI governs rotor speed (decision 2026-10-07); the HCU's GOV_ON bit can still switch it off.
+	// Gains from the SITL sweep (45 kg full-collective lift-off at 2000 m ISA+15, 180 ms servo):
+	// rotor minimum 99.3 %, overshoot 101.5 %, no limit cycle at hover. The model has no tach noise or
+	// rpm quantization - check on the engine before raising them.
+	engineConfiguration->servoGovernorEnabled = true;
+	engineConfiguration->servoGovernorPid.pFactor = 0.04;
+	engineConfiguration->servoGovernorPid.iFactor = 0.1;
+	engineConfiguration->servoGovernorPid.dFactor = 0;
+	engineConfiguration->servoGovernorPid.minValue = -20;
+	engineConfiguration->servoGovernorPid.maxValue = 20;
+	// Engages within 600 rpm (~9 %) under the target: in the SITL run-up the low-collective throttle
+	// curve left the engine ~560 rpm under the target with the generator loaded, so the default
+	// 300 rpm window never engaged
+	engineConfiguration->servoGovernorEngageWindow = 600;
 }
 
 /**
@@ -181,6 +213,8 @@ void setDle60Twin() {
 	engineConfiguration->cranking.rpm = 1000;
 	engineConfiguration->rpmHardLimit = 9000;
 	engineConfiguration->servoThrottleOverspeedRpm = 8700;
+	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated, as for the DLE-120
+	engineConfiguration->servoGovernorTargetRpm = 7650;
 }
 
 /**
@@ -200,6 +234,9 @@ void setDle120Twin() {
 	engineConfiguration->cranking.rpm = 900;
 	engineConfiguration->rpmHardLimit = 8500;
 	engineConfiguration->servoThrottleOverspeedRpm = 8200;
+	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated (7500 rpm), the engine
+	// speed at the governed 1000 rpm rotor with the working 6.75:1 drive (clearwater hcu/README.md)
+	engineConfiguration->servoGovernorTargetRpm = 6750;
 }
 
 #endif // EFI_SERVO_THROTTLE

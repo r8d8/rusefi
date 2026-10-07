@@ -166,6 +166,11 @@ bool applyDefaultsOrFixAfterBurn(const engine_configuration_s* previousConfigura
     engineConfiguration->servoThrottleOpenUs = 2000;
     changed = true;
   }
+  // HCU_ENGINE_CMD default ID; the decoder also reads 0 as this ID (servo_throttle_can.h)
+  if (engineConfiguration->servoThrottleCanId == 0) {
+    engineConfiguration->servoThrottleCanId = 0x1A0;
+    changed = true;
+  }
   // 0 is outside both fields' ranges. A zero minimum request would let the governor fight an idle
   // request (motor interlock off, autorotation) to hold speed.
   if (engineConfiguration->servoGovernorEngageWindow == 0) {

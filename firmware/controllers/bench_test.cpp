@@ -724,6 +724,16 @@ static void applyPreset(int index) {
 // placeholder to force custom_board_ts_command migration
 void boardTsAction(uint16_t index) { UNUSED(index); }
 
+void executeCanUserControlCommand(uint16_t subsystem, uint16_t index) {
+	// A node on the bus (e.g. the hybrid controller) may stop the engine, but must not reboot,
+	// flash, reconfigure or bench-test the ECU
+	if (engineConfiguration->canUserControlStopOnly && subsystem != TS_STOP_ENGINE) {
+		efiPrintf("CAN user control %d: stop only", subsystem);
+		return;
+	}
+	executeTSCommand(subsystem, index);
+}
+
 #if EFI_CAN_SUPPORT && !EFI_UNIT_TEST
 /**
  * for example to bench test injector 1
@@ -736,7 +746,7 @@ static void processCanUserControl(const CANRxFrame& frame) {
 	// reserved data8[1]
 	uint16_t subsystem = getTwoBytesLsb(frame, 2);
 	uint16_t index = getTwoBytesLsb(frame, 4);
-	executeTSCommand(subsystem, index);
+	executeCanUserControlCommand(subsystem, index);
 }
 
    union FloatIntBytes {

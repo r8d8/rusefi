@@ -1205,3 +1205,166 @@ so the variable is dropped from the HITL meta-info instead of widening the Java 
 
 Open follow-ups:
 - Confirm the HITL variant builds (commit message `only:nucleo_f429_hitl`).
+
+## 2026-10-07 - HITL bench default engine: DLE-120
+
+Decision (user, relayed by the programme's design session): the stage 1.1 baseline engine is the
+DLE-120 (3 x 1200 mm rotor, 37.24 kg take-off), so the HITL bench variant defaults to it. The DLE-60
+stays selectable (engine type 106).
+
+| File | Change |
+|------|--------|
+| `config/boards/nucleo_f429/board.mk` | `stm32f429_nucleo_hitl`: `DEFAULT_ENGINE_TYPE` `DLE_120_TWIN` |
+| `config/boards/nucleo_f429/board_configuration.cpp` | Comment: the bench runs the DLE-120 preset |
+
+Validation: default-engine and comment change only; the HITL pins are set in board defaults, before
+the preset, and neither DLE preset sets pins, so they survive the switch.
+
+## 2026-10-07 - Servo throttle request over CAN from the hybrid controller (HCU_ENGINE_CMD)
+
+Decision (2026-10-07): the hybrid controller (HCU) sends rusEFI an engine command over CAN; rusEFI's
+own governor holds speed and keeps the last command when the link is lost. Until now the request
+(= governor feed-forward) could only come from the RC pulse on `pwmInputTpsPin`, and the governor
+target and on/off only from the tune.
+
+The frame is specified by the HCU (r8d8/hybrid_ctrl) and not changed here: HCU_ENGINE_CMD, 11-bit
+ID 0x1A0 (configurable), DLC 8, every 10 ms, big-endian. Byte 0: RUN (bit 0), GOV_ON (bit 1); byte
+1: COUNTER (bits 0-3), VERSION = 1 (bits 4-7); bytes 2-3 TARGET_RPM (0 = tune target); bytes 4-5 FF
+in 0.01 % (0..10000); byte 7 CRC-8/SAE-J1850 over bytes 0-6.
+
+Behaviour with `servoThrottleRequestSource` = CAN:
+- A frame counts only with the configured standard ID, DLC 8, correct CRC, VERSION 1, FF <= 100 %
+  and a COUNTER different from the last counted one (a stuck sender must not keep the command
+  fresh); the first frame after boot counts. Reserved bits are not checked.
+- Fresh while the last counted frame is under 100 ms old (`PWM_INPUT_TPS_TIMEOUT_MS`, as for the
+  pulse). Not fresh: the last FF, target and GOV_ON are held and the governor keeps holding speed -
+  the same hold as a lost pulse. A lost command never stops the engine. Before the first counted
+  frame the throttle is closed.
+- Governor target = TARGET_RPM when > 0, else `servoGovernorTargetRpm`; the governor runs only with
+  `servoGovernorEnabled` AND GOV_ON. The overspeed latch releases at min(limit - window, effective
+  target) while the governor is on, as before with the tune target.
+- RUN = 0 in 3 consecutive counted frames -> `doScheduleStopEngine(StopRequestedReason::CanCommand)`,
+  once per run-to-stop transition; a counted RUN = 1 frame re-arms it. Not re-issued every frame:
+  each call restarts the `engineShutDownPeriod` window and prints to the console, so at 100 Hz it
+  would flood the console and hold the window open for as long as RUN = 0. After the window the
+  engine stays stopped because nothing cranks it (cranking is the HCU's job).
+- The PWM source behaves exactly as before (all existing servo throttle tests unchanged).
+
+Guard: new general bit `canUserControlStopOnly`. With it set, `ECU_CAN_BUS_USER_CONTROL` frames
+execute only `TS_STOP_ENGINE` and ignore every other TS command (reboot, DFU, engine type, bench
+tests, the X14 start/stop toggle). The other packet types of `processCanEcuControl` are unchanged.
+
+DLE presets (`setDleTwinCommon()`): request source CAN, ID 0x1A0, `canReadEnabled`, the guard on,
+and `servoGovernorMinRequest` = 20 %. The HCU sends a 12 % idle feed-forward (ArduPilot
+H_RSC_IDLE) while disarmed or with the motor interlock off; once governing, the governor only drops
+out below the minimum request, so at the default 10 % it would stay engaged at idle and pull the
+engine back up to the target in a practice autorotation. 20 % matches the HCU's arming level.
+
+Design decisions:
+- Thread hand-over: the decoder runs in the CAN RX thread, `ServoThrottle` in the fast callback
+  (which the trigger ISR also calls once when RPM appears). The command (FF, target, GOV_ON) and its
+  timestamp are copied in and out under `chibios_rt::CriticalSectionLocker` (reentrant, legal in
+  ISR and thread context, as in KnockController/MapAverager). Counter and RUN = 0 count are CAN
+  thread only. The stop is scheduled from the CAN RX thread, like the existing CAN user control
+  `TS_STOP_ENGINE` path.
+- The listener is registered once at boot and `acceptFrame()` checks the request source and ID on
+  every frame, so a burn needs no (unlocked) listener list re-registration.
+- CRC: libfirmware's `crc8()` already is CRC-8/SAE-J1850 (its unit test value 0x0B for "12345678"
+  matches), so `hcuEngineCmdCrc()` wraps it - no second CRC table in flash.
+- `StopRequestedReason::CanCommand` is appended after Board1..3 (value 8) so the logged
+  `stopEngineCode` values stay. `shutdown_controller.h` is not an enum-to-string input. The new
+  `ServoThrottleRequestSource` enum is in `rusefi_enums.h`, so the build regenerates
+  `auto_generated_commonenum.*` with it (generated, not committed).
+- Live data: one byte, `servoThrottleCanCommand` (0 no frame yet, 1 fresh, 2 held), next to
+  `servoGovernorState`.
+- Config error: with the CAN source no PWM input pin is needed, but CAN read must be enabled.
+- The decoder is compiled only with `EFI_SERVO_THROTTLE` and CAN support (or in unit tests). The
+  guard, the config fields and the stop reason are on every board.
+
+| File | Change |
+|------|--------|
+| `integration/rusefi_config.txt` | `servoThrottleRequestSource` (PWM input / CAN), `servoThrottleCanId`, bit `canUserControlStopOnly` (shares alphaNUseBaro's bit word) |
+| `controllers/algo/rusefi_enums.h` | `enum class ServoThrottleRequestSource` |
+| `controllers/algo/defaults/default_base_engine.cpp` | `servoThrottleCanId` 0 -> 0x1A0 |
+| `controllers/actuators/servo_throttle_can.h/.cpp` (new) | HCU_ENGINE_CMD `CanListener`: validation, counter, freshness, RUN = 0 stop, `hcuEngineCmdCrc()`, `initServoThrottleCan()` |
+| `controllers/actuators/servo_throttle.h/.cpp` | CAN request source; `update()` overload with the effective governor target/enable, `governorStep()`/`isOverspeed()` take them; config error per source; live data byte |
+| `controllers/controllers.mk`, `controllers/engine_controller.cpp` | new source; listener registered once at boot |
+| `controllers/shutdown_controller.h` | `StopRequestedReason::CanCommand` |
+| `controllers/bench_test.h/.cpp` | `executeCanUserControlCommand()`: the guard, used by `processCanUserControl()` |
+| `console/binary/output_channels.txt` | `servoThrottleCanCommand` |
+| `tunerstudio/tunerstudio.template.ini` | servoThrottle dialog: request source, CAN ID, note; CAN Bus dialog: the guard |
+| `config/engines/dle_twin.cpp` | CAN source, guard, CAN read, `servoGovernorMinRequest` 20 |
+| `config/boards/nucleo_f429/board_configuration.cpp` | comments: the HITL pulse pin stays as the PWM-source fallback |
+| `docs/AI/hardware-quality-control.md` | CAN user control: the guard and what it does not cover |
+| `unit_tests/tests/actuators/test_servo_throttle_can.cpp` (new), `tests.mk` | CRC check value; valid frame; bad CRC, DLC, VERSION, FF > 100 %, 29-bit ID, other ID, repeated counter; configured ID and source; closed before the first frame; GOV_ON = 0 and tune governor off -> passthrough; frame target and target 0; loss -> hold and keep governing, no stop; stop after exactly 3 RUN = 0, not after 2, reset by RUN = 1, once per transition; config error |
+| `unit_tests/tests/actuators/test_servo_throttle.cpp` | 50 % -> 12 % feed-forward drops a governing state to Following with minRequest 20 (and keeps governing at 10) |
+| `unit_tests/tests/test_bench_test.cpp` | guard: stop executed, bench test and engine type ignored while set, bench test executed when clear |
+| `unit_tests/tests/test_dle_twin.cpp` | preset expectations |
+
+Validation: nothing was compiled or run. WSL has no JDK, so neither the configuration generator nor
+the unit-test build can run here; the code and tests were written against the existing patterns
+only. The CRC reference values were checked with a Python implementation (0x4B for "123456789").
+
+Open follow-ups:
+- CI: unit tests (GCC and clang) and the firmware matrix; flash size on uaEFI F4 (decoder) and on
+  uaefi121 / mre_f4 (guard, config fields and ini text only).
+- HITL bench: the DLE presets now take the request from CAN, so the bench needs the HCU sending
+  HCU_ENGINE_CMD (with the pulse alone the throttle stays closed; set the request source to PWM input
+  for the old setup). Check fresh/held in `servoThrottleCanCommand`, pull the CAN link (throttle
+  holds, the governor keeps speed), 3 x RUN = 0 -> stop, RUN = 1 -> restart.
+- After a CAN stop the `engineShutDownPeriod` window (3 s) cuts fuel even if RUN goes back to 1: the
+  HCU must not crank within it, or decide whether RUN 0 -> 1 should cancel the stop
+  (`ShutdownController::cancelStop()`).
+- With the guard the HCU must stop via CAN user control as `TS_STOP_ENGINE` (subsystem 0x24); the
+  X14 start/stop toggle is ignored. The guard does not cover ISO-TP TS over CAN, the CAN QC protocol,
+  `ECU_REQ_CALIBRATION` or the OpenBLT jump frame.
+
+## 2026-10-07 - DLE presets: rusEFI governor on, SITL gains, wider engage window
+
+Decision (user, 2026-10-07, relayed by the programme's design session): rusEFI governs rotor speed;
+the hybrid controller sends the target and feed-forward in HCU_ENGINE_CMD (entry above). The presets
+never switched the governor on (`servoGovernorEnabled` defaulted off), so the CAN command's GOV_ON
+bit had no effect.
+
+| File | Change |
+|------|--------|
+| `config/engines/dle_twin.cpp` | `setDleTwinCommon`: `servoGovernorEnabled`, PID Kp 0.04 %/rpm, Ki 0.1 %/(rpm s), Kd 0, trim +-20 %, `servoGovernorEngageWindow` 600; `servoGovernorTargetRpm` 6750 (DLE-120) / 7650 (DLE-60) as the fallback when the frame's TARGET_RPM is 0 |
+| `unit_tests/tests/test_dle_twin.cpp` | preset expectations for the above |
+
+Why these numbers (clearwater SITL with a model of this governor, 45 kg full-collective lift-off at
+2000 m ISA+15, 180 ms servo):
+- The rusEFI defaults (Kp 0.01, Ki 0.02) let the rotor droop to 97.7 % - inside the hybrid
+  controller's assist band, which starts at 97 %. Kp 0.04 / Ki 0.1 hold 99.3 % with 101.5 %
+  overshoot (under the controller's 103 % braking threshold) and no limit cycle at hover. The model
+  has no tach noise or rpm quantization: check on the engine before raising the gains.
+- Engage window 600 rpm: in the SITL run-up the low-collective throttle curve (41 % feed-forward)
+  with the generator loaded left the engine ~560 rpm under the target, so the 300 rpm window never
+  engaged and the rotor sat at 92 %. The controller now also waits with generation until the rotor
+  reaches 99 % (hybrid_ctrl), but even unloaded the margin was thin.
+- Targets: 90 % of rated speed, the engine speed at the governed 1000 rpm rotor with the working
+  6.75:1 drive (DLE-120); the DLE-60 value follows the same rule.
+
+Validation: not compiled (no JDK in WSL, see above). Comment, preset and test-expectation changes only.
+
+Open follow-ups:
+- Tune on the engine: tach noise and the real servo stroke time set the usable gains.
+- The drive ratio is a working value; the target follows it (TARGET_RPM from the controller wins).
+
+## 2026-10-07 - Servo throttle CAN command and DLE presets: unit tests built and run
+
+The two entries above were written without a build (no JDK in WSL then). With openjdk-11, p7zip-full,
+dosfstools, mtools and zip installed, the unit tests were built and run (GCC 13, `make -j12`, WSL on
+the Windows worktree):
+
+- Build: clean, no new warnings (the 15 `-Wsign-compare` warnings are in existing code: gtest
+  instantiations from older tests, trigger_chrysler/ford, test_fuel_math).
+- Tests: 1435 / 1435 pass, 271 suites, including the 14 new `ServoThrottleCan.*` tests, the servo
+  throttle and `PwmInputTps` tests, `BenchTest.canUserControlStopOnly` and the `DleTwin.*` presets.
+
+Notes:
+- The RAM-disk image step also needs `zip` (added to the dependency list in CLAUDE.md).
+- A worktree created by Windows git has a `.git` file holding a Windows path, which git inside WSL
+  cannot follow; `gen_signature.sh` then fails with "not a git repository". Building from WSL worked
+  with `GIT_DIR` / `GIT_WORK_TREE` pointing at the `/mnt/c/...` paths.
+
+Not run: the clang build (`make CC=clang`) and the firmware matrix - left to CI.
