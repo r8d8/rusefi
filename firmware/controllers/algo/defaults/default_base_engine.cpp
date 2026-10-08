@@ -5,6 +5,7 @@
 #include "kline.h"
 #include "second_tables.h"
 #include "engine_configuration_defaults.h"
+#include "servo_throttle_can.h"
 #include <rusefi/manifest.h>
 #if HW_PROTEUS
 #include "proteus_meta.h"
@@ -168,7 +169,7 @@ bool applyDefaultsOrFixAfterBurn(const engine_configuration_s* previousConfigura
   }
   // HCU_ENGINE_CMD default ID; the decoder also reads 0 as this ID (servo_throttle_can.h)
   if (engineConfiguration->servoThrottleCanId == 0) {
-    engineConfiguration->servoThrottleCanId = 0x1A0;
+    engineConfiguration->servoThrottleCanId = HCU_ENGINE_CMD_DEFAULT_ID;
     changed = true;
   }
   // 0 is outside both fields' ranges. A zero minimum request would let the governor fight an idle

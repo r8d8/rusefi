@@ -1368,3 +1368,12 @@ Notes:
   with `GIT_DIR` / `GIT_WORK_TREE` pointing at the `/mnt/c/...` paths.
 
 Not run: the clang build (`make CC=clang`) and the firmware matrix - left to CI.
+
+## 2026-10-08 - servoThrottleCanId default from HCU_ENGINE_CMD_DEFAULT_ID
+
+`default_base_engine.cpp` wrote the servo throttle CAN ID default as the literal 0x1A0 while the DLE
+presets and the decoder use `HCU_ENGINE_CMD_DEFAULT_ID` (servo_throttle_can.h); found by the
+programme's shared-number drift check (clearwater design/shared_numbers.py). Now uses the constant
+(the header's defines are unconditional, so the include is safe on every board).
+
+Validation: unit tests 1435 / 1435 pass (GCC, incremental rebuild).
