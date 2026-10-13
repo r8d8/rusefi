@@ -1420,3 +1420,31 @@ Open:
   (hazard log); a direct crank input to the controller is the candidate fix.
 - The plain `stm32f429_nucleo` variant has the same HSE / Ethernet exposure; not changed (not ours
   to test).
+
+## 2026-10-13 - TunerStudio oversize page read no longer fatal on the ECU (clearwater HZ-29)
+
+A page read inside the page but larger than one reply was refused with `TS_RESPONSE_OUT_OF_RANGE`
+only under `EFI_SIMULATOR` (`handlePageReadCommand`, `tunerstudio.cpp`). On the ECU it reached
+`sendResponse`, whose too-long packet trips `criticalError`: engine control stops for the rest of
+the boot, so a tuning tool reading in large chunks could stop the engine in flight. Seen on the
+hybrid controller's HITL bench with a 1700-byte read; the bench now reads in chunks of 400 B or
+less. Two commits (TDB): coverage pinning the fatal error, then the guard on every build.
+
+| Change | Why |
+|---|---|
+| `isBigPacket` guard in `handlePageReadCommand` outside `#if EFI_SIMULATOR` | remote input must never `criticalError` the ECU - the guard's own comment said so; a protocol error lets the client fall back to smaller chunks |
+| `TunerstudioCommands.oversizeChunkReadIsFatal` -> `oversizeChunkReadIsRefused` | no fatal error, one OUT_OF_RANGE packet counted, the largest read that fits still answered OK |
+
+Validation: unit tests 1438 / 1438 pass (GCC 13, 8 jobs); the coverage commit's
+`TunerstudioCommands.*` 11 / 11 on its own. No firmware image built with the fix yet.
+
+Follow-up on the stage B entry above: the fixed image (0f104f59467, built with `USE_OPENBLT=yes`,
+sha256 2be0d30f...98b83b) passed all four stage B scenarios on the bench (seizure assist 38 ms,
+fuel cut 65 - 73 ms over the night's runs against a 50 ms budget). The tach item is superseded:
+the hybrid controller now reads its own crank hall on the 36-1 wheel (user decision), with
+rusEFI's CAN RPM as the cross-check.
+
+Open:
+- Bench check of the fix (an oversize read refused, the engine keeps running) on a new image.
+- Other TS commands may still reach `criticalError` from remote input; only the page read was
+  checked here.

@@ -302,17 +302,30 @@ TEST(TunerstudioCommands, outOfRangePageReadSendsExactlyOneError) {
 	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
 }
 
-// Coverage before a fix (TDB, clearwater HZ-29): a page read that is in range but larger than one
-// reply is refused only in the simulator. On the ECU the reply trips criticalError, which stops
-// engine control for the rest of the boot (seen on the HITL bench with a 1700-byte read).
-TEST(TunerstudioCommands, oversizeChunkReadIsFatal) {
+// A page read that is in range but larger than one reply is refused with a protocol error on
+// every build. It used to reach criticalError on the ECU, which stops engine control for the rest
+// of the boot (clearwater HZ-29, a 1700-byte read on the HITL bench).
+TEST(TunerstudioCommands, oversizeChunkReadIsRefused) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	BufferTsChannel channel;
 	TunerStudio ts;
+	int prevErrors = tsState.errorOutOfRange;
 
 	const uint32_t count = sizeof(channel.scratchBuffer);
 	ASSERT_TRUE(channel.isBigPacket(count));
-	EXPECT_FATAL_ERROR(ts.handlePageReadCommand(&channel, TS_PAGE_SETTINGS, 0, count));
+	EXPECT_NO_FATAL_ERROR(ts.handlePageReadCommand(&channel, TS_PAGE_SETTINGS, 0, count));
+
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
+	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
+	EXPECT_FALSE(hasFirmwareError());
+
+	// The largest chunk that fits is still answered
+	channel.reset();
+	const uint32_t fits = sizeof(channel.scratchBuffer) - TS_PACKET_HEADER_SIZE - TS_PACKET_TAIL_SIZE;
+	ASSERT_FALSE(channel.isBigPacket(fits));
+	EXPECT_NO_FATAL_ERROR(ts.handlePageReadCommand(&channel, TS_PAGE_SETTINGS, 0, fits));
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OK);
 }
 
 TEST(TunerstudioCommands, outOfRangeCrc32CheckSendsExactlyOneError) {
