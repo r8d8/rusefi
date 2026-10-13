@@ -380,6 +380,22 @@ TEST_F(ServoThrottleCan, stopIsRequestedOncePerTransition) {
 	EXPECT_TRUE(isEngineStopRequested());
 }
 
+// Coverage before a fix (TDB): RUN = 1 after a CAN stop leaves the stop window running, so a new
+// start inside engineShutDownPeriod is fuel-cut
+TEST_F(ServoThrottleCan, runAfterStopKeepsTheStopWindow) {
+	const HcuCmd stop = stopCmd(1200);
+	const HcuCmd run = runCmd(1200);
+
+	send(stop);
+	send(stop);
+	send(stop);
+	ASSERT_TRUE(isEngineStopRequested());
+
+	eth.moveTimeForwardMs(10);
+	send(run);
+	EXPECT_TRUE(isEngineStopRequested());
+}
+
 // ---- Config error ----
 
 TEST_F(ServoThrottleCan, canSourceNeedsNoPwmInputPin) {

@@ -63,6 +63,12 @@ static void expectDleTwinCommon() {
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
 	EXPECT_EQ(600, engineConfiguration->servoGovernorEngageWindow);
+
+	// Coverage before a fix (TDB): the presets keep rusEFI's injector duty cut limits. The cut
+	// releases only below 20 % duty, which this engine (one injection per revolution) never reaches
+	// while running, so one trip cuts fuel for the rest of the flight (HITL bench, 2026-10-13)
+	EXPECT_EQ(110, engineConfiguration->maxInjectorDutyInstant);
+	EXPECT_EQ(96, engineConfiguration->maxInjectorDutySustained);
 }
 
 // EngineTestHelper swaps fuelAlgorithm for a mock airmass model after applying the engine type,

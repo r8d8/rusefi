@@ -54,6 +54,25 @@ TEST_F(StartStopTest, luaStartAfterStopRequest) {
 	EXPECT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
 }
 
+// Coverage before a fix (TDB): a stop request cuts fuel but leaves the spark on. A two-stroke can
+// run on with fuel cut (crankcase residue), which the HITL bench showed (2026-10-13).
+TEST_F(StartStopTest, stopRequestCutsFuelButNotSpark) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->engineShutDownPeriod = 3;
+	auto* limp = getLimpManager();
+
+	limp->updateState(0, getTimeNowNt());
+	ASSERT_TRUE(limp->allowInjection());
+	ASSERT_TRUE(limp->allowIgnition());
+
+	doScheduleStopEngine(StopRequestedReason::Lua);
+	eth.moveTimeForwardMs(100);
+	limp->updateState(0, getTimeNowNt());
+	ASSERT_TRUE(limp->shutdownController.isEngineStop(getTimeNowNt()));
+	EXPECT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
+	EXPECT_TRUE(limp->allowIgnition());
+}
+
 TEST_F(StartStopTest, stopWindowExpiresAndRestarts) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->engineShutDownPeriod = 3;
