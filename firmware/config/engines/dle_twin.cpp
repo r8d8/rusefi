@@ -195,6 +195,13 @@ static void setDleTwinCommon(float maxRpm) {
 	// curve left the engine ~560 rpm under the target with the generator loaded, so the default
 	// 300 rpm window never engaged
 	engineConfiguration->servoGovernorEngageWindow = 600;
+
+	// Injector duty cut at the fields' maxima, so it cannot trip in practice: it releases only below
+	// 20 % duty, which this engine (one injection per revolution) never reaches while running, so a
+	// single trip would cut fuel for the rest of the flight - worse for a helicopter than a brief
+	// lean run (user decision, 2026-10-13; HITL bench showed the latched cut)
+	engineConfiguration->maxInjectorDutyInstant = 200;
+	engineConfiguration->maxInjectorDutySustained = 120;
 }
 
 /**

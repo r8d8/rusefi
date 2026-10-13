@@ -74,17 +74,22 @@ void HcuEngineCommandListener::decodeFrame(const CANRxFrame& frame, efitick_t no
 	}
 
 	if (payload[0] & 0x01) {
-		// RUN: re-arm the stop
+		// RUN after a stop of ours: the controller wants the engine again, so end the stop window
+		// now instead of fuel- and spark-cutting a new start for engineShutDownPeriod
+		if (m_runZeroCount >= HCU_ENGINE_CMD_STOP_FRAMES) {
+			getLimpManager()->shutdownController.cancelStop();
+		}
 		m_runZeroCount = 0;
 		return;
 	}
 
-	// Stop once, on the frame that completes the run of RUN = 0 frames (see header)
+	// Stop from the frame that completes the run of RUN = 0 frames (see header), and again on
+	// every RUN = 0 frame after it: the stop window then lasts as long as RUN = 0 does
 	if (m_runZeroCount < HCU_ENGINE_CMD_STOP_FRAMES) {
 		m_runZeroCount++;
-		if (m_runZeroCount == HCU_ENGINE_CMD_STOP_FRAMES) {
-			doScheduleStopEngine(StopRequestedReason::CanCommand);
-		}
+	}
+	if (m_runZeroCount == HCU_ENGINE_CMD_STOP_FRAMES) {
+		doScheduleStopEngine(StopRequestedReason::CanCommand);
 	}
 }
 

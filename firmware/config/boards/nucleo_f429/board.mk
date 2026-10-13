@@ -23,6 +23,10 @@ ifeq ($(SHORT_BOARD_NAME),stm32f429_nucleo_hitl)
 # with the bench pins set in board_configuration.cpp
 DDEFS += -DHW_NUCLEO_F429_HITL=1
 DDEFS += -DEFI_SERVO_THROTTLE=TRUE
+# No Ethernet on the bench: ChibiOS's MAC init in halInit loops on the PHY's soft reset (MDIO) and
+# on the DMA reset (needs the PHY's 50 MHz REF_CLK), so a board whose PHY does not answer hangs
+# before USB and the LEDs (seen on the HITL F439, 2026-10-13)
+EFI_ETHERNET = no
 DDEFS += -DFIRMWARE_ID=\"nucleo_f429_hitl\"
 DDEFS += -DDEFAULT_ENGINE_TYPE=engine_type_e::DLE_120_TWIN
 else

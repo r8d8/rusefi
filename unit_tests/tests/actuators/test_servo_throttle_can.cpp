@@ -352,7 +352,7 @@ TEST_F(ServoThrottleCan, stopAfterThreeConsecutiveRunZeroFrames) {
 	EXPECT_EQ((uint8_t)StopRequestedReason::CanCommand, engine->outputChannels.stopEngineCode);
 }
 
-TEST_F(ServoThrottleCan, stopIsRequestedOncePerTransition) {
+TEST_F(ServoThrottleCan, stopHoldsWhileRunStaysZero) {
 	const HcuCmd stop = stopCmd(1200);
 	const HcuCmd run = runCmd(1200);
 
@@ -361,14 +361,19 @@ TEST_F(ServoThrottleCan, stopIsRequestedOncePerTransition) {
 	send(stop);
 	ASSERT_TRUE(isEngineStopRequested());
 
-	// RUN stays 0: no new stop request, so the stop window runs out
-	engine->outputChannels.stopEngineCode = 0;
+	// RUN stays 0 for 4 s, longer than engineShutDownPeriod: every frame renews the stop
 	for (int i = 0; i < 400; i++) {
 		eth.moveTimeForwardMs(10);
 		send(stop);
+		ASSERT_TRUE(isEngineStopRequested()) << "frame " << i;
 	}
-	EXPECT_EQ(0, engine->outputChannels.stopEngineCode);
+
+	// Commands lost while RUN = 0 (held): the window runs out engineShutDownPeriod later
+	eth.moveTimeForwardMs(2900);
+	EXPECT_TRUE(isEngineStopRequested());
+	eth.moveTimeForwardMs(200);
 	EXPECT_FALSE(isEngineStopRequested());
+	engine->outputChannels.stopEngineCode = 0;
 
 	// RUN = 1 re-arms: the next run of three RUN = 0 frames stops again
 	send(run);
@@ -380,9 +385,9 @@ TEST_F(ServoThrottleCan, stopIsRequestedOncePerTransition) {
 	EXPECT_TRUE(isEngineStopRequested());
 }
 
-// Coverage before a fix (TDB): RUN = 1 after a CAN stop leaves the stop window running, so a new
-// start inside engineShutDownPeriod is fuel-cut
-TEST_F(ServoThrottleCan, runAfterStopKeepsTheStopWindow) {
+// RUN = 1 after a CAN stop ends the stop window, so a new start is not fuel- and spark-cut for
+// engineShutDownPeriod
+TEST_F(ServoThrottleCan, runAfterStopEndsTheStopWindow) {
 	const HcuCmd stop = stopCmd(1200);
 	const HcuCmd run = runCmd(1200);
 
@@ -392,6 +397,11 @@ TEST_F(ServoThrottleCan, runAfterStopKeepsTheStopWindow) {
 	ASSERT_TRUE(isEngineStopRequested());
 
 	eth.moveTimeForwardMs(10);
+	send(run);
+	EXPECT_FALSE(isEngineStopRequested());
+
+	// A stop from another source is not cancelled by RUN frames that were already 1
+	doScheduleStopEngine(StopRequestedReason::Lua);
 	send(run);
 	EXPECT_TRUE(isEngineStopRequested());
 }

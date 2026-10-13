@@ -1377,3 +1377,46 @@ programme's shared-number drift check (clearwater design/shared_numbers.py). Now
 (the header's defines are unconditional, so the include is safe on every board).
 
 Validation: unit tests 1435 / 1435 pass (GCC, incremental rebuild).
+
+## 2026-10-13 - HITL stage B: F439 image, engine stop and DLE injector duty cut
+
+Built the rusEFI stand-in for the hybrid controller's HITL bench (clearwater
+`simulation/hitl/bench_hcu.md`, stage B) locally in WSL for the first time (CI does not build the
+variant), and fixed what the bench run turned up. Two commits: coverage first (TDB), then the fixes.
+
+| Change | Why |
+|---|---|
+| Stop window cuts spark as well as fuel (`limp_manager.cpp`) | the stop (CAN RUN = 0 or the start/stop button) cleared fuel only: on the bench the engine ran on at 5800 rpm with the coil firing; a two-stroke expects the ignition kill |
+| CAN RUN = 0 renews the stop on every frame after the 3-frame debounce; RUN 0 -> 1 after our stop cancels it (`servo_throttle_can.cpp`) | the stop fired once, so the window ran out after `engineShutDownPeriod` (3 s) while the controller still said stop; and a new start was cut for 3 s |
+| DLE presets: `maxInjectorDutyInstant` 200, `maxInjectorDutySustained` 120 (`dle_twin.cpp`) | the duty cut releases only below 20 % duty, which this engine (one injection per revolution, ~28 % at idle) never reaches while running: one trip = fuel cut for the rest of the flight; user decision |
+| HITL variant: `STM32_HSE_BYPASS` (meta-info) | Nucleo-144 HSE is the ST-LINK's MCO clock, which needs bypass mode (as `nucleo_f767`) |
+| HITL variant: `EFI_ETHERNET = no` (board.mk) | the board hung in `halInit` before USB and the LEDs; the image without Ethernet booted (the MAC init loops on the PHY's soft reset and the DMA reset) |
+| HITL variant: `USE_OPENBLT=no` | the bench flashes over DFU (`EFI_DFU_JUMP` stays on); a no-Ethernet image with OpenBLT was built but not tried |
+| HITL defaults: ignition key PF12 with pull-up; injector dead time flat at its 14 V value; MAP averaging off | no VBatt on the Nucleo: 0 V read as ignition off (fuel and spark cut) and stretched every pulse through the dead-time table; no MAP sensor (6548 warning flood) |
+
+Diagnosis without SWD (the F439's ST-LINK path to the core is broken): flashed over the ROM DFU
+bootloader; Zephyr's blinky with HSE bypass booted on the same chip, which isolated the hang to the
+rusEFI image; an app-only, no-Ethernet image booted (blue LED blinking, USB CDC up, DLE_120_TWIN /
+500 kbps / verbose CAN read back over TS).
+
+Validation: unit tests 1437 / 1437 pass (GCC 13); coverage commit 29 / 29 on its own. Firmware
+(Arm GNU 14.2 from `provide_gcc.sh`, 12 jobs): the HITL image builds, exit 0, 650912 B at 0x08000000,
+sha256 0d8541d1...75679434, HSEON|HSEBYP in its clock init; the 11 warnings are existing
+sign-compare / unused-parameter ones. Bench (image A, before these fixes): all four stage B
+scenarios pass - seizure assist 42 ms, fuel cut 68 ms, landing stops (after the plant modelled the
+injector), VESC loss. The build leaves untracked generated files for the variant
+(`*_stm32f429_nucleo_hitl.h`, `rusefi_stm32f429_nucleo_hitl.ini`), not committed.
+
+Open:
+- The stop and duty fixes still need a bench run with the injector wired (simulation, stage B).
+- rusEFI's tach output is a PWM at the computed RPM (`tachometer.cpp`), not a crank-synchronous
+  pulse: the hybrid controller's seizure detection inherits rusEFI's RPM lag (48 ms on the bench
+  against 28 ms with a direct tach), and an abruptly lost crank signal would leave the tach
+  running. In a stop window the RPM (and so the tach) also freezes at its pre-stop value until the
+  crank stops: `checkIfSpinning()` is forced false there, so the cycle update skips `setRpmValue()`
+  and only `setStopSpinning()` (no trigger movement) zeroes it - 5820 rpm shown for a 3.3 s run-down
+  on the bench. Zeroing it at the stop instead would let the controller release the stop (RUN = 1
+  cancels the window) while the crank still turns, so it stays. Raised with the programme lead
+  (hazard log); a direct crank input to the controller is the candidate fix.
+- The plain `stm32f429_nucleo` variant has the same HSE / Ethernet exposure; not changed (not ours
+  to test).

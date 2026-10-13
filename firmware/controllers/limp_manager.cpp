@@ -225,10 +225,11 @@ void LimpManager::updateState(float rpm, efitick_t nowNt) {
 	// instant-RPM state) be reset cleanly via RpmCalculator::setStopSpinning() ->
 	// triggerCentral.noiseFilter.resetAccumSignalData() and engine->onEngineStopped().
 	if (shutdownController.isEngineStop(nowNt)) {
-		/**
-		 * todo: we need explicit clarification on why do we cut fuel but do not cut spark here!
-		 */
+		// Spark too: with fuel alone cut, an engine can run on - a two-stroke on its crankcase
+		// residue, as the HITL bench showed (2026-10-13). The ignition kill is the stop a
+		// two-stroke expects.
 		allowFuel.clear(ClearReason::StopRequested);
+		allowSpark.clear(ClearReason::StopRequested);
 	}
 
 	{

@@ -73,6 +73,22 @@ static void nucleoHitlDefaultConfiguration() {
 	// D4 <- HCU ecu-stop output (active high pulse)
 	engineConfiguration->startStopButtonPin = Gpio::F14;
 	engineConfiguration->startStopButtonMode = PI_PULLDOWN;
+	// D8, not wired: the Nucleo has no battery voltage input, and 0 V VBatt reads as ignition off
+	// (fuel and spark cut). The ignition key input takes priority over VBatt; its pull-up reads "on"
+	// while open, and grounding it simulates key-off.
+	engineConfiguration->ignitionKeyDigitalPin = Gpio::F12;
+	engineConfiguration->ignitionKeyDigitalPinMode = PI_PULLUP;
+	// With VBatt at 0 V the injector dead time comes from the lowest voltage bin, lengthening every
+	// pulse (and with it the injector duty, which can trip the duty-cycle fuel cut): flatten each
+	// pressure row to its 14 V value so the bench injects as the engine would on a healthy supply
+	for (auto& row : engineConfiguration->injector.battLagCorrTable) {
+		const auto atNominal = row[efi::size(row) - 2]; // the 14 V bin of 6..15 V
+		for (auto& lag : row) {
+			lag = atNominal;
+		}
+	}
+	// No MAP sensor on the bench (the DLE presets run alpha-N): averaging only floods warnings
+	engineConfiguration->isMapAveragingEnabled = false;
 	// D14/D15: CAN1 to the power CAN transceiver (verbose broadcast for the HCU, HCU_ENGINE_CMD from it)
 	engineConfiguration->canTxPin = Gpio::B9;
 	engineConfiguration->canRxPin = Gpio::B8;
