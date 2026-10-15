@@ -391,18 +391,28 @@ TEST(TunerstudioCommands, wrappingOffsetAndCountPassTheRangeCheck) {
 	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s)));
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): a command this build was compiled without reaches
-// criticalError, which stops engine control for the rest of the boot. Perf trace is off on F40x builds
-// such as uaEFI, and the rusEFI console's performance-trace action sends these commands. Scatter
-// (off in the simulator) shares refuseUnsupportedCommand().
-TEST(TunerstudioCommands, perfTraceWithoutPerfTraceIsFatal) {
+// A command this build was compiled without is refused as unrecognized. It used to reach
+// criticalError, which stops engine control for the rest of the boot (HZ-29 audit). Perf trace is off
+// on F40x builds such as uaEFI, and the rusEFI console's performance-trace action sends these
+// commands. Scatter (off in the simulator) shares refuseUnsupportedCommand().
+TEST(TunerstudioCommands, perfTraceWithoutPerfTraceIsRefused) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	BufferTsChannel channel;
 	TunerStudio ts;
 	static_assert(!ENABLE_PERF_TRACE, "the unit tests build without perf trace, as F40x boards do");
+	int prevErrors = tsState.errorUnrecognizedCommand;
 
-	EXPECT_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_BEGIN));
-	EXPECT_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_GET_BUFFER));
+	EXPECT_NO_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_BEGIN));
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_UNRECOGNIZED_COMMAND);
+
+	channel.reset();
+	EXPECT_NO_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_GET_BUFFER));
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_UNRECOGNIZED_COMMAND);
+
+	EXPECT_EQ(tsState.errorUnrecognizedCommand - prevErrors, 2);
+	EXPECT_FALSE(hasFirmwareError());
 }
 
 #if EFI_TS_SCATTER

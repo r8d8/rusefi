@@ -542,9 +542,10 @@ void TunerStudio::handlePageReadCommand(TsChannelBase* tsChannel, uint32_t page,
 #endif
 }
 
+// A command this build was compiled without is a client / build mismatch, not an ECU fault. It used to be
+// criticalError, which stops engine control for the rest of the boot (HZ-29 audit).
 void TunerStudio::refuseUnsupportedCommand(TsChannelBase* tsChannel, const char *what) {
-	UNUSED(tsChannel);
-	criticalError("%s not supported", what);
+	sendErrorCode(tsChannel, TS_RESPONSE_UNRECOGNIZED_COMMAND, what);
 }
 
 void TunerStudio::handlePerfTraceCommand(TsChannelBase* tsChannel, char command) {
