@@ -28,6 +28,13 @@ extern PinRepository pinRepository;
 // raw values are 0..5V, convert it to 8-bit (0..255)
 #define RAW_TO_BYTE(v) TRUNCATE_TO_BYTE((int)(v * 255.0 / 5.0))
 
+// Whether a CAN QC bench command may run: the protocol drives outputs directly, runs bench tests and
+// sets the engine type (which writes flash and reboots)
+bool canQcCommandAllowed(uint8_t command) {
+	UNUSED(command);
+	return true;
+}
+
 #if EFI_PROD_CODE
 /**
  * QC direct output control API is used by https://github.com/rusefi/stim test device
@@ -308,6 +315,9 @@ void processCanQcBenchTest(const CANRxFrame& frame) {
 		return;
 	}
 	if (frame.data8[0] != (int)bench_test_magic_numbers_e::BENCH_HEADER) {
+		return;
+	}
+	if (!canQcCommandAllowed(frame.data8[1])) {
 		return;
 	}
   setHwQcMode();

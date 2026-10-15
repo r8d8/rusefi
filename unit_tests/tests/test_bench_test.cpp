@@ -17,6 +17,8 @@
 #include "pch.h"
 
 #include "bench_test.h"
+#include "can_bench_test.h"
+#include "can_common.h"
 #include "settings.h"
 #include "vvt.h"
 
@@ -102,6 +104,19 @@ TEST(BenchTest, engineTypeRefusedWhileEngineTurns) {
 	engine->rpmCalculator.setStopSpinning();
 	executeTSCommand(TS_SET_ENGINE_TYPE, static_cast<uint16_t>(engine_type_e::MINIMAL_PINS));
 	EXPECT_EQ(engine_type_e::MINIMAL_PINS, engineConfiguration->engineType);
+}
+
+// Coverage before a fix (TDB, HZ-30): canUserControlStopOnly does not cover the CAN QC bench protocol: a
+// node on the bus may still drive outputs directly, run bench tests and set the engine type (which
+// writes flash and reboots), with the engine running.
+TEST(BenchTest, canQcCommandsIgnoreStopOnly) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->canUserControlStopOnly = true;
+	engine->rpmCalculator.setRpmValue(6000);
+
+	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET)));
+	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE)));
+	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_BENCH_EXECUTE_BENCH_TEST)));
 }
 
 TEST(BenchTest, idleValveButtonRunsIdleControllerForThreeSeconds) {

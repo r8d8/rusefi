@@ -627,6 +627,35 @@ void assertOverreadStaysInsidePaddedFrame(const PaddedRxFrame& padded) {
 }
 } // namespace
 
+namespace {
+// rxFifo is protected: the probe tells whether a frame was queued for the TS thread
+struct TsListenerProbe : public CanTsListener {
+	bool queued() const {
+		return !rxFifo.isEmpty();
+	}
+};
+
+CANRxFrame tsOverCanFrame() {
+	CANRxFrame frame{};
+	frame.IDE = CAN_IDE_STD;
+	frame.SID = CAN_ECU_SERIAL_RX_ID;
+	frame.DLC = 8;
+	return frame;
+}
+} // namespace
+
+// Coverage before a fix (TDB, HZ-30): with canUserControlStopOnly - a node on the bus may only stop the
+// engine - the TS-over-CAN listener still queues every frame on CAN_ECU_SERIAL_RX_ID (CAN1, the power
+// CAN on uaEFI), so the whole TS protocol (burns, presets, bench tests) is reachable from the bus.
+TEST(CanStopOnly, tsOverCanStillListens) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->canUserControlStopOnly = true;
+
+	TsListenerProbe listener;
+	listener.decodeFrame(tsOverCanFrame(), 0);
+	EXPECT_TRUE(listener.queued());
+}
+
 TEST(testCanSerial, singleFrameLengthIsBoundedByDlc) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 
