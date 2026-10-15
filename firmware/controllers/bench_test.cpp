@@ -170,6 +170,19 @@ static void runBench(OutputPin *output, float onTimeMs, float offTimeMs, int cou
 // in every configuration so that the command dispatch itself has unit test coverage - #10285 was a
 // TS button whose bench_mode_e value was never routed anywhere, i.e. a reboot on click.
 
+bool refuseWhileEngineTurns(const char *what) {
+#if EFI_SHAFT_POSITION_INPUT
+	if (engine->rpmCalculator.isStopped() || engine->triggerCentral.directSelfStimulation) {
+		return false;
+	}
+	warning(ObdCode::CUSTOM_ERR_BENCH_PARAM, "%s refused while the engine turns", what);
+	return true;
+#else
+	UNUSED(what);
+	return false;
+#endif // EFI_SHAFT_POSITION_INPUT
+}
+
 // todo: migrate to smarter getOutputOnTheBenchTest() approach?
 static volatile bool isBenchTestPending = false;
 static float globalOnTimeMs;
@@ -185,6 +198,11 @@ static chibios_rt::CounterSemaphore benchSemaphore(0);
 static void pinbench(float ontimeMs, float offtimeMs, int iterations,
 	OutputPin* pinParam, bool p_swapOnOff = false)
 {
+	// every output bench: with the engine turning one cuts the main relay or the fuel pump, or engages
+	// the starter (the spark, injector, solenoid and Lua benches also check before they get here)
+	if (refuseWhileEngineTurns("bench test")) {
+		return;
+	}
 	globalOnTimeMs = ontimeMs;
 	globalOffTimeMs = offtimeMs;
 #if EFI_SIMULATOR
@@ -533,7 +551,9 @@ void handleBenchCategory(uint16_t index) {
 	case BENCH_IDLE_VALVE:
 		// cmd_test_idle_valve
 #if EFI_IDLE_CONTROL
-		startIdleBench();
+		if (!refuseWhileEngineTurns("idle valve bench")) {
+			startIdleBench();
+		}
 #endif /* EFI_IDLE_CONTROL */
 		return;
 	case BENCH_SECOND_IDLE_VALVE:
@@ -563,7 +583,35 @@ int getSavedBenchTestPinStates(uint32_t durationsInStateMs[2]) {
 #endif // EFI_SIMULATOR
 }
 
+// X14 actions that reconfigure the engine, move its actuators or wipe its log card
+static bool isX14ReconfiguringEngine(uint16_t index) {
+	switch (index) {
+	case TS_SET_STEPPER_IDLE:
+	case TS_ESTIMATE_TORQUE_TABLE:
+#if EFI_ELECTRONIC_THROTTLE_BODY
+	case TS_ETB_AUTOCAL_0:
+	case TS_ETB_AUTOCAL_1:
+	case TS_ETB_AUTOCAL_0_FAST:
+	case TS_ETB_AUTOCAL_1_FAST:
+	case TS_ETB_BENCH_TEST_0:
+	case TS_ETB_BENCH_TEST_1:
+	case TS_EWG_AUTOCAL_0:
+	case TS_EWG_AUTOCAL_0_FAST:
+#endif // EFI_ELECTRONIC_THROTTLE_BODY
+#if EFI_PROD_CODE && EFI_FILE_LOGGING
+	case TS_SD_FORMAT:
+#endif // EFI_FILE_LOGGING
+		return true;
+	default:
+		return false;
+	}
+}
+
 static void handleCommandX14(uint16_t index) {
+	if (isX14ReconfiguringEngine(index) && refuseWhileEngineTurns("X14 command")) {
+		return;
+	}
+
 	switch (index) {
 	case TS_SET_STEPPER_IDLE:
 	  setStepperHw();
@@ -918,7 +966,9 @@ void executeTSCommand(uint16_t subsystem, uint16_t index) {
 		break;
 
 	case TS_SET_ENGINE_TYPE:
-		applyPreset(index);
+		if (!refuseWhileEngineTurns("engine type")) {
+			applyPreset(index);
+		}
 		break;
 
 	case TS_BOARD_ACTION:
@@ -928,7 +978,9 @@ void executeTSCommand(uint16_t subsystem, uint16_t index) {
 		break;
 
 	case TS_SET_DEFAULT_ENGINE:
-		applyPreset((int)DEFAULT_ENGINE_TYPE);
+		if (!refuseWhileEngineTurns("default engine")) {
+			applyPreset((int)DEFAULT_ENGINE_TYPE);
+		}
 		break;
 
 	case TS_STOP_ENGINE:
@@ -937,12 +989,17 @@ void executeTSCommand(uint16_t subsystem, uint16_t index) {
 
 	case JUMP_DFU_COMMAND:
 #if EFI_PROD_CODE && EFI_DFU_JUMP
-		jump_to_bootloader();
+		if (!refuseWhileEngineTurns("DFU")) {
+			jump_to_bootloader();
+		}
 #endif /* EFI_DFU_JUMP */
 		break;
 
 	case REBOOT_COMMAND:
 #if EFI_PROD_CODE
+		if (refuseWhileEngineTurns("reboot")) {
+			break;
+		}
 		// record that this reset was a deliberate command (issue #9931) before we go down
 		logDeliberateReboot(RebootReason::Command);
 		rebootNow();

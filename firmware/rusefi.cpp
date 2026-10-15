@@ -129,6 +129,7 @@
 #include "memstreams.h"
 
 #include "eficonsole.h"
+#include "bench_test.h"
 #include "status_loop.h"
 #include "custom_engine.h"
 #include "mpu_util.h"
@@ -201,13 +202,26 @@ void runRusEfi() {
 	addConsoleAction("stm32_standby", stm32_standby);
 #endif
 
-	addConsoleAction(CMD_REBOOT, scheduleReboot);
+	// not while the engine turns (HZ-29 audit)
+	addConsoleAction(CMD_REBOOT, []() {
+		if (!refuseWhileEngineTurns("reboot")) {
+			scheduleReboot();
+		}
+	});
 #if EFI_DFU_JUMP
-	addConsoleAction(CMD_REBOOT_DFU, jump_to_bootloader);
+	addConsoleAction(CMD_REBOOT_DFU, []() {
+		if (!refuseWhileEngineTurns("DFU")) {
+			jump_to_bootloader();
+		}
+	});
 #endif /* EFI_DFU_JUMP */
 
 #if EFI_USE_OPENBLT
-	addConsoleAction(CMD_REBOOT_OPENBLT, jump_to_openblt);
+	addConsoleAction(CMD_REBOOT_OPENBLT, []() {
+		if (!refuseWhileEngineTurns("OpenBLT")) {
+			jump_to_openblt();
+		}
+	});
 #endif
 
 	/**

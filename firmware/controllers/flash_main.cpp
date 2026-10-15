@@ -13,6 +13,7 @@
 
 #if EFI_CONFIGURATION_STORAGE || defined(EFI_UNIT_TEST)
 #include "storage.h"
+#include "bench_test.h"
 
 // A failed settings write stays pending and is retried by the storage manager thread;
 // once it has been failing this long, checkSettingsWriteFailure() escalates to
@@ -241,8 +242,17 @@ void initFlash() {
 	 */
 	addConsoleAction(CMD_BURNCONFIG, requestBurn);
 #endif
-	addConsoleAction("resetconfig", doResetConfiguration);
-	addConsoleAction("rewriteconfig", doRewriteConfig);
+	// a reset replaces the whole tune, so not while the engine turns (HZ-29 audit)
+	addConsoleAction("resetconfig", []() {
+		if (!refuseWhileEngineTurns("resetconfig")) {
+			doResetConfiguration();
+		}
+	});
+	addConsoleAction("rewriteconfig", []() {
+		if (!refuseWhileEngineTurns("rewriteconfig")) {
+			doRewriteConfig();
+		}
+	});
 }
 
 #endif /* EFI_CONFIGURATION_STORAGE */

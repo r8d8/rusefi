@@ -8,6 +8,7 @@
 
 #include "pch.h"
 #include "lua_config_page.h"
+#include "bench_test.h"
 
 #if ! EFI_UNIT_TEST
 
@@ -740,7 +741,11 @@ void setDateTime(const char * const isoDateTime) {
 
 #endif // ! EFI_UNIT_TEST
 
+// console engine_type: a preset replaces the whole tune, so not while the engine turns (HZ-29 audit)
 void setEngineTypeAndSave(int value) {
+	if (refuseWhileEngineTurns("engine type")) {
+		return;
+	}
 	setEngineType(value, true);
 }
 

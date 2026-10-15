@@ -15,6 +15,7 @@
 #include "rusefi/efistring.h"
 #include "board_overrides.h"
 #include "flash_main.h"
+#include "bench_test.h"
 
 #if EFI_USE_OPENBLT
 /* communication with OpenBLT that is plain C, not to modify external file */
@@ -142,9 +143,10 @@ void errorHandlerInit() {
 #endif // EFI_BACKUP_SRAM
 
 	// see https://wiki.rusefi.com/Resilience
-	addConsoleAction("chibi_fault", [](){ chDbgCheck(0); } );
-	addConsoleAction("soft_fault", [](){ firmwareError(ObdCode::RUNTIME_CRITICAL_TEST_ERROR, "firmwareError: %d", getRusEfiVersion()); });
-	addConsoleAction("hard_fault", [](){ causeHardFault(); } );
+	// fault tests, not while the engine turns (HZ-29 audit)
+	addConsoleAction("chibi_fault", [](){ if (!refuseWhileEngineTurns("chibi_fault")) { chDbgCheck(0); } } );
+	addConsoleAction("soft_fault", [](){ if (!refuseWhileEngineTurns("soft_fault")) { firmwareError(ObdCode::RUNTIME_CRITICAL_TEST_ERROR, "firmwareError: %d", getRusEfiVersion()); } });
+	addConsoleAction("hard_fault", [](){ if (!refuseWhileEngineTurns("hard_fault")) { causeHardFault(); } } );
 #if EFI_USE_OPENBLT
 	addConsoleActionI("set_openblt_sw_counter", setOpenBltSwCounter);
 #endif // EFI_USE_OPENBLT

@@ -35,6 +35,11 @@ void acRelayBench();
 void milBench();
 void starterRelayBench();
 
+// true, with a warning, while a real engine turns (not stopped, not self-stimulated): TS / console / CAN
+// actions that would stop or reconfigure it - output benches, presets, reboot, DFU, fault tests - then
+// refuse to run (HZ-29 audit)
+bool refuseWhileEngineTurns(const char *what);
+
 void executeTSCommand(uint16_t subsystem, uint16_t index);
 // ECU_CAN_BUS_USER_CONTROL frame: executeTSCommand(), or only TS_STOP_ENGINE with canUserControlStopOnly
 void executeCanUserControlCommand(uint16_t subsystem, uint16_t index);

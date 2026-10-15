@@ -65,31 +65,43 @@ TEST(BenchTest, tsButtonsRouteToOutputs) {
 	EXPECT_EQ(&enginePins.boostPin, dispatch(BENCH_BOOST_VALVE).pin);
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): nothing refuses an output bench with the engine running.
-// The main relay bench switches the relay off for its duration, the fuel pump bench the pump, the
-// starter bench engages the starter.
-TEST(BenchTest, outputBenchesRunWhileEngineTurns) {
+// Output benches refuse while a real engine turns: the main relay bench switches the relay off for
+// its duration, the fuel pump bench the pump, the starter bench engages the starter (HZ-29 audit).
+TEST(BenchTest, outputBenchesRefuseWhileEngineTurns) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engine->rpmCalculator.setRpmValue(6000);
 	ASSERT_FALSE(engine->rpmCalculator.isStopped());
 
-	EXPECT_EQ(&enginePins.mainRelay, dispatch(BENCH_MAIN_RELAY).pin);
+	EXPECT_EQ(nullptr, dispatch(BENCH_MAIN_RELAY).pin);
+	EXPECT_EQ(nullptr, dispatch(BENCH_FUEL_PUMP).pin);
+	EXPECT_EQ(nullptr, dispatch(BENCH_STARTER_ENABLE_RELAY).pin);
+	EXPECT_TRUE(refuseWhileEngineTurns("test"));
+
+	// self-stimulation (no real engine, HW CI) and a stopped engine: as before
+	engine->triggerCentral.directSelfStimulation = true;
 	EXPECT_EQ(&enginePins.fuelPumpRelay, dispatch(BENCH_FUEL_PUMP).pin);
-	EXPECT_EQ(&enginePins.starterControl, dispatch(BENCH_STARTER_ENABLE_RELAY).pin);
+	engine->triggerCentral.directSelfStimulation = false;
+	engine->rpmCalculator.setStopSpinning();
+	EXPECT_EQ(&enginePins.mainRelay, dispatch(BENCH_MAIN_RELAY).pin);
+	EXPECT_FALSE(refuseWhileEngineTurns("test"));
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): a preset (TS button or console engine_type) replaces the
-// whole tune with the engine running.
-TEST(BenchTest, engineTypeChangesWhileEngineTurns) {
+// A preset (TS button or console engine_type) refuses while a real engine turns: it replaced the whole
+// tune (HZ-29 audit).
+TEST(BenchTest, engineTypeRefusedWhileEngineTurns) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engine->rpmCalculator.setRpmValue(6000);
 
 	executeTSCommand(TS_SET_ENGINE_TYPE, static_cast<uint16_t>(engine_type_e::MINIMAL_PINS));
-	EXPECT_EQ(engine_type_e::MINIMAL_PINS, engineConfiguration->engineType);
-
-	engine->rpmCalculator.setRpmValue(6000);
-	setEngineTypeAndSave(static_cast<int>(engine_type_e::TEST_ENGINE));
 	EXPECT_EQ(engine_type_e::TEST_ENGINE, engineConfiguration->engineType);
+	executeTSCommand(TS_SET_DEFAULT_ENGINE, 0);
+	EXPECT_EQ(engine_type_e::TEST_ENGINE, engineConfiguration->engineType);
+	setEngineTypeAndSave(static_cast<int>(engine_type_e::MINIMAL_PINS));
+	EXPECT_EQ(engine_type_e::TEST_ENGINE, engineConfiguration->engineType);
+
+	engine->rpmCalculator.setStopSpinning();
+	executeTSCommand(TS_SET_ENGINE_TYPE, static_cast<uint16_t>(engine_type_e::MINIMAL_PINS));
+	EXPECT_EQ(engine_type_e::MINIMAL_PINS, engineConfiguration->engineType);
 }
 
 TEST(BenchTest, idleValveButtonRunsIdleControllerForThreeSeconds) {
