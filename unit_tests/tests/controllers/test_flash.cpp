@@ -87,21 +87,35 @@ TEST_F(StorageBoardGate, DefersAllRecordsWhileRunning) {
 	EXPECT_TRUE(storageAllowWriteID(EFI_SETTINGS_RECORD_ID));
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): a forced write - writeToFlashNow(), which a TS burn of the
-// Lua page or the second tables uses on INT_FLASH boards - goes ahead with the engine running. On an MCU
-// that stalls during the erase (F4) engine control stops for the erase.
-TEST_F(StorageBoardGate, ForcedWriteIgnoresRunningEngine) {
+// A forced write - writeToFlashNow(), which a TS burn of the Lua page or the second tables uses on
+// INT_FLASH boards - waits for the engine to stop on an MCU that stalls during the erase (F4), like a
+// normal write: it used to go ahead and stop engine control for the erase (HZ-29 audit).
+TEST_F(StorageBoardGate, ForcedWriteWaitsForTheEngineToStop) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	custom_board_allowFlashNow.reset();
 	canFlashWhileRunning = false;
 	engine->triggerCentral.directSelfStimulation = false;
 	engine->rpmCalculator.setRpmValue(6000);
 
-	// a normal write waits for the engine to stop
 	EXPECT_FALSE(storageAllowWriteID(EFI_SETTINGS_RECORD_ID));
-	// a forced one does not
+	EXPECT_FALSE(storageAllowForcedWriteID(EFI_SETTINGS_RECORD_ID));
+	EXPECT_FALSE(storageAllowForcedWriteID(EFI_SETTINGS_BACKUP_RECORD_ID));
+	// records that never erase the internal settings sector: as before
+	EXPECT_TRUE(storageAllowForcedWriteID(EFI_LTFT_RECORD_ID));
+
+	// self-stimulation (no real engine, HW CI) and an MCU that keeps running while erasing: as before
+	engine->triggerCentral.directSelfStimulation = true;
 	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_RECORD_ID));
-	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_BACKUP_RECORD_ID));
+	engine->triggerCentral.directSelfStimulation = false;
+	canFlashWhileRunning = true;
+	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_RECORD_ID));
+	canFlashWhileRunning = false;
+
+	// stopped: it goes ahead, and still skips the board gate
+	custom_board_allowFlashNow = []() { return false; };
+	engine->rpmCalculator.setStopSpinning();
+	EXPECT_FALSE(storageAllowWriteID(EFI_SETTINGS_RECORD_ID));
+	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_RECORD_ID));
 }
 
 TEST_F(StorageBoardGate, NoHookPreservesExternalStorageWrites) {

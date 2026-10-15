@@ -69,9 +69,18 @@ bool storageAllowWriteID(StorageItemId id)
 }
 
 // A forced write - writeToFlashNow(): extra-page burns on INT_FLASH boards, TS write-flash,
-// setEngineType(), console writeconfig - is not deferred: it skips storageAllowWriteID()
+// setEngineType(), console writeconfig - skips the board gate of storageAllowWriteID(), but not the
+// stall: on an MCU that halts while erasing internal flash (F4) a settings write with a real engine
+// turning stops engine control for the erase. It stays pending and goes ahead once the engine stops,
+// as a normal write does (HZ-29 audit).
 bool storageAllowForcedWriteID(StorageItemId id) {
+#if ((EFI_STORAGE_INT_FLASH == TRUE) || defined(EFI_UNIT_TEST)) && EFI_SHAFT_POSITION_INPUT
+	if (((id == EFI_SETTINGS_RECORD_ID) || (id == EFI_SETTINGS_BACKUP_RECORD_ID)) && !mcuCanFlashWhileRunning()) {
+		return engine->triggerCentral.directSelfStimulation || engine->rpmCalculator.isStopped();
+	}
+#else
 	UNUSED(id);
+#endif
 	return true;
 }
 #endif // EFI_CONFIGURATION_STORAGE || defined(EFI_UNIT_TEST)
@@ -364,8 +373,10 @@ static void storageManagerThread(void*) {
 				break;
 			case MSG_CMD_WRITE_NOW:
 				pendingWrites |= BIT(id);
-				// skip storageAllowWriteID() check
-				if (storageAllowForcedWriteID((StorageItemId)id) && storageTryWriteID((StorageItemId)id)) {
+				// skip storageAllowWriteID() check, but not the flash stall
+				if (!storageAllowForcedWriteID((StorageItemId)id)) {
+					efiPrintf("Storage: forced write of record id %d deferred until the engine stops", (int)id);
+				} else if (storageTryWriteID((StorageItemId)id)) {
 					pendingWrites &= ~BIT(id);
 				}
 				break;
