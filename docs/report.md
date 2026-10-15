@@ -1448,3 +1448,49 @@ Open:
 - Bench check of the fix (an oversize read refused, the engine keeps running) on a new image.
 - Other TS commands may still reach `criticalError` from remote input; only the page read was
   checked here.
+
+## 2026-10-14 - HZ-29 fix on the HITL bench
+
+Bench check of 687aace7718 (simulation, stm32f429_nucleo_hitl built with `USE_OPENBLT=yes`, sha256
+0920e6ca...c8be4de, updated from the previous image through OpenBLT; the bootloader region is
+byte-identical). Engine governed at hover in stage B (6750 rpm, 112.8 sparks and injections/s):
+
+| Check | Result |
+|---|---|
+| TS page 0 read, offset 0, 1700 B | refused, 7-byte packet with 0x84 (`TS_RESPONSE_OUT_OF_RANGE`) |
+| next 6 s, sampled every 2 s | 6739 - 6755 rpm, no critical error (last error unchanged), sparks and injections steady, controller running |
+| 1024 B read | answered OK with 1024 bytes |
+| flight scenario in the same boot | pass, seizure assist 21 ms |
+
+Note: `sendErrorCode()` ignores its message argument, so "RD chunk too large" never reaches the
+image - the guard shows up only as code size (+12 B against the previous image).
+
+Open: only the page-read path was audited; other TS commands that may reach `criticalError` from
+remote input are not checked.
+
+## 2026-10-14 - Audit: TunerStudio commands that can stop engine control (HZ-29 follow-up)
+
+Read-only audit of every TS command handler (`tunerstudio.cpp`, `tunerstudio_io.cpp`,
+`tunerstudio_commands.cpp`, `bench_test.cpp` `executeTSCommand`, the storage manager) for paths
+where a tool's input reaches `criticalError` / `firmwareError`, a fault, or stalls the MCU while
+the engine runs. Nothing changed; findings for a decision.
+
+| # | Path | What happens | Who can trigger it |
+|---|---|---|---|
+| 1 | Burn of page 1 (second tables) or the Lua page -> `burnExtraFlashPage()`; X14 `TS_WRITE_FLASH`; console `writeconfig` | On INT_FLASH boards without MFS (all F4 by default, uaEFI included) these call `writeToFlashNow()` -> `MSG_CMD_WRITE_NOW`, which skips `storageAllowWriteID()`: the settings sector is erased with the engine running. On F4 the erase stalls the core, so engine control stops for the erase. Page 0 burns are correctly deferred until the engine stops | an ordinary TS Burn after editing Lua or the secondary tables; the console's write-flash button |
+| 2 | `TS_PERF_TRACE_BEGIN` / `TS_PERF_TRACE_GET_BUFFER` without `ENABLE_PERF_TRACE` | `criticalError` - the commands are in `isKnownCommand()` on every build. F40x builds (uaEFI, uaefi121) have perf trace off; F42x (the HITL F439) has it on, so the bench cannot show it | the console's performance-trace action (`PTraceHelper`) |
+| 3 | `TS_READ32_COMMAND` / `TS_CRC32_CHECK_COMMAND` | `validateOffsetCount()` adds 32-bit offset + count in `size_t`, which wraps on the MCU (not on 64-bit unit-test hosts): an offset near 2^32 passes, the read starts before the page; a CRC32 with a huge count runs off the end of RAM -> bus fault -> HardFault | a malformed / buggy client |
+| 4 | `TS_CHUNK_WRITE_COMMAND` | `count` is checked against the page, never against the received payload: a short packet copies whatever follows the receive buffer (up to a page) into the live tune | a malformed / buggy client |
+| 5 | IO commands with no engine-running interlock | stop engine, reboot, DFU jump, set engine type (resets the tune and force-writes flash; an unknown type is `firmwareError`), set default engine, ETB autocal, SD format, aux/relay bench outputs; via `TS_EXECUTE` also `hard_fault`, `soft_fault`, `resetconfig`, `rewriteconfig`, `writeconfig`. Only the spark, injector, solenoid and Lua-output benches check `running` | deliberate operator actions |
+| 6 | `TS_GET_SCATTERED_GET_COMMAND` without `EFI_TS_SCATTER` | `criticalError`; F4/F7/H7 have scatter on, the simulator off | TS in high-speed mode |
+
+Clean: page read (fixed in 687aace7718), output channels (streamed, bounds-checked), 16-bit CRC
+check, page-0 burn (deferred), scatter entry types (#10155), text / config-error / tooth-logger /
+trigger-scope replies (long packets allowed), query / version / bootloader replies, packet framing
+(size against the receive buffer, CRC). `EFI_CAN_SERIAL` is TRUE on F4, so the whole protocol is
+reachable over CAN through the ISO-TP wrapper where that channel is active - not verified for the
+DLE presets.
+
+Testing note: `handleCrcCommand()` is built only for `EFI_PROD_CODE || EFI_SIMULATOR`, so findings 2
+and 6 need either a dispatch seam for unit tests or the simulator; finding 3 cannot be reproduced on a
+64-bit host without 32-bit arithmetic in the check itself.

@@ -17,6 +17,7 @@
 #include "pch.h"
 
 #include "bench_test.h"
+#include "settings.h"
 #include "vvt.h"
 
 static BenchRequestForUnitTest dispatch(bench_mode_e command) {
@@ -62,6 +63,33 @@ TEST(BenchTest, tsButtonsRouteToOutputs) {
 	EXPECT_EQ(&enginePins.acRelay, dispatch(BENCH_AC_COMPRESSOR_RELAY).pin);
 	EXPECT_EQ(&enginePins.checkEnginePin, dispatch(BENCH_CHECK_ENGINE_LIGHT).pin);
 	EXPECT_EQ(&enginePins.boostPin, dispatch(BENCH_BOOST_VALVE).pin);
+}
+
+// Coverage before a fix (TDB, HZ-29 audit): nothing refuses an output bench with the engine running.
+// The main relay bench switches the relay off for its duration, the fuel pump bench the pump, the
+// starter bench engages the starter.
+TEST(BenchTest, outputBenchesRunWhileEngineTurns) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engine->rpmCalculator.setRpmValue(6000);
+	ASSERT_FALSE(engine->rpmCalculator.isStopped());
+
+	EXPECT_EQ(&enginePins.mainRelay, dispatch(BENCH_MAIN_RELAY).pin);
+	EXPECT_EQ(&enginePins.fuelPumpRelay, dispatch(BENCH_FUEL_PUMP).pin);
+	EXPECT_EQ(&enginePins.starterControl, dispatch(BENCH_STARTER_ENABLE_RELAY).pin);
+}
+
+// Coverage before a fix (TDB, HZ-29 audit): a preset (TS button or console engine_type) replaces the
+// whole tune with the engine running.
+TEST(BenchTest, engineTypeChangesWhileEngineTurns) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engine->rpmCalculator.setRpmValue(6000);
+
+	executeTSCommand(TS_SET_ENGINE_TYPE, static_cast<uint16_t>(engine_type_e::MINIMAL_PINS));
+	EXPECT_EQ(engine_type_e::MINIMAL_PINS, engineConfiguration->engineType);
+
+	engine->rpmCalculator.setRpmValue(6000);
+	setEngineTypeAndSave(static_cast<int>(engine_type_e::TEST_ENGINE));
+	EXPECT_EQ(engine_type_e::TEST_ENGINE, engineConfiguration->engineType);
 }
 
 TEST(BenchTest, idleValveButtonRunsIdleControllerForThreeSeconds) {

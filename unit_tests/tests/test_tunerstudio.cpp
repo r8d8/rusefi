@@ -357,6 +357,54 @@ TEST(TunerstudioCommands, outOfRangeWriteChunkSendsExactlyOneError) {
 	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
 }
 
+// Coverage before a fix (TDB, HZ-29 audit): a chunk write trusts its count field, not the packet. A
+// packet carrying fewer bytes than its count copies whatever follows the payload in the receive
+// buffer (the CRC, older bytes) into the live tune.
+TEST(TunerstudioCommands, shortChunkWriteCopiesPastThePayload) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	BufferTsChannel channel;
+	TunerStudio ts;
+
+	// the receive buffer as tsProcessOne() leaves it: a 2-byte payload, then its CRC and stale bytes
+	const uint8_t received[8] = {0x11, 0x22, 0xC1, 0xC2, 0xC3, 0xC4, 0xEE, 0xEE};
+	const uint16_t offset = 100;
+	uint8_t* configBytes = reinterpret_cast<uint8_t*>(config);
+	memset(configBytes + offset, 0, sizeof(received));
+
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, sizeof(received), (void*)received);
+
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OK);
+	EXPECT_EQ(memcmp(configBytes + offset, received, sizeof(received)), 0);
+}
+
+// Coverage before a fix (TDB, HZ-29 audit): the range check adds offset and count in 32 bits, as the
+// MCU does, so a pair that wraps passes it. A 32-bit read then starts outside the page, and a CRC32
+// check with a huge count runs off the end of RAM into a bus fault.
+TEST(TunerstudioCommands, wrappingOffsetAndCountPassTheRangeCheck) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0xFFFFFFF0u, 0x20u));
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0x80000000u, 0x80000010u));
+
+	// a plain overrun is caught
+	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s) + 1));
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s)));
+}
+
+// Coverage before a fix (TDB, HZ-29 audit): a command this build was compiled without reaches
+// criticalError, which stops engine control for the rest of the boot. Perf trace is off on F40x builds
+// such as uaEFI, and the rusEFI console's performance-trace action sends these commands. Scatter
+// (off in the simulator) shares refuseUnsupportedCommand().
+TEST(TunerstudioCommands, perfTraceWithoutPerfTraceIsFatal) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	BufferTsChannel channel;
+	TunerStudio ts;
+	static_assert(!ENABLE_PERF_TRACE, "the unit tests build without perf trace, as F40x boards do");
+
+	EXPECT_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_BEGIN));
+	EXPECT_FATAL_ERROR(ts.handlePerfTraceCommand(&channel, TS_PERF_TRACE_GET_BUFFER));
+}
+
 #if EFI_TS_SCATTER
 // Page 2 entries pack a 3-bit type in bits 15..13 (0 = unused, 1..4 = 1/2/4/8 bytes)
 // and a 13-bit live-data offset in the low bits.

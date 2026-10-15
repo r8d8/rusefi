@@ -67,6 +67,13 @@ bool storageAllowWriteID(StorageItemId id)
 	// Other boards retain their existing external-storage behavior.
 	return true;
 }
+
+// A forced write - writeToFlashNow(): extra-page burns on INT_FLASH boards, TS write-flash,
+// setEngineType(), console writeconfig - is not deferred: it skips storageAllowWriteID()
+bool storageAllowForcedWriteID(StorageItemId id) {
+	UNUSED(id);
+	return true;
+}
 #endif // EFI_CONFIGURATION_STORAGE || defined(EFI_UNIT_TEST)
 
 /* If any setting storage is exist */
@@ -358,7 +365,7 @@ static void storageManagerThread(void*) {
 			case MSG_CMD_WRITE_NOW:
 				pendingWrites |= BIT(id);
 				// skip storageAllowWriteID() check
-				if (storageTryWriteID((StorageItemId)id)) {
+				if (storageAllowForcedWriteID((StorageItemId)id) && storageTryWriteID((StorageItemId)id)) {
 					pendingWrites &= ~BIT(id);
 				}
 				break;

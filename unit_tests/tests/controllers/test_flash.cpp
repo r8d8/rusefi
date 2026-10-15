@@ -87,6 +87,23 @@ TEST_F(StorageBoardGate, DefersAllRecordsWhileRunning) {
 	EXPECT_TRUE(storageAllowWriteID(EFI_SETTINGS_RECORD_ID));
 }
 
+// Coverage before a fix (TDB, HZ-29 audit): a forced write - writeToFlashNow(), which a TS burn of the
+// Lua page or the second tables uses on INT_FLASH boards - goes ahead with the engine running. On an MCU
+// that stalls during the erase (F4) engine control stops for the erase.
+TEST_F(StorageBoardGate, ForcedWriteIgnoresRunningEngine) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	custom_board_allowFlashNow.reset();
+	canFlashWhileRunning = false;
+	engine->triggerCentral.directSelfStimulation = false;
+	engine->rpmCalculator.setRpmValue(6000);
+
+	// a normal write waits for the engine to stop
+	EXPECT_FALSE(storageAllowWriteID(EFI_SETTINGS_RECORD_ID));
+	// a forced one does not
+	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_RECORD_ID));
+	EXPECT_TRUE(storageAllowForcedWriteID(EFI_SETTINGS_BACKUP_RECORD_ID));
+}
+
 TEST_F(StorageBoardGate, NoHookPreservesExternalStorageWrites) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	custom_board_allowFlashNow.reset();

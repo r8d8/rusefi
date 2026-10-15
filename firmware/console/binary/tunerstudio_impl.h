@@ -38,8 +38,14 @@ public:
 	void handlePendingBurnTimeout(TsChannelBase* tsChannel);
 	void handlePageReadCommand(TsChannelBase* tsChannel, uint32_t page, uint32_t offset, uint32_t count);
 	void handleScatteredReadCommand(TsChannelBase* tsChannel);
+	void handlePerfTraceCommand(TsChannelBase* tsChannel, char command);
+	// a command this build was compiled without (perf trace, scatter)
+	void refuseUnsupportedCommand(TsChannelBase* tsChannel, const char *what);
 
 private:
 	void finishPendingBurn(TsChannelBase* tsChannel);
 	void sendErrorCode(TsChannelBase* tsChannel, uint8_t code, /*empty line by default, use nullptr not to log*/const char *msg="");
 };
+
+// true when [offset, offset + count) does not lie inside the page; 32-bit arithmetic, as on the MCU
+bool validateOffsetCount(uint32_t page, uint32_t offset, uint32_t count);

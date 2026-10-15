@@ -269,7 +269,7 @@ static constexpr size_t getTunerStudioPageSize(size_t page) {
 
 // Validate whether the specified offset and count would cause an overrun in the tune.
 // Returns true if an overrun would occur. Callers are responsible for sending the error code.
-static bool validateOffsetCount(size_t page, size_t offset, size_t count) {
+bool validateOffsetCount(uint32_t page, uint32_t offset, uint32_t count) {
 	size_t allowedSize = getTunerStudioPageSize(page);
 	if (offset + count > allowedSize) {
 		efiPrintf("TS: Project mismatch? Too much configuration requested %d+%d>%d", offset, count, allowedSize);
@@ -540,6 +540,25 @@ void TunerStudio::handlePageReadCommand(TsChannelBase* tsChannel, uint32_t page,
 #if EFI_TUNER_STUDIO_VERBOSE
 //	efiPrintf("Sending %d done", count);
 #endif
+}
+
+void TunerStudio::refuseUnsupportedCommand(TsChannelBase* tsChannel, const char *what) {
+	UNUSED(tsChannel);
+	criticalError("%s not supported", what);
+}
+
+void TunerStudio::handlePerfTraceCommand(TsChannelBase* tsChannel, char command) {
+#if ENABLE_PERF_TRACE
+	if (command == TS_PERF_TRACE_BEGIN) {
+		perfTraceEnable();
+		sendOkResponse(tsChannel);
+	} else {
+		auto trace = perfTraceGetBuffer();
+		tsChannel->sendResponse(TS_CRC, trace.get<uint8_t>(), trace.size(), true);
+	}
+#else
+	refuseUnsupportedCommand(tsChannel, command == TS_PERF_TRACE_BEGIN ? "TS_PERF_TRACE" : "TS_PERF_TRACE_GET_BUFFER");
+#endif /* ENABLE_PERF_TRACE */
 }
 #endif // EFI_TUNER_STUDIO
 
@@ -1009,7 +1028,7 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 #if EFI_TS_SCATTER
 		handleScatteredReadCommand(tsChannel);
 #else
-		criticalError("Slow/wireless mode not supported");
+		refuseUnsupportedCommand(tsChannel, "Slow/wireless mode");
 #endif // EFI_TS_SCATTER
 		break;
 	case TS_HELLO_COMMAND:
@@ -1177,26 +1196,10 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE, DO_NOT_LOG);
 		break;
 #endif /* EFI_TOOTH_LOGGER */
-#if ENABLE_PERF_TRACE
 	case TS_PERF_TRACE_BEGIN:
-		perfTraceEnable();
-		sendOkResponse(tsChannel);
-		break;
 	case TS_PERF_TRACE_GET_BUFFER:
-		{
-			auto trace = perfTraceGetBuffer();
-			tsChannel->sendResponse(TS_CRC, trace.get<uint8_t>(), trace.size(), true);
-		}
-
+		handlePerfTraceCommand(tsChannel, command);
 		break;
-#else
-	case TS_PERF_TRACE_BEGIN:
-		criticalError("TS_PERF_TRACE not supported");
-		break;
-	case TS_PERF_TRACE_GET_BUFFER:
-		criticalError("TS_PERF_TRACE_GET_BUFFER not supported");
-		break;
-#endif /* ENABLE_PERF_TRACE */
 	case TS_QUERY_BOOTLOADER: {
 		uint8_t bldata = TS_QUERY_BOOTLOADER_NONE;
 #if EFI_USE_OPENBLT

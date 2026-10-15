@@ -59,6 +59,8 @@ enum StorageItemId {
 
 // exported for unit tests only
 bool storageAllowWriteID(StorageItemId id);
+// whether a forced write (storageRequestWriteID(id, true), e.g. writeToFlashNow()) may go ahead now
+bool storageAllowForcedWriteID(StorageItemId id);
 
 // read and write storate item. executed in caller context
 StorageStatus storageWrite(StorageItemId id, const uint8_t *ptr, size_t size);
