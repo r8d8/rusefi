@@ -271,7 +271,8 @@ static constexpr size_t getTunerStudioPageSize(size_t page) {
 // Returns true if an overrun would occur. Callers are responsible for sending the error code.
 bool validateOffsetCount(uint32_t page, uint32_t offset, uint32_t count) {
 	size_t allowedSize = getTunerStudioPageSize(page);
-	if (offset + count > allowedSize) {
+	// compare without adding: offset + count wraps in 32 bits for a malformed request (HZ-29 audit)
+	if (offset > allowedSize || count > allowedSize - offset) {
 		efiPrintf("TS: Project mismatch? Too much configuration requested %d+%d>%d", offset, count, allowedSize);
 		return true;
 	}
@@ -357,7 +358,7 @@ bool isTouchingArea(uint16_t offset, uint16_t count, int areaStart, int areaSize
  * This command is needed to make the whole transfer a bit faster
  */
 void TunerStudio::handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t page, uint16_t offset, uint16_t count,
-		void *content) {
+		void *content, size_t contentSize) {
 	tsState.writeChunkCommandCounter++;
 
 	efiPrintf("TS -> Page %d write chunk offset %d count %d (output_count=%d)",
@@ -366,6 +367,14 @@ void TunerStudio::handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t pag
 
 	if (validateOffsetCount(page, offset, count)) {
 		tunerStudioError(tsChannel, "ERROR: WR out of range");
+		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE);
+		return;
+	}
+
+	// the packet must carry what its count says: a short one would copy the bytes after its payload
+	// (its CRC, stale receive-buffer contents) into the tune (HZ-29 audit)
+	if (count > contentSize) {
+		tunerStudioError(tsChannel, "ERROR: WR short packet");
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE);
 		return;
 	}
@@ -1047,11 +1056,15 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 		handleExecuteCommand(tsChannel, data, incomingPacketSize - 1);
 		break;
 	case TS_CHUNK_WRITE_COMMAND:
-		/* command with page argument */
-		page = data16[0];
-		offset = data16[1];
-		count = data16[2];
-		handleWriteChunkCommand(tsChannel, page, offset, count, data + sizeof(TunerStudioPageRWChunkRequest));
+		{
+			/* command with page argument */
+			page = data16[0];
+			offset = data16[1];
+			count = data16[2];
+			const int headerSize = 1 + sizeof(TunerStudioPageRWChunkRequest);
+			const size_t contentSize = incomingPacketSize > headerSize ? incomingPacketSize - headerSize : 0;
+			handleWriteChunkCommand(tsChannel, page, offset, count, data + sizeof(TunerStudioPageRWChunkRequest), contentSize);
+		}
 		break;
 	case TS_CRC_CHECK_COMMAND:
 		/* command with page argument */

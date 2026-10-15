@@ -231,7 +231,7 @@ TEST(TunerstudioCommands, writeChunkEngineConfig) {
 	// two step - writes to the engineConfiguration section require a burn
 	uint8_t val = 50;
 	TunerStudio instance;
-	instance.handleWriteChunkCommand(&channel, 0, 100, 1, &val);
+	instance.handleWriteChunkCommand(&channel, 0, 100, 1, &val, sizeof(val));
 
 	EXPECT_EQ(configBytes[100], 50);
 }
@@ -252,7 +252,7 @@ TEST(TunerstudioCommands, burnFixRunsAfterCrc) {
 	EXPECT_EQ(engineConfiguration->mapExpAverageAlpha, 0);
 	uint8_t zero = 0;
 	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS,
-		offsetof(engine_configuration_s, mapExpAverageAlpha), sizeof(zero), &zero);
+		offsetof(engine_configuration_s, mapExpAverageAlpha), sizeof(zero), &zero, sizeof(zero));
 	EXPECT_TRUE(channel.settingsBurnPending);
 	EXPECT_EQ(engineConfiguration->mapExpAverageAlpha, 0);
 
@@ -349,7 +349,7 @@ TEST(TunerstudioCommands, outOfRangeWriteChunkSendsExactlyOneError) {
 
 	uint8_t dummy[1] = {};
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, 0, OVERSIZED_COUNT, dummy);
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, 0, OVERSIZED_COUNT, dummy, sizeof(dummy));
 
 	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
 	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
@@ -357,38 +357,61 @@ TEST(TunerstudioCommands, outOfRangeWriteChunkSendsExactlyOneError) {
 	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): a chunk write trusts its count field, not the packet. A
-// packet carrying fewer bytes than its count copies whatever follows the payload in the receive
-// buffer (the CRC, older bytes) into the live tune.
-TEST(TunerstudioCommands, shortChunkWriteCopiesPastThePayload) {
+// A chunk write whose packet carries fewer bytes than its count is refused. It used to copy whatever
+// followed the payload in the receive buffer (the CRC, older bytes) into the live tune (HZ-29 audit).
+TEST(TunerstudioCommands, shortChunkWriteIsRefused) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	BufferTsChannel channel;
 	TunerStudio ts;
+	int prevErrors = tsState.errorOutOfRange;
 
 	// the receive buffer as tsProcessOne() leaves it: a 2-byte payload, then its CRC and stale bytes
 	const uint8_t received[8] = {0x11, 0x22, 0xC1, 0xC2, 0xC3, 0xC4, 0xEE, 0xEE};
+	const size_t payload = 2;
 	const uint16_t offset = 100;
 	uint8_t* configBytes = reinterpret_cast<uint8_t*>(config);
 	memset(configBytes + offset, 0, sizeof(received));
 
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, sizeof(received), (void*)received);
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, sizeof(received), (void*)received, payload);
 
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
+	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
+	for (size_t i = 0; i < sizeof(received); i++) {
+		EXPECT_EQ(configBytes[offset + i], 0) << i;
+	}
+
+	// a packet carrying its whole count is written, and only that
+	channel.reset();
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, payload, (void*)received, payload);
 	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OK);
-	EXPECT_EQ(memcmp(configBytes + offset, received, sizeof(received)), 0);
+	EXPECT_EQ(configBytes[offset], 0x11);
+	EXPECT_EQ(configBytes[offset + 1], 0x22);
+	EXPECT_EQ(configBytes[offset + 2], 0);
 }
 
-// Coverage before a fix (TDB, HZ-29 audit): the range check adds offset and count in 32 bits, as the
-// MCU does, so a pair that wraps passes it. A 32-bit read then starts outside the page, and a CRC32
-// check with a huge count runs off the end of RAM into a bus fault.
-TEST(TunerstudioCommands, wrappingOffsetAndCountPassTheRangeCheck) {
+// The range check compares without adding offset and count, which wrap in 32 bits for a malformed
+// request: a 32-bit read then started outside the page, and a CRC32 check with a huge count ran off
+// the end of RAM into a bus fault (HZ-29 audit).
+TEST(TunerstudioCommands, wrappingOffsetAndCountAreOutOfRange) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	const uint32_t pageSize = sizeof(persistent_config_s);
 
-	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0xFFFFFFF0u, 0x20u));
-	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0x80000000u, 0x80000010u));
+	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, 0xFFFFFFF0u, 0x20u));
+	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, 0x80000000u, 0x80000010u));
 
-	// a plain overrun is caught
-	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s) + 1));
-	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s)));
+	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, 0, pageSize + 1));
+	EXPECT_TRUE(validateOffsetCount(TS_PAGE_SETTINGS, pageSize + 1, 0));
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, 0, pageSize));
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, pageSize - 1, 1));
+	EXPECT_FALSE(validateOffsetCount(TS_PAGE_SETTINGS, pageSize, 0));
+
+	// and the CRC32 command answers it with an error instead of reading
+	BufferTsChannel channel;
+	TunerStudio ts;
+	ts.handleCrc32Check(&channel, TS_PAGE_SETTINGS, 0x80000000u, 0x80000010u);
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
 }
 
 // A command this build was compiled without is refused as unrecognized. It used to reach
@@ -483,7 +506,7 @@ TEST(TunerstudioCommands, tuningDetectorEnabledSuspendsAfterVeWrite) {
 	const uint16_t veOffset = static_cast<uint16_t>(offsetof(persistent_config_s, veTable));
 	uint8_t dummy = 0;
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy);
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy, sizeof(dummy));
 
 	// With enabled=true and timer just reset, isTuningVeNow() must return true
 	EXPECT_TRUE(isTuningVeNow());
@@ -500,7 +523,7 @@ TEST(TunerstudioCommands, tuningDetectorDisabledDoesNotSuspendAfterVeWrite) {
 	const uint16_t veOffset = static_cast<uint16_t>(offsetof(persistent_config_s, veTable));
 	uint8_t dummy = 0;
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy);
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy, sizeof(dummy));
 
 	// With enabled=false, tuning detection uses 0 s threshold — always elapsed → not tuning
 	EXPECT_FALSE(isTuningVeNow());
