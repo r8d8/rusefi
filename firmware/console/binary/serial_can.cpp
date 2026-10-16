@@ -42,6 +42,11 @@ static int isoTpPacketCounter = 0;
  */
 void CanTsListener::decodeFrame(const CANRxFrame& frame, efitick_t /*nowNt*/) {
 	// CAN ID filtering happens in base class, by the time we are here we know it's the CAN_ECU_SERIAL_RX_ID packet
+	// canUserControlStopOnly: a node on the bus may only stop the engine, so the whole TS protocol over
+	// CAN (burns, presets, bench tests) is off (HZ-30)
+	if (engineConfiguration->canUserControlStopOnly) {
+		return;
+	}
 	// todo: what if the FIFO is full?
 	CanRxMessage msg(frame);
 	if (engineConfiguration->verboseIsoTp) {

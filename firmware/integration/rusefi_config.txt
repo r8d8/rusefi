@@ -2073,7 +2073,7 @@ end_struct
 	! --- Alpha-N altitude compensation ---
 	bit alphaNUseBaro,"yes","no";When set to yes, Alpha-N airmass is scaled by the measured barometric pressure instead of standard sea-level pressure. Needed when the engine runs at altitude. Use a live barometric sensor (analog baro sensor or LPS25), not the start-up MAP reading, if altitude changes while running. Falls back to standard pressure if the sensor fails.
 	! --- CAN user control guard (ECU_CAN_BUS_USER_CONTROL frames), shares the bit word above ---
-	bit canUserControlStopOnly,"stop only","all commands";CAN user control: only the engine stop command is executed, every other command (reboot, DFU, engine type, bench tests) is ignored.
+	bit canUserControlStopOnly,"stop only","all commands";CAN user control: only the engine stop command is executed, every other command (reboot, DFU, engine type, bench tests) is ignored. TS over CAN and the CAN QC bench protocol are off too.
 
 	pid_s servoGovernorPid;Servo throttle governor PID. Error is in RPM, output is the trim in percent added to the request. Min/max limit the trim authority.
 

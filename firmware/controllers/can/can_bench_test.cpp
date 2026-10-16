@@ -29,10 +29,22 @@ extern PinRepository pinRepository;
 #define RAW_TO_BYTE(v) TRUNCATE_TO_BYTE((int)(v * 255.0 / 5.0))
 
 // Whether a CAN QC bench command may run: the protocol drives outputs directly, runs bench tests and
-// sets the engine type (which writes flash and reboots)
+// sets the engine type (which writes flash and reboots). With canUserControlStopOnly - a node on the bus
+// may only stop the engine - none of it runs; otherwise the commands that act on the engine refuse
+// while it turns (bench tests refuse in pinbench()) (HZ-30)
 bool canQcCommandAllowed(uint8_t command) {
-	UNUSED(command);
-	return true;
+	if (engineConfiguration->canUserControlStopOnly) {
+		return false;
+	}
+	switch (static_cast<bench_test_io_control_e>(command)) {
+	case bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET:
+	case bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_CLEAR:
+	case bench_test_io_control_e::CAN_QC_ETB:
+	case bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE:
+		return !refuseWhileEngineTurns("CAN QC command");
+	default:
+		return true;
+	}
 }
 
 #if EFI_PROD_CODE

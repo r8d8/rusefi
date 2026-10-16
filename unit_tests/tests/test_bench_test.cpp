@@ -106,17 +106,37 @@ TEST(BenchTest, engineTypeRefusedWhileEngineTurns) {
 	EXPECT_EQ(engine_type_e::MINIMAL_PINS, engineConfiguration->engineType);
 }
 
-// Coverage before a fix (TDB, HZ-30): canUserControlStopOnly does not cover the CAN QC bench protocol: a
-// node on the bus may still drive outputs directly, run bench tests and set the engine type (which
-// writes flash and reboots), with the engine running.
-TEST(BenchTest, canQcCommandsIgnoreStopOnly) {
-	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
-	engineConfiguration->canUserControlStopOnly = true;
-	engine->rpmCalculator.setRpmValue(6000);
+static bool qcAllowed(bench_test_io_control_e command) {
+	return canQcCommandAllowed(static_cast<uint8_t>(command));
+}
 
-	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET)));
-	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE)));
-	EXPECT_TRUE(canQcCommandAllowed(static_cast<uint8_t>(bench_test_io_control_e::CAN_BENCH_EXECUTE_BENCH_TEST)));
+// canUserControlStopOnly - a node on the bus may only stop the engine - turns the CAN QC bench protocol
+// off; without it, the commands that act on the engine refuse while it turns. Both used to run: a node
+// on the bus could drive outputs, run bench tests and set the engine type with the engine running (HZ-30).
+TEST(BenchTest, canQcCommandsRespectStopOnlyAndRunningEngine) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	engineConfiguration->canUserControlStopOnly = true;
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_BENCH_GET_COUNT));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_BENCH_EXECUTE_BENCH_TEST));
+
+	engineConfiguration->canUserControlStopOnly = false;
+	engine->rpmCalculator.setRpmValue(6000);
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_CLEAR));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_QC_ETB));
+	EXPECT_FALSE(qcAllowed(bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE));
+	// read-only commands, and bench tests (pinbench() refuses those itself)
+	EXPECT_TRUE(qcAllowed(bench_test_io_control_e::CAN_BENCH_GET_COUNT));
+	EXPECT_TRUE(qcAllowed(bench_test_io_control_e::CAN_BENCH_QUERY_PIN_STATE));
+	EXPECT_TRUE(qcAllowed(bench_test_io_control_e::CAN_BENCH_EXECUTE_BENCH_TEST));
+
+	// a factory rig: no stop-only, engine stopped - everything as before
+	engine->rpmCalculator.setStopSpinning();
+	EXPECT_TRUE(qcAllowed(bench_test_io_control_e::CAN_QC_OUTPUT_CONTROL_SET));
+	EXPECT_TRUE(qcAllowed(bench_test_io_control_e::CAN_BENCH_SET_ENGINE_TYPE));
 }
 
 TEST(BenchTest, idleValveButtonRunsIdleControllerForThreeSeconds) {

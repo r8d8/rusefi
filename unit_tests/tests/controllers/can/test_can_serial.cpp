@@ -644,16 +644,21 @@ CANRxFrame tsOverCanFrame() {
 }
 } // namespace
 
-// Coverage before a fix (TDB, HZ-30): with canUserControlStopOnly - a node on the bus may only stop the
-// engine - the TS-over-CAN listener still queues every frame on CAN_ECU_SERIAL_RX_ID (CAN1, the power
-// CAN on uaEFI), so the whole TS protocol (burns, presets, bench tests) is reachable from the bus.
-TEST(CanStopOnly, tsOverCanStillListens) {
+// With canUserControlStopOnly - a node on the bus may only stop the engine - TS over CAN is off: the
+// listener drops every frame. It used to queue them, so the whole TS protocol (burns, presets, bench
+// tests) was reachable from the power CAN (CAN1 on uaEFI) (HZ-30).
+TEST(CanStopOnly, tsOverCanOffWithStopOnly) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->canUserControlStopOnly = true;
 
-	TsListenerProbe listener;
-	listener.decodeFrame(tsOverCanFrame(), 0);
-	EXPECT_TRUE(listener.queued());
+	TsListenerProbe dropped;
+	dropped.decodeFrame(tsOverCanFrame(), 0);
+	EXPECT_FALSE(dropped.queued());
+
+	engineConfiguration->canUserControlStopOnly = false;
+	TsListenerProbe listening;
+	listening.decodeFrame(tsOverCanFrame(), 0);
+	EXPECT_TRUE(listening.queued());
 }
 
 TEST(testCanSerial, singleFrameLengthIsBoundedByDlc) {
