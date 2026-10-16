@@ -1494,3 +1494,39 @@ DLE presets.
 Testing note: `handleCrcCommand()` is built only for `EFI_PROD_CODE || EFI_SIMULATOR`, so findings 2
 and 6 need either a dispatch seam for unit tests or the simulator; finding 3 cannot be reproduced on a
 64-bit host without 32-bit arithmetic in the check itself.
+
+## 2026-10-15 - HZ-30 fixes: tool and bus actions that stop engine control
+
+Fixes for the 2026-10-14 audit, decided by the user and the programme lead (clearwater HZ-30). Each
+fix follows its coverage (TDB); every commit ran the full unit-test suite first (GCC 13, 8 jobs).
+
+| Commit | Change |
+|---|---|
+| e8bd2e95397 | coverage: forced-write gate, perf-trace / scatter refusal, 32-bit range check, short chunk write, benches and presets while running (three small seams: `storageAllowForcedWriteID()`, `TunerStudio::handlePerfTraceCommand()` / `refuseUnsupportedCommand()`, exported `validateOffsetCount()` with `uint32_t` parameters) |
+| 8c97190cfe1 | `storageAllowForcedWriteID()`: a forced settings write waits for the engine to stop on MCUs that stall during an erase; the storage thread leaves it pending ("deferred until the engine stops") |
+| c564696a84e | `refuseUnsupportedCommand()` answers `TS_RESPONSE_UNRECOGNIZED_COMMAND` instead of `criticalError` |
+| 93a54a3b0c0 | `validateOffsetCount()` compares without adding; `handleWriteChunkCommand()` takes the payload size the packet carries and refuses a larger count |
+| 2ea6c745c73 | `refuseWhileEngineTurns()` (not stopped and not self-stimulated): every `pinbench()`, idle valve bench, X14 stepper preset / torque estimate / ETB and EWG autocal / ETB bench / SD format, TS IO presets, reboot, DFU; console engine_type, reboot, reboot_dfu, reboot_openblt, resetconfig, rewriteconfig, chibi_fault, soft_fault, hard_fault |
+| 5db2ea4c95b | coverage: TS over CAN and the CAN QC protocol ignore `canUserControlStopOnly` (seam `canQcCommandAllowed()`) |
+| 3a5db9873d4 | `canUserControlStopOnly` drops TS-over-CAN frames (`CanTsListener::decodeFrame`) and every CAN QC command; without it QC output control, ETB and set-engine-type refuse while the engine turns |
+
+Bench (HITL F439, image D, before the fixes): a TS burn of the Lua page with the engine governed did
+not stall the core - the 2 MB layout keeps the settings in bank 2, which erases next to code running
+in bank 1 - but the erase failed (`FLASH_RETURN_BAD_FLASH`, -11) for both copies and the burn was lost;
+the tune survived (both copies still read valid on the next boot). The HITL variant is switched to
+uaEFI's 1 MB layout (settings in sectors 10 / 11, the code bank; `board.mk`, not yet committed) so the
+bench reproduces the aircraft ECU's stall; images E (all fixes) and D1 (E with 8c97190cfe1 reverted)
+are for that check.
+
+Build break found by the first firmware build after these commits (image E, 2026-10-16): the
+`uint32_t` parameters of `validateOffsetCount()` made its `"%d+%d>%d"` `efiPrintf` a `-Werror=format`
+error on arm-none-eabi (`uint32_t` is `long unsigned int` there, `size_t` is `unsigned int`), so no board
+built from e8bd2e95397 on while every unit test passed. Fixed with `%lu` and casts in the following
+commit; image E (all fixes) then builds, 685400 B, which also compiles the console lambdas of
+2ea6c745c73. Images for the bench, both on the 1 MB layout (21310a05217): E (all fixes, sha256
+da58b87f...) and D1 (E with storage.cpp from e8bd2e95397, sha256 e604c433...).
+
+Open:
+- Bench: D1 reproduces the stall, E shows the deferral (simulation, hz30_burn.py).
+- The cause of the -11 with the engine running on the 2 MB layout is not established (with the fix,
+  F4 no longer erases while the engine turns).

@@ -273,7 +273,8 @@ bool validateOffsetCount(uint32_t page, uint32_t offset, uint32_t count) {
 	size_t allowedSize = getTunerStudioPageSize(page);
 	// compare without adding: offset + count wraps in 32 bits for a malformed request (HZ-29 audit)
 	if (offset > allowedSize || count > allowedSize - offset) {
-		efiPrintf("TS: Project mismatch? Too much configuration requested %d+%d>%d", offset, count, allowedSize);
+		efiPrintf("TS: Project mismatch? Too much configuration requested %lu+%lu>%lu", (unsigned long)offset,
+			(unsigned long)count, (unsigned long)allowedSize);
 		return true;
 	}
 
