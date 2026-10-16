@@ -1,7 +1,11 @@
 # List of all the board related files.
 
-# this board has 2Mb chip
+# this board has 2Mb chip. The HITL variant keeps uaEFI's 1 MB layout (settings in sectors 10 / 11,
+# the code bank) so a settings write on the bench stalls the core as it does on the aircraft ECU;
+# with the 2 MB layout the erase runs in bank 2 next to the code (HZ-30, 2026-10-15)
+ifneq ($(SHORT_BOARD_NAME),stm32f429_nucleo_hitl)
 include $(PROJECT_DIR)/hw_layer/ports/stm32/2mb_flash.mk
+endif
 
 BOARDCPPSRC = $(BOARD_DIR)/board_configuration.cpp
 DDEFS += -DLED_CRITICAL_ERROR_BRAIN_PIN=Gpio::B14
