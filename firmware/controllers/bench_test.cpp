@@ -175,7 +175,11 @@ bool refuseWhileEngineTurns(const char *what) {
 	if (engine->rpmCalculator.isStopped() || engine->triggerCentral.directSelfStimulation) {
 		return false;
 	}
-	warning(ObdCode::CUSTOM_ERR_BENCH_PARAM, "%s refused while the engine turns", what);
+	// warning() prints a code once per warningPeriod and only refreshes it on a repeat (it then
+	// returns true): log the repeat too, so a second refusal within that period is not silent
+	if (warning(ObdCode::CUSTOM_ERR_BENCH_PARAM, "%s refused while the engine turns", what)) {
+		efiPrintf("%s refused while the engine turns", what);
+	}
 	return true;
 #else
 	UNUSED(what);
