@@ -73,6 +73,32 @@ TEST_F(StartStopTest, stopRequestCutsFuelAndSpark) {
 	EXPECT_EQ(ClearReason::StopRequested, limp->allowIgnition().reason);
 }
 
+// Coverage before a fix (TDB): during the stop window RpmCalculator::checkIfSpinning() is forced
+// false, so the cycle-start RPM update is skipped and the reported RPM stays at its pre-stop value
+// while the crank winds down - on the HITL bench rusEFI showed 5820 rpm through a 3.3 s run-down
+// (2026-10-13). Fuel and spark are cut throughout.
+TEST_F(StartStopTest, rpmFreezesDuringStopWindow) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->engineShutDownPeriod = 3;
+	setCrankOperationMode();
+	eth.setTriggerType(trigger_type_e::TT_HALF_MOON);
+
+	eth.fireTriggerEvents2(/* count */ 4, /* ms */ 25);
+	ASSERT_EQ(1200, Sensor::getOrZero(SensorType::Rpm));
+
+	doScheduleStopEngine(StopRequestedReason::Lua);
+
+	// the crank keeps turning, slower, inside the window
+	eth.fireTriggerEvents2(/* count */ 4, /* ms */ 50);
+	auto* limp = getLimpManager();
+	limp->updateState(0, getTimeNowNt());
+	ASSERT_TRUE(limp->shutdownController.isEngineStop(getTimeNowNt()));
+	EXPECT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
+	EXPECT_EQ(ClearReason::StopRequested, limp->allowIgnition().reason);
+
+	EXPECT_EQ(1200, Sensor::getOrZero(SensorType::Rpm)) << "frozen at the pre-stop value, the crank is at 600 rpm";
+}
+
 TEST_F(StartStopTest, stopWindowExpiresAndRestarts) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->engineShutDownPeriod = 3;
