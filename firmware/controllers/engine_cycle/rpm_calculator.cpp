@@ -115,23 +115,14 @@ bool RpmCalculator::isRunning() const {
 /**
  * @return true if engine is spinning (cranking or running)
  *
- * If a stop was recently requested (see ShutdownController::isEngineStop and
- * StopRequestedReason - start button, Lua, console, TS command, board hook), we
- * deliberately return false here even if trigger pulses are still arriving while the
- * engine winds down. This guarantees the engine is treated as stopped during the
- * shutdown window, which - via the STOPPED state path and RpmCalculator::setStopSpinning() -
- * lets trigger state (noise filter accumulators, shaft sync, instant-RPM history) be
- * reset cleanly without re-entering RUNNING/CRANKING from leftover trigger events.
+ * The engine-stop window (ShutdownController::isEngineStop) does not change this: the RPM keeps
+ * following the crank while the engine winds down, and fuel and spark are cut by LimpManager.
+ * Trigger state is reset once the crank stops (onSlowCallback -> setStopSpinning). This used to
+ * return false during the window, which since cb86c014cf1 (onSlowCallback no longer zeroes RPM
+ * on it) only skipped the RPM update, so the reported RPM froze at its pre-stop value through the
+ * whole run-down (5820 rpm for 3.3 s on the hybrid controller's HITL bench, 2026-10-13).
  */
 bool RpmCalculator::checkIfSpinning(efitick_t nowNt) const {
-#if EFI_ENGINE_CONTROL
-	// Engine-stop window: force "not spinning" so the rest of the code path resets trigger
-	// state instead of latching back into a running state from residual trigger pulses.
-	if (getLimpManager()->shutdownController.isEngineStop(nowNt)) {
-		return false;
-	}
-#endif // EFI_ENGINE_CONTROL
-
 	// Anything below 60 rpm is not running
 	bool noRpmEventsForTooLong = lastTdcTimer.getElapsedSeconds(nowNt) > NO_RPM_EVENTS_TIMEOUT_SECS;
 

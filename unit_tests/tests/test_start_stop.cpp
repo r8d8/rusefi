@@ -37,12 +37,13 @@ TEST_F(StartStopTest, luaStartAfterStopRequest) {
 	ASSERT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
 	engine->rpmCalculator.lastTdcTimer.reset();
 	engine->triggerCentral.m_lastEventTimer.reset();
-	ASSERT_FALSE(engine->rpmCalculator.checkIfSpinning(getTimeNowNt()));
+	// the stop window cuts fuel and spark, but a crank that moved recently still counts as spinning
+	ASSERT_TRUE(engine->rpmCalculator.checkIfSpinning(getTimeNowNt()));
 
 	testLuaExecString("startCrankingEngine()");
 	EXPECT_TRUE(enginePins.starterControl.getLogicValue());
 	limp->updateState(0, getTimeNowNt());
-	// A fresh start cancels the old stop window for both fuel and RPM detection.
+	// A fresh start cancels the old stop window.
 	EXPECT_FALSE(limp->shutdownController.isEngineStop(getTimeNowNt()));
 	EXPECT_TRUE(limp->allowInjection());
 	EXPECT_TRUE(engine->rpmCalculator.checkIfSpinning(getTimeNowNt()));
@@ -73,11 +74,10 @@ TEST_F(StartStopTest, stopRequestCutsFuelAndSpark) {
 	EXPECT_EQ(ClearReason::StopRequested, limp->allowIgnition().reason);
 }
 
-// Coverage before a fix (TDB): during the stop window RpmCalculator::checkIfSpinning() is forced
-// false, so the cycle-start RPM update is skipped and the reported RPM stays at its pre-stop value
-// while the crank winds down - on the HITL bench rusEFI showed 5820 rpm through a 3.3 s run-down
-// (2026-10-13). Fuel and spark are cut throughout.
-TEST_F(StartStopTest, rpmFreezesDuringStopWindow) {
+// During the stop window the RPM follows the crank as it winds down, while fuel and spark stay cut.
+// It used to freeze at its pre-stop value (checkIfSpinning() was forced false in the window): on
+// the HITL bench rusEFI showed 5820 rpm through a 3.3 s run-down (2026-10-13).
+TEST_F(StartStopTest, rpmFollowsTheRunDownInStopWindow) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->engineShutDownPeriod = 3;
 	setCrankOperationMode();
@@ -96,7 +96,7 @@ TEST_F(StartStopTest, rpmFreezesDuringStopWindow) {
 	EXPECT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
 	EXPECT_EQ(ClearReason::StopRequested, limp->allowIgnition().reason);
 
-	EXPECT_EQ(1200, Sensor::getOrZero(SensorType::Rpm)) << "frozen at the pre-stop value, the crank is at 600 rpm";
+	EXPECT_EQ(600, Sensor::getOrZero(SensorType::Rpm)) << "the crank is at 600 rpm";
 }
 
 TEST_F(StartStopTest, stopWindowExpiresAndRestarts) {

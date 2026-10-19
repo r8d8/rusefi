@@ -40,11 +40,9 @@ public:
 	 * After a stop is requested (via start button, Lua script, console, TS command or a board hook -
 	 * see StopRequestedReason) we stay in "engine stop" mode for `engineShutDownPeriod` seconds.
 	 *
-	 * While in this window:
-	 *  - LimpManager cuts fuel (see LimpManager::updateState / ClearReason::StopRequested)
-	 *  - RpmCalculator::checkIfSpinning() reports the engine as not spinning, which in turn lets
-	 *    the rest of the code treat trigger events as if the engine is fully stopped and reset
-	 *    trigger-related state (e.g. noise filter accumulators, sync state) cleanly.
+	 * While in this window LimpManager cuts fuel and spark (see LimpManager::updateState /
+	 * ClearReason::StopRequested). The RPM keeps following the crank as the engine winds down;
+	 * trigger state is reset once it stops (RpmCalculator::onSlowCallback -> setStopSpinning).
 	 *
 	 * The timer is (re)started by ShutdownController::stopEngine(). A new starter
 	 * engagement cancels the window via cancelStop().

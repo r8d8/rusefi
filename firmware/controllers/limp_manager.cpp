@@ -217,13 +217,8 @@ void LimpManager::updateState(float rpm, efitick_t nowNt) {
 	// If we're in the engine-stop window (a stop was requested recently via start button, Lua,
 	// console, TS command or a board hook - see ShutdownController::isEngineStop and
 	// StopRequestedReason), inhibit fuel so the engine actually winds down instead of restarting
-	// from residual trigger events.
-	//
-	// Note: this works together with RpmCalculator::checkIfSpinning(), which also consults
-	// shutdownController.isEngineStop() and forces the "not spinning" state during the same
-	// window. That in turn lets trigger-related state (noise filter accumulators, shaft sync,
-	// instant-RPM state) be reset cleanly via RpmCalculator::setStopSpinning() ->
-	// triggerCentral.noiseFilter.resetAccumSignalData() and engine->onEngineStopped().
+	// from residual trigger events. The RPM keeps following the crank meanwhile; trigger-related
+	// state is reset once it stops (RpmCalculator::onSlowCallback -> setStopSpinning).
 	if (shutdownController.isEngineStop(nowNt)) {
 		// Spark too: with fuel alone cut, an engine can run on - a two-stroke on its crankcase
 		// residue, as the HITL bench showed (2026-10-13). The ignition kill is the stop a
