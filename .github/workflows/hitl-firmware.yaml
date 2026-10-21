@@ -1,0 +1,95 @@
+name: HITL firmware
+
+#
+# The clearwater HITL bench's rusEFI image: the nucleo_f429 HITL variant (uaEFI's 1 MB flash layout,
+# OpenBLT), built as the complete flashable image (make's 'bin' target: deliver/rusefi.bin with the
+# BLxx stamp), so a bench round can start from a CI image instead of a hand build.
+#
+# Fork only (r8d8/rusefi), path-filtered. One job of ~6-8 minutes on ubuntu-latest; the fork is a
+# public repository, so it uses no paid Actions minutes.
+#
+
+on:
+  push:
+    paths:
+      - 'firmware/**'
+      - 'java_tools/**'
+      - '.github/workflows/hitl-firmware.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hitl-firmware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hitl-image:
+    if: ${{ github.repository == 'r8d8/rusefi' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      META_INFO: config/boards/nucleo_f429/meta-info-nucleo_f429_hitl.env
+
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: Checkout Submodules
+      run: |
+        misc/git_scripts/common_submodule_init.sh
+
+    - uses: ./.github/actions/setup-java
+
+    - name: Install tools
+      run: |
+        sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
+        sudo bash misc/actions/ubuntu-install-tools.sh
+
+    - name: Acquire Arm GNU Toolchain (arm-none-eabi-gcc)
+      uses: carlosperate/arm-none-eabi-gcc-action@v1.13.0
+      with:
+        release: '14.2.Rel1'
+
+    # The variant's meta-info keeps USE_OPENBLT=no for the bench's plain images; the uaEFI-like
+    # complete image needs it on the make command line
+    - name: Build the complete image
+      working-directory: ./firmware/
+      run: |
+        bash bin/compile.sh "$META_INFO" bin USE_OPENBLT=yes
+
+    # compile.sh can exit 0 after a failed make: check the outputs, and that the bootloader is in
+    - name: Check the image
+      working-directory: ./firmware/
+      run: |
+        test -f build/rusefi.elf
+        test -f deliver/rusefi.bin
+        stamp=$(dd if=deliver/rusefi.bin bs=1 skip=$((0x24)) count=4 2>/dev/null)
+        echo "bootloader stamp: $stamp"
+        case "$stamp" in BL*) ;; *) echo "::error::deliver/rusefi.bin has no BLxx stamp"; exit 1 ;; esac
+        bash check_illegal_conversion.sh
+
+    - name: Describe the image
+      working-directory: ./firmware/
+      run: |
+        size=$(stat -c %s deliver/rusefi.bin)
+        sha=$(sha256sum deliver/rusefi.bin | cut -d' ' -f1)
+        sha256sum deliver/rusefi.bin > deliver/rusefi.bin.sha256
+        arm-none-eabi-size build/rusefi.elf
+        {
+          echo "### HITL image (nucleo_f429, 1 MB layout, OpenBLT)"
+          echo "- commit: ${GITHUB_SHA}"
+          echo "- deliver/rusefi.bin: ${size} B"
+          echo "- sha256: ${sha}"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the image
+      uses: actions/upload-artifact@v7
+      with:
+        name: rusefi_nucleo_f429_hitl_${{ github.sha }}
+        path: |
+          ./firmware/deliver/rusefi.bin
+          ./firmware/deliver/rusefi.bin.sha256
+          ./firmware/build/rusefi.elf
+          ./firmware/build/rusefi.map
+        retention-days: 30
