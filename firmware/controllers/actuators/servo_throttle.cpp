@@ -39,6 +39,7 @@ void ServoThrottle::reset() {
 	m_trim = 0;
 	m_commandPulseUs = 0;
 	m_requestValid = false;
+	m_runUpDone = false;
 	m_state = ServoGovernorState::Passthrough;
 }
 
@@ -101,9 +102,21 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 }
 
 void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled) {
+	// The run-up ends once RPM first reaches the governor engage window, whether or not the governor
+	// is on; a stopped engine starts a new one
+	if (!rpm || rpm.Value <= 0) {
+		m_runUpDone = false;
+	} else if (governorTargetRpm > 0 && rpm.Value >= governorTargetRpm - engineConfiguration->servoGovernorEngageWindow) {
+		m_runUpDone = true;
+	}
+
 	m_requestValid = request.Valid;
 	if (request) {
 		m_feedForward = request.Value;
+	} else if (!m_runUpDone && engineConfiguration->servoThrottleLostRequestIdle > 0) {
+		// Lost in the run-up: idle, not the last part throttle, which would hold the engine and the
+		// rotor at whatever speed they had reached. Never raises the throttle.
+		m_feedForward = std::min(m_feedForward, (percent_t)engineConfiguration->servoThrottleLostRequestIdle);
 	}
 	// else: hold the last request
 

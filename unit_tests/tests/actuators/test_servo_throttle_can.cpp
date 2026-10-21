@@ -325,12 +325,14 @@ TEST_F(ServoThrottleCan, lostCommandHoldsAndKeepsGoverning) {
 	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D);
 }
 
-// A command lost in the run-up, before the engine has reached the governor's engage window, holds
-// the last part throttle for as long as the link stays lost: the engine, and the rotor behind its
-// clutch, stay at whatever speed that throttle gives. On the stage 1.1 helicopter that can be a
-// rotor resonance (clearwater HZ-39: the stiff in-plane head's lag mode crosses 3/rev and 2/rev at
-// ~480 and ~730 rotor rpm, so the run-up must not dwell there).
-TEST_F(ServoThrottleCan, lostCommandInRunUpHoldsThePartThrottle) {
+// A command lost in the run-up, before the engine has reached the governor's engage window, drops
+// to servoThrottleLostRequestIdle. Holding the last part throttle - as it did - kept the engine, and
+// the rotor behind its clutch, at whatever speed they had reached for as long as the link stayed
+// lost. On the stage 1.1 helicopter that can be a rotor resonance (clearwater HZ-39: the stiff
+// in-plane head's lag mode crosses 3/rev and 2/rev at ~480 and ~730 rotor rpm, so the run-up must
+// not dwell there).
+TEST_F(ServoThrottleCan, lostCommandInRunUpDropsToIdle) {
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
 	Sensor::setMockValue(SensorType::Rpm, 4000);
 	send(runCmd(3000, 6000, true));
 	servo().onFastCallback();
@@ -340,11 +342,36 @@ TEST_F(ServoThrottleCan, lostCommandInRunUpHoldsThePartThrottle) {
 	servo().onFastCallback();
 	EXPECT_FALSE(servo().isRequestValid());
 	EXPECT_EQ((uint8_t)HcuCommandState::Held, engine->outputChannels.servoThrottleCanCommand);
-	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D) << "held at the run-up's part throttle";
+	EXPECT_NEAR(12, servo().getCommandPercent(), EPS4D) << "idle, not the run-up's part throttle";
 
 	eth.moveTimeForwardMs(5000);
 	servo().onFastCallback();
-	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D) << "still held";
+	EXPECT_NEAR(12, servo().getCommandPercent(), EPS4D) << "still idle";
+	// A lost command still never stops the engine
+	EXPECT_FALSE(isEngineStopRequested());
+
+	// The link back: the request again
+	send(runCmd(3500, 6000, true));
+	servo().onFastCallback();
+	EXPECT_TRUE(servo().isRequestValid());
+	EXPECT_NEAR(35, servo().getCommandPercent(), EPS4D);
+}
+
+// Once the engine has reached the engage window a lost command is held, as in flight - also after
+// the engine has dropped back below the window
+TEST_F(ServoThrottleCan, lostCommandAfterRunUpHolds) {
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
+	Sensor::setMockValue(SensorType::Rpm, 5800);
+	send(runCmd(5000, 6000, true));
+	servo().onFastCallback();
+	ASSERT_TRUE(servo().isRunUpDone());
+
+	Sensor::setMockValue(SensorType::Rpm, 5000);
+	eth.moveTimeForwardMs(PWM_INPUT_TPS_TIMEOUT_MS + 50);
+	servo().onFastCallback();
+	EXPECT_FALSE(servo().isRequestValid());
+	EXPECT_TRUE(servo().isRunUpDone());
+	EXPECT_NEAR(50, engine->outputChannels.servoThrottleRequest, EPS4D) << "feed-forward held";
 }
 
 // ---- RUN = 0: engine stop ----

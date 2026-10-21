@@ -16,7 +16,11 @@
  *
  * Request handling: if the request is lost (no pulses, an implausible pulse, or no fresh CAN
  * command) the last request is held - for CAN with its governor target and on/off; before the first
- * valid request the throttle is commanded closed.
+ * valid request the throttle is commanded closed. Exception, the run-up: until RPM has first reached
+ * the governor engage window (target minus servoGovernorEngageWindow) since the engine started, a lost
+ * request drops to servoThrottleLostRequestIdle (when set, and never above the last request), so a
+ * lost link does not hold the engine - and a rotor behind its clutch - at a part throttle. A stopped
+ * engine (RPM 0) starts a new run-up.
  *
  * Modes:
  * - passthrough (governor disabled): command = request.
@@ -86,6 +90,11 @@ public:
 		return m_trim;
 	}
 
+	// RPM has reached the governor engage window since the engine started
+	bool isRunUpDone() const {
+		return m_runUpDone;
+	}
+
 	// Back to "closed, no request seen yet"
 	void reset();
 
@@ -99,6 +108,7 @@ private:
 	percent_t m_trim = 0;
 	float m_commandPulseUs = 0;
 	bool m_requestValid = false;
+	bool m_runUpDone = false;
 	ServoGovernorState m_state = ServoGovernorState::Passthrough;
 };
 

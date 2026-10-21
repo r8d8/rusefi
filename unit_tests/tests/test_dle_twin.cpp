@@ -63,6 +63,8 @@ static void expectDleTwinCommon() {
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
 	EXPECT_EQ(600, engineConfiguration->servoGovernorEngageWindow);
+	// A request lost in the run-up drops to the HCU's idle feed-forward (clearwater HZ-39)
+	EXPECT_EQ(12, engineConfiguration->servoThrottleLostRequestIdle);
 
 	// Injector duty cut out of reach: it releases only below 20 % duty, which this engine never
 	// reaches while running, so a trip would cut fuel for the rest of the flight

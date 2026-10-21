@@ -195,6 +195,8 @@ TEST(ServoGovernor, defaults) {
 	EXPECT_EQ(300, engineConfiguration->servoGovernorEngageWindow);
 	EXPECT_EQ(10, engineConfiguration->servoGovernorMinRequest);
 	EXPECT_EQ(0, engineConfiguration->servoThrottleOverspeedRpm);
+	// Off: a lost request is always held
+	EXPECT_EQ(0, engineConfiguration->servoThrottleLostRequestIdle);
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
 }
@@ -367,6 +369,80 @@ TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
 	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
 	// Feed-forward held at 50%, governor adds a positive trim for the underspeed
 	EXPECT_GT(servo().getCommandPercent(), 50.9);
+}
+
+// ---- Lost request in the run-up (servoThrottleLostRequestIdle) ----
+
+TEST(ServoGovernor, lostRequestInRunUpIsHeldWhenTheIdleIsOff) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(30.0f, rpmOf(4000), dt);
+	servo().update(UnexpectedCode::Timeout, rpmOf(4000), dt);
+	EXPECT_FALSE(servo().isRunUpDone());
+	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, lostRequestInRunUpNeverRaisesTheThrottle) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
+
+	servo().update(8.0f, rpmOf(4000), dt);
+	servo().update(UnexpectedCode::Timeout, rpmOf(4000), dt);
+	EXPECT_NEAR(8, servo().getCommandPercent(), EPS4D);
+
+	// Before the first request: still closed
+	servo().reset();
+	servo().update(UnexpectedCode::Timeout, rpmOf(4000), dt);
+	EXPECT_NEAR(0, servo().getCommandPercent(), EPS4D);
+}
+
+// The run-up ends at the engage window (target 6000 - window 300) whether or not the governor is on
+TEST(ServoGovernor, runUpEndsAtTheEngageWindowWithTheGovernorOff) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorEnabled = false;
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
+
+	servo().update(40.0f, rpmOf(5699), dt);
+	EXPECT_FALSE(servo().isRunUpDone());
+	servo().update(40.0f, rpmOf(5700), dt);
+	EXPECT_TRUE(servo().isRunUpDone());
+
+	servo().update(UnexpectedCode::Timeout, rpmOf(5000), dt);
+	EXPECT_EQ(ServoGovernorState::Passthrough, servo().getState());
+	EXPECT_NEAR(40, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, stoppedEngineStartsANewRunUp) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
+
+	servo().update(50.0f, rpmOf(6000), dt);
+	ASSERT_TRUE(servo().isRunUpDone());
+
+	// Run-down to rest
+	servo().update(12.0f, rpmOf(0), dt);
+	EXPECT_FALSE(servo().isRunUpDone());
+
+	// Next start: lost in its run-up
+	servo().update(30.0f, rpmOf(3000), dt);
+	servo().update(UnexpectedCode::Timeout, rpmOf(3000), dt);
+	EXPECT_NEAR(12, servo().getCommandPercent(), EPS4D);
+}
+
+TEST(ServoGovernor, runUpNeverEndsWithoutATarget) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorTargetRpm = 0;
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
+
+	servo().update(50.0f, rpmOf(8000), dt);
+	EXPECT_FALSE(servo().isRunUpDone());
+	servo().update(UnexpectedCode::Timeout, rpmOf(8000), dt);
+	EXPECT_NEAR(12, servo().getCommandPercent(), EPS4D);
 }
 
 TEST(ServoGovernor, overspeedClosesThrottleUntilBackOnTarget) {

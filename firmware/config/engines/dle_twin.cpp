@@ -195,6 +195,12 @@ static void setDleTwinCommon(float maxRpm) {
 	// curve left the engine ~560 rpm under the target with the generator loaded, so the default
 	// 300 rpm window never engaged
 	engineConfiguration->servoGovernorEngageWindow = 600;
+	// A request lost in the run-up drops to the HCU's 12% idle feed-forward instead of holding a part
+	// throttle: the stage 1.1 helicopter's stiff in-plane rotor head must not dwell at its 3/rev and
+	// 2/rev lag crossings, ~480 and ~730 rotor rpm (~3240 / ~4930 engine rpm at 6.75:1; clearwater
+	// HZ-39). From the engage window on (6150 rpm, rotor ~911) a lost request is held, as in flight:
+	// the autopilot completes its run-up at 970 rotor rpm, and no lift-off may come before that.
+	engineConfiguration->servoThrottleLostRequestIdle = 12;
 
 	// Injector duty cut at the fields' maxima, so it cannot trip in practice: it releases only below
 	// 20 % duty, which this engine (one injection per revolution) never reaches while running, so a
