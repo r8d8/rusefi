@@ -1619,3 +1619,54 @@ hellen-honda-k and the nucleo_f429 HITL variant build; HITL image G (OpenBLT, 68
 Open:
 - Bench: image G with the HCU link cut mid-run-up - the throttle should drop to 12 % (simulation).
 - CI to confirm the sizes; 932 B (hellen-honda-k) is the smallest margin.
+
+## 2026-10-21 - HZ-41: the governor's full authority on a stale feed-forward; config layout fix; hellen154hyundai fit
+
+HZ-41 (clearwater, user decision 2026-10-21): a held feed-forward cannot follow the collective. In
+simulation's SITL the HCU command was lost just after the run-up and the autopilot then took off:
+rusEFI held the run-up feed-forward (47 %) and its governor trimmed only within `servoGovernorPid`
+min / max (+-20 %), 67 % against 78 % for hover, and without the HCU's assist the rotor sagged to
+~480 rpm (the stiff in-plane head's 3/rev lag crossing) until the link returned. The same gap exists
+when the HCU holds its feed-forward because the autopilot's is lost. Fix: while the feed-forward is
+not live - the request lost, or the new HCU_ENGINE_CMD bit FF_HELD (byte 0 bit 2, reserved and
+unchecked before, so compatible both ways) set - the trim may use the whole throttle range
+(-feed-forward .. 100 - feed-forward, anti-windup to that range), so the governor alone holds the
+target; once the feed-forward is live again the PID restarts from zero. The overspeed limit stays
+the guard against a wrong RPM. The HCU sets FF_HELD whenever it sends RUN = 1 without the
+autopilot's fresh command (hybrid_ctrl).
+
+Config layout (found on the HITL bench with image G): `servoThrottleLostRequestIdle` had gone in
+before `servoGovernorMinRequest`. The structure size did not change (the field took a padding
+byte), so the bench's stored tune was accepted and read shifted by one byte: the run-up idle read
+the old minimum request (20) and the minimum request read the padding (0), which the boot migration
+made 10 - the governor stayed engaged at the 12 % idle. The minimum request is back at its stored
+offset and the run-up idle takes the padding byte after it, which an older tune holds as 0 (off,
+the old hold); `ServoGovernor.configLayout` checks the offsets. Consequence: on a tune stored before
+the setting existed the HZ-39 run-up idle stays off until it is set to 12 (TS) or the DLE preset is
+applied again. docs/calibration-compatibility.md and CLAUDE.md now say where a new field goes.
+
+| Change | Content |
+|---|---|
+| coverage (layout) | `ServoGovernor.configLayout`: the run-up idle at the old minimum request's offset, the minimum request in the old padding byte |
+| fix (layout) | `servoGovernorMinRequest` back after `servoGovernorEngageWindow`, `servoThrottleLostRequestIdle` in the padding after it; the test expects the stored offsets |
+| coverage (HZ-41) | `ServoGovernor.lostRequestTrimsOnlyWithinTheTrimAuthority` (47 % + 20 % = 67 % at a 2000 rpm underspeed), `ServoThrottleCan.reservedBitTwoIsIgnored` |
+| fix (HZ-41) | trim authority while not live, FF_HELD decoded, PID reset when live again; the tests become `lostRequestGovernsWithTheWholeThrottleRange` (100 %, no windup past the range, back to the live 78 %), `heldFeedForwardGovernsWithTheWholeThrottleRange`, plus `lostRequestCanCloseTheThrottle` and `heldBitIsDecoded` |
+| flash | `hellen154hyundai`: no logic analyzer (CI at 4db830eeab9: 160 B over) |
+
+HZ-39 bench results with image G (simulation, stage B): the feed-forward cut and the command cut pass
+mid-run-up (rusEFI's request 18.0 -> 12.00 % within 0.3 s) and at hover (held); the stop was clean in
+3 runs of 4; one untraced run-on during the stays-stopped check is unexplained (two instrumented
+re-runs of the same sequence were clean). `servoThrottleCanId` 0 is live (Fresh again 0.38 s after
+the write). The bench's settings were restored by RAM writes because of the layout bug above.
+
+Validation: coverage - servo throttle suites 48 / 48 (HZ-41) and 49 / 49 (+ layout) on the old code;
+fix - 1459 / 1459 (GCC 13, 8 jobs). Firmware (local GCC 14.2, clean builds): uaefi 4820 B free (the
+HZ-41 code costs ~120 B there), hellen154hyundai 1328 B; HITL image H (OpenBLT BL09, 685856 B) for
+the bench.
+
+Open:
+- `mre_f4` (1 MB, OpenBLT) is 216 B over on this code and was over before it (the upstream matrix
+  built it on ~20 % of pushes). User decision: not built in the fork's CI (`SKIP_RATE=100`; a
+  commit message with `only:mre_f4` still builds it), no further feature trim.
+- Bench: image H, then simulation's take-off re-fly with the governor at full authority (the PID
+  gains were tuned for +-20 %).
