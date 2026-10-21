@@ -325,6 +325,28 @@ TEST_F(ServoThrottleCan, lostCommandHoldsAndKeepsGoverning) {
 	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D);
 }
 
+// A command lost in the run-up, before the engine has reached the governor's engage window, holds
+// the last part throttle for as long as the link stays lost: the engine, and the rotor behind its
+// clutch, stay at whatever speed that throttle gives. On the stage 1.1 helicopter that can be a
+// rotor resonance (clearwater HZ-39: the stiff in-plane head's lag mode crosses 3/rev and 2/rev at
+// ~480 and ~730 rotor rpm, so the run-up must not dwell there).
+TEST_F(ServoThrottleCan, lostCommandInRunUpHoldsThePartThrottle) {
+	Sensor::setMockValue(SensorType::Rpm, 4000);
+	send(runCmd(3000, 6000, true));
+	servo().onFastCallback();
+	ASSERT_EQ(ServoGovernorState::Following, servo().getState());
+
+	eth.moveTimeForwardMs(PWM_INPUT_TPS_TIMEOUT_MS + 50);
+	servo().onFastCallback();
+	EXPECT_FALSE(servo().isRequestValid());
+	EXPECT_EQ((uint8_t)HcuCommandState::Held, engine->outputChannels.servoThrottleCanCommand);
+	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D) << "held at the run-up's part throttle";
+
+	eth.moveTimeForwardMs(5000);
+	servo().onFastCallback();
+	EXPECT_NEAR(30, servo().getCommandPercent(), EPS4D) << "still held";
+}
+
 // ---- RUN = 0: engine stop ----
 
 TEST_F(ServoThrottleCan, stopAfterThreeConsecutiveRunZeroFrames) {
