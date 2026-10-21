@@ -357,6 +357,34 @@ TEST_F(ServoThrottleCan, lostCommandInRunUpDropsToIdle) {
 	EXPECT_NEAR(35, servo().getCommandPercent(), EPS4D);
 }
 
+// Byte 0 bits 2-7 are reserved and not checked: a fresh frame with bit 2 set counts like any other,
+// and the governor trims within its authority around the frame's feed-forward. The hybrid
+// controller holding its feed-forward (the autopilot's lost) looks the same as a live one, so a
+// load rise meanwhile is met with at most +20 % (clearwater HZ-41).
+TEST_F(ServoThrottleCan, reservedBitTwoIsIgnored) {
+	auto sendWithBitTwo = [&](uint16_t feedForward) {
+		auto frame = makeFrame(runCmd(feedForward, 6000, true), counter++);
+		frame.data8[0] |= 0x04;
+		frame.data8[7] = hcuEngineCmdCrc(frame.data8, 7);
+		receive(frame);
+	};
+
+	Sensor::setMockValue(SensorType::Rpm, 6000);
+	sendWithBitTwo(4700);
+	servo().onFastCallback();
+	ASSERT_TRUE(servo().isRequestValid());
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	Sensor::setMockValue(SensorType::Rpm, 4000);
+	for (int i = 0; i < 2000; i++) {
+		sendWithBitTwo(4700);
+		servo().onFastCallback();
+	}
+	EXPECT_TRUE(servo().isRequestValid());
+	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(67, servo().getCommandPercent(), EPS4D) << "47 % plus the 20 % trim limit";
+}
+
 // Once the engine has reached the engage window a lost command is held, as in flight - also after
 // the engine has dropped back below the window
 TEST_F(ServoThrottleCan, lostCommandAfterRunUpHolds) {

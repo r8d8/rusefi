@@ -371,6 +371,25 @@ TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
 	EXPECT_GT(servo().getCommandPercent(), 50.9);
 }
 
+// A lost request while governing keeps the last feed-forward and trims only within the PID's
+// authority (+-20 % here): when the load rises meanwhile, the governor cannot reach the throttle it
+// needs and RPM sags. Clearwater HZ-41: the hybrid controller's command lost just after the run-up,
+// then the take-off - the held 47 % plus 20 % against 78 % for hover, the rotor down to ~480 rpm.
+TEST(ServoGovernor, lostRequestTrimsOnlyWithinTheTrimAuthority) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(47.0f, rpmOf(6000), dt);
+	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+
+	for (int i = 0; i < 2000; i++) {
+		servo().update(UnexpectedCode::Timeout, rpmOf(4000), dt);
+	}
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(67, servo().getCommandPercent(), EPS4D) << "the held 47 % plus the 20 % trim limit";
+}
+
 // ---- Lost request in the run-up (servoThrottleLostRequestIdle) ----
 
 // The configuration is loaded from flash as raw bytes, so a field inserted before others moves
