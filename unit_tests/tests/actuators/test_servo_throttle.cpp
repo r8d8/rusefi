@@ -373,6 +373,21 @@ TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
 
 // ---- Lost request in the run-up (servoThrottleLostRequestIdle) ----
 
+// The configuration is loaded from flash as raw bytes, so a field inserted before others moves
+// them and a tune stored by the previous firmware is read shifted. servoThrottleLostRequestIdle
+// went in before servoGovernorMinRequest: an older tune then reads its minimum request (20 in the
+// DLE presets) as the run-up idle, and its padding byte (0) as the minimum request, so the governor
+// no longer drops out at idle (found on the HITL bench, 2026-10-21).
+TEST(ServoGovernor, configLayout) {
+	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorEngageWindow) + 2,
+		offsetof(engine_configuration_s, servoThrottleLostRequestIdle)) << "the old minimum request's byte";
+	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorEngageWindow) + 3,
+		offsetof(engine_configuration_s, servoGovernorMinRequest)) << "moved into the old padding byte";
+	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorMinRequest) + 1,
+		offsetof(engine_configuration_s, servoThrottleOverspeedRpm));
+}
+
+
 TEST(ServoGovernor, lostRequestInRunUpIsHeldWhenTheIdleIsOff) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	configureGovernor();
