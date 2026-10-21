@@ -17,6 +17,9 @@ DDEFS += -DSTM32_SERIAL_USE_USART2=TRUE
 # Add them all together
 DDEFS += -DFIRMWARE_ID=\"hellen-honda-k\" $(VAR_DEF_ENGINE_TYPE)
 DDEFS += -DSTATIC_BOARD_ID=STATIC_BOARD_ID_HELLEN_HONDA_K
+# 1 MB with OpenBLT: no logic analyzer, as on uaEFI and MRE F4 (the fork's engine-stop interlock
+# and refusal log left this board a few hundred bytes over, 2026-10-19)
+DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 
 # May be it is LIS2DW12?
 # EFI_ONBOARD_MEMS_LIS2DW12 = yes

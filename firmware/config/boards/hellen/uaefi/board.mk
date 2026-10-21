@@ -65,7 +65,12 @@ DDEFS += -DBOARD_HBRIDGE_GPIO_COUNT=1
 DDEFS += -DDIAG_5VP_PIN=Gpio::MM100_SPI3_MOSI
 
 DDEFS += -DSTM32_ICU_USE_TIM1=TRUE -DSTM32_PWM_USE_TIM1=FALSE
-DDEFS += -DEFI_SENT_SUPPORT=TRUE
+ifeq ($(PROJECT_CPU),ARCH_STM32F4)
+	# No SENT input on the 1 MB F4: the DLE has no SENT sensor, and the fork's engine-stop interlock,
+	# refusal log and run-up idle left only ~200 B (2026-10-19)
+else
+	DDEFS += -DEFI_SENT_SUPPORT=TRUE
+endif
 
 ONBOARD_MEMS_TYPE=LIS2DH12
 

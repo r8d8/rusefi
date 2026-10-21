@@ -12,6 +12,9 @@ endif
 # Add them all together
 DDEFS += -DFIRMWARE_ID=\"hellen121nissan\" $(VAR_DEF_ENGINE_TYPE)
 DDEFS += -DEFI_SOFTWARE_KNOCK=TRUE -DSTM32_ADC_USE_ADC3=TRUE
+# 1 MB with OpenBLT: no logic analyzer, as on uaEFI and MRE F4 (the fork's engine-stop interlock
+# and refusal log left this board a few hundred bytes over, 2026-10-19)
+DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 
 DDEFS += -DSTATIC_BOARD_ID=STATIC_BOARD_ID_HELLEN_121NISSAN
 
