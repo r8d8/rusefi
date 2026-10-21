@@ -1530,3 +1530,92 @@ Open:
 - Bench: D1 reproduces the stall, E shows the deferral (simulation, hz30_burn.py).
 - The cause of the -11 with the engine running on the 2 MB layout is not established (with the fix,
   F4 no longer erases while the engine turns).
+
+## 2026-10-19 - HZ-30 bench results; refusal log; RPM frozen through the engine-stop window
+
+HZ-30 bench (HITL F439 on the 1 MB layout, simulation's hz30_burn.py, 2026-10-16/17): image D1
+(8c97190cfe1 reverted) stalls the core for ~1 s per settings erase on a Lua-page burn with the engine
+governed - 675 - 1013 ms without spark or injection, 6750 -> ~3950 rpm. Image E (all fixes) prints
+"forced write ... deferred until the engine stops" with no gap; after the run-off the write reaches
+flash (a real power cycle 10 s after the stop kept the new data). A reboot with the engine running is
+refused; TS_STOP_ENGINE still stops it.
+
+Refusal log (28e62c02b0d): the bench saw a second fuel-pump bench request "not refused" - it was, but
+`warning()` prints a code only once per `warningPeriod` and returns true on a swallowed repeat, so the
+second C6703 was silent. `refuseWhileEngineTurns()` now also `efiPrintf`s when `warning()` swallows it.
+
+RPM frozen through the engine-stop window (TDB; user request: rusEFI's own values must be trusted, not
+backed up by the hybrid controller):
+
+| Commit | Change |
+|---|---|
+| 5282b4641b7 | coverage: `StartStopTest.rpmFreezesDuringStopWindow` - 1200 rpm before the stop, the crank at 600 rpm inside the window, fuel and spark cut, RPM still 1200 |
+| 1b25a50a951 | `RpmCalculator::checkIfSpinning()` no longer consults `ShutdownController::isEngineStop()`; the test becomes `rpmFollowsTheRunDownInStopWindow` (600 rpm); comments in `shutdown_controller.h` / `limp_manager.cpp` |
+
+Root cause: 751355a04ba (2022-02) forced `checkIfSpinning()` false in the window so that
+`onSlowCallback()` would call `setStopSpinning()` and zero the RPM. cb86c014cf1 (2022-09) changed
+`onSlowCallback()` to look only at `engineMovedRecently()`, after which the forced false only made
+`rpmShaftPositionCallback()` skip the cycle-start RPM update: the last value stayed until the crank
+stopped (5820 rpm through a 3.3 s run-down on the HITL bench, 2026-10-13). The spinning state is
+unchanged by the fix - a running engine stays RUNNING through the run-down (cranking hysteresis) and
+goes STOPPED when the crank stops - so `isStopped()` users (start button, `refuseWhileEngineTurns()`,
+the deferred settings write) behave as before; only the RPM value and `rpmRate` change.
+
+Validation: coverage commit - StartStopTest 7 / 7 (the test needs `setCrankOperationMode()`: in
+TEST_ENGINE's default cam mode the same pulses read 2400 rpm); fix - 1447 / 1447 (GCC 13, 8 jobs).
+The `shutdown_controller.h` edit is comment-only and kept its timestamp for that run; CI rebuilds it.
+
+Open:
+- Bench check of the decaying RPM: image F (clean build of 1b25a50a951, 1 MB layout, OpenBLT,
+  685408 B, sha256 e1509373...) is with simulation for the next bench run.
+- Upstream: the regression is in rusEFI master too; worth offering upstream with its test.
+
+## 2026-10-20 - HZ-39: a request lost in the run-up drops to idle; 1 MB F4 boards fit again
+
+Run-up idle (clearwater HZ-39, user decision 2026-10-19): the stage 1.1 helicopter's stiff in-plane
+rotor head has its lag mode crossing 3/rev at ~480 and 2/rev at ~730 rotor rpm during the run-up, and
+the rotor must not dwell there. A request lost in the run-up was held at the last part throttle for as
+long as the link stayed lost, which parks the engine - and the rotor behind its clutch - wherever the
+run-up had got to. New `servoThrottleLostRequestIdle` (%, 0 = off; the DLE presets set 12, the HCU's
+idle feed-forward): until RPM has first reached the governor engage window (target - window) since
+the engine started, a lost request drops to it - never above the last request, still closed before
+the first one. After that a lost request is held as before (flight). RPM 0 starts a new run-up. The
+window uses the target whether or not the governor is on, so passthrough is covered; with no target
+the run-up never ends (tested). The HCU applies the same rule to a lost
+autopilot feed-forward, with its latch at 850 rotor rpm (hybrid_ctrl). The autopilot completes its
+run-up only on measured rotor rpm >= 970, so the auto modes cannot take off before either latch; a
+manual lift-off before "Runup Complete" is excluded by procedure (fcs).
+
+| Change | Content |
+|---|---|
+| coverage | `ServoThrottleCan.lostCommandInRunUpHoldsThePartThrottle`: 4000 rpm, 30 % request, target 6000, command lost -> 30 % held, also 5 s later |
+| fix | `servoThrottleLostRequestIdle` (config + TS servo throttle dialog), the run-up latch in `ServoThrottle::update()`, DLE presets 12 %; the test becomes `lostCommandInRunUpDropsToIdle`, plus `lostCommandAfterRunUpHolds` and five governor cases (idle off holds, never raises the throttle, the window with the governor off, a stop starts a new run-up, no target) |
+| flash | `hellen121nissan`, `hellen-honda-k`: no logic analyzer; `uaefi` F4: no SENT support |
+| CI | `hitl-firmware.yaml`: the HITL variant's complete OpenBLT image on every firmware push (fork only) |
+
+1 MB F4 flash: "Firmware at GHA" on the fork had failed on every push since 2026-10-15 - first the
+-Werror=format break (fixed in 4c39923840c), then hellen121nissan and hellen-honda-k over `flash0` by
+284 / 500 B (1b25a50a951). uaEFI, the aircraft ECU, was at 204 B free (upstream master c80a500d03f:
+4088 B). Against master the fork costs ~3.2 KB on every F4 board (TS audit, interlock, refusal log)
+and ~3.9 KB on uaEFI (plus the servo throttle). Trims as in 86544563b58 / e2d2cf7a24b: no logic
+analyzer on the two Hellens (as uaEFI and MRE F4); no SENT on uaEFI F4 only (the DLE has no SENT
+sensor; F7 / H7 keep it; `ts_show_tps_sent` stays, it is shared by all uaEFI variants).
+
+| Board | `flash0` free, CI at 1b25a50a951 | free with this change (local GCC 14.2) |
+|---|---|---|
+| uaefi | 204 B | 4940 B |
+| hellen121nissan | -284 B | 1120 B |
+| hellen-honda-k | -500 B | 932 B |
+
+The HITL variant's meta-info keeps `USE_OPENBLT=no`; the bench's uaEFI-like images need
+`USE_OPENBLT=yes` on the make line (as image F had), and the CI workflow passes it. Its BLxx check
+caught the omission in a local trial build of image G.
+
+Validation: coverage - servo throttle suites 40 / 40 on 1b25a50a951 plus the test; fix - 1454 / 1454
+(GCC 13, 8 jobs). Firmware (local arm-none-eabi GCC 14.2, clean builds): uaefi, hellen121nissan,
+hellen-honda-k and the nucleo_f429 HITL variant build; HITL image G (OpenBLT, 685760 B, sha256
+0a664ec4...) is for the bench.
+
+Open:
+- Bench: image G with the HCU link cut mid-run-up - the throttle should drop to 12 % (simulation).
+- CI to confirm the sizes; 932 B (hellen-honda-k) is the smallest margin.
