@@ -357,12 +357,12 @@ TEST_F(ServoThrottleCan, lostCommandInRunUpDropsToIdle) {
 	EXPECT_NEAR(35, servo().getCommandPercent(), EPS4D);
 }
 
-// Byte 0 bits 2-7 are reserved and not checked: a fresh frame with bit 2 set counts like any other,
-// and the governor trims within its authority around the frame's feed-forward. The hybrid
-// controller holding its feed-forward (the autopilot's lost) looks the same as a live one, so a
-// load rise meanwhile is met with at most +20 % (clearwater HZ-41).
-TEST_F(ServoThrottleCan, reservedBitTwoIsIgnored) {
-	auto sendWithBitTwo = [&](uint16_t feedForward) {
+// FF_HELD (byte 0 bit 2): the hybrid controller holds its feed-forward, the autopilot's being
+// lost. The frame is fresh but its feed-forward is not live, so the governor gets the whole
+// throttle range. As a reserved bit it was ignored, and a load rise meanwhile was met with at most
+// +20 % around the held 47 % (clearwater HZ-41).
+TEST_F(ServoThrottleCan, heldFeedForwardGovernsWithTheWholeThrottleRange) {
+	auto sendHeld = [&](uint16_t feedForward) {
 		auto frame = makeFrame(runCmd(feedForward, 6000, true), counter++);
 		frame.data8[0] |= 0x04;
 		frame.data8[7] = hcuEngineCmdCrc(frame.data8, 7);
@@ -370,19 +370,43 @@ TEST_F(ServoThrottleCan, reservedBitTwoIsIgnored) {
 	};
 
 	Sensor::setMockValue(SensorType::Rpm, 6000);
-	sendWithBitTwo(4700);
+	sendHeld(4700);
 	servo().onFastCallback();
 	ASSERT_TRUE(servo().isRequestValid());
 	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_FALSE(servo().isFeedForwardLive());
 
 	Sensor::setMockValue(SensorType::Rpm, 4000);
 	for (int i = 0; i < 2000; i++) {
-		sendWithBitTwo(4700);
+		sendHeld(4700);
 		servo().onFastCallback();
 	}
 	EXPECT_TRUE(servo().isRequestValid());
-	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
-	EXPECT_NEAR(67, servo().getCommandPercent(), EPS4D) << "47 % plus the 20 % trim limit";
+	EXPECT_NEAR(53, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(100, servo().getCommandPercent(), EPS4D) << "the governor alone, up to full throttle";
+
+	// The controller's feed-forward live again (FF_HELD clear): the trim restarts from zero
+	Sensor::setMockValue(SensorType::Rpm, 6000);
+	send(runCmd(7800, 6000, true));
+	servo().onFastCallback();
+	EXPECT_TRUE(servo().isFeedForwardLive());
+	EXPECT_NEAR(78, servo().getCommandPercent(), EPS4D);
+}
+
+TEST_F(ServoThrottleCan, heldBitIsDecoded) {
+	send(runCmd(4700, 6000, true));
+	HcuEngineCommand command;
+	lastCommand(command);
+	EXPECT_FALSE(command.feedForwardHeld);
+
+	auto frame = makeFrame(runCmd(4700, 6000, true), counter++);
+	frame.data8[0] |= 0x04;
+	frame.data8[7] = hcuEngineCmdCrc(frame.data8, 7);
+	receive(frame);
+	lastCommand(command);
+	EXPECT_TRUE(command.feedForwardHeld);
+	EXPECT_NEAR(47, command.feedForward, EPS4D);
+	EXPECT_TRUE(command.governorOn);
 }
 
 // Once the engine has reached the engage window a lost command is held, as in flight - also after

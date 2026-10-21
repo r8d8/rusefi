@@ -4,7 +4,9 @@
  * HCU_ENGINE_CMD: the hybrid controller's (HCU) engine command, the servo throttle request when
  * servoThrottleRequestSource is CAN. The frame is specified by the HCU - do not change it here:
  * 11-bit ID servoThrottleCanId (0x1A0 by default), DLC 8, sent every 10 ms, fields big-endian.
- *   byte 0     bit 0 RUN (1 = run, 0 = stop request), bit 1 GOV_ON (1 = governor on), bits 2-7 reserved
+ *   byte 0     bit 0 RUN (1 = run, 0 = stop request), bit 1 GOV_ON (1 = governor on), bit 2 FF_HELD
+ *              (1 = FF is not the controller's live request: its own source is lost and it holds the
+ *              value), bits 3-7 reserved
  *   byte 1     bits 0-3 COUNTER (+1 per frame, mod 16), bits 4-7 VERSION = 1
  *   bytes 2-3  TARGET_RPM: engine RPM, 1 rpm/bit, 0 = use servoGovernorTargetRpm
  *   bytes 4-5  FF: throttle feed-forward, 0.01 %/bit, 0..10000
@@ -56,6 +58,8 @@ struct HcuEngineCommand {
 	// 0 = use servoGovernorTargetRpm
 	uint16_t targetRpm = 0;
 	bool governorOn = false;
+	// FF_HELD: the feed-forward is held by the controller, not its live request
+	bool feedForwardHeld = false;
 };
 
 // Also the servoThrottleCanCommand output channel

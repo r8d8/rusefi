@@ -40,6 +40,7 @@ void ServoThrottle::reset() {
 	m_commandPulseUs = 0;
 	m_requestValid = false;
 	m_runUpDone = false;
+	m_feedForwardLive = false;
 	m_state = ServoGovernorState::Passthrough;
 }
 
@@ -62,7 +63,8 @@ static bool isOverspeed(SensorResult rpm, bool isLatched, float targetRpm, bool 
 	return rpm.Value > release;
 }
 
-ServoGovernorState ServoThrottle::governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds, float target) {
+ServoGovernorState ServoThrottle::governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds, float target,
+		bool feedForwardLive) {
 	// Low request (idle, motor interlock off, autorotation) or no engine speed: follow the request
 	if (!rpm || rpm.Value <= 0 || feedForward < engineConfiguration->servoGovernorMinRequest) {
 		m_trim = 0;
@@ -86,12 +88,27 @@ ServoGovernorState ServoThrottle::governorStep(percent_t feedForward, SensorResu
 
 		// Bumpless engage: the trim starts from zero, so the command does not jump
 		m_pid.initPidClass(pidConfig);
+	} else if (feedForwardLive && !m_feedForwardLive) {
+		// Live again: the trim that made up for the stale feed-forward is not needed any more
+		m_pid.reset();
+	}
+
+	// Trim authority: servoGovernorPid min/max around a live feed-forward. A feed-forward that is
+	// not live can lag the load by any amount (the autopilot raising the collective while the link
+	// is lost), so the governor then gets the whole throttle range and alone holds the target
+	// (clearwater HZ-41). The overspeed limit stays the guard against a wrong RPM.
+	float trimMin = pidConfig->minValue;
+	float trimMax = pidConfig->maxValue;
+	if (!feedForwardLive) {
+		trimMin = std::min(trimMin, -feedForward);
+		trimMax = std::max(trimMax, POSITION_FULLY_OPEN - feedForward);
 	}
 
 	// Anti-windup: the integrator never exceeds the trim authority
-	m_pid.iTermMin = pidConfig->minValue;
-	m_pid.iTermMax = pidConfig->maxValue;
-	m_trim = m_pid.getOutput(target, rpm.Value, dtSeconds);
+	m_pid.iTermMin = trimMin;
+	m_pid.iTermMax = trimMax;
+	m_trim = clampF(trimMin, m_pid.getUnclampedOutput(target, rpm.Value, dtSeconds), trimMax);
+	m_pid.output = m_trim;
 	return ServoGovernorState::Governing;
 }
 
@@ -101,7 +118,8 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 		engineConfiguration->servoGovernorEnabled);
 }
 
-void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled) {
+void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled,
+		bool feedForwardHeld) {
 	// The run-up ends once RPM first reaches the governor engage window, whether or not the governor
 	// is on; a stopped engine starts a new one
 	if (!rpm || rpm.Value <= 0) {
@@ -120,6 +138,7 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 	}
 	// else: hold the last request
 
+	bool feedForwardLive = request.Valid && !feedForwardHeld;
 	ServoGovernorState previous = m_state;
 
 	if (isOverspeed(rpm, previous == ServoGovernorState::Overspeed, governorTargetRpm, governorEnabled)) {
@@ -131,13 +150,14 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 		m_trim = 0;
 		m_commandPercent = m_feedForward;
 	} else {
-		m_state = governorStep(m_feedForward, rpm, dtSeconds, governorTargetRpm);
+		m_state = governorStep(m_feedForward, rpm, dtSeconds, governorTargetRpm, feedForwardLive);
 		m_commandPercent = clampF(0, m_feedForward + m_trim, POSITION_FULLY_OPEN);
 	}
 
 	if (previous == ServoGovernorState::Governing && m_state != ServoGovernorState::Governing) {
 		m_pid.reset();
 	}
+	m_feedForwardLive = feedForwardLive;
 
 	// Servo position model: the servo needs servoThrottleFullTravelMs for the whole closed-to-open
 	// stroke, so the position moves towards the command at a limited rate. 0 = no model.
@@ -175,7 +195,8 @@ void ServoThrottle::onFastCallback() {
 			? SensorResult(command.feedForward)
 			: SensorResult(UnexpectedCode::Timeout);
 		float target = command.targetRpm > 0 ? command.targetRpm : engineConfiguration->servoGovernorTargetRpm;
-		update(request, rpm, dtSeconds, target, engineConfiguration->servoGovernorEnabled && command.governorOn);
+		update(request, rpm, dtSeconds, target, engineConfiguration->servoGovernorEnabled && command.governorOn,
+			canState == HcuCommandState::Fresh && command.feedForwardHeld);
 	} else {
 		update(getPwmInputTps().get(), rpm, dtSeconds);
 	}

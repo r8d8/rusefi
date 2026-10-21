@@ -28,7 +28,10 @@
  *   governor engages once RPM comes within servoGovernorEngageWindow of the target, and is off
  *   (command follows the request) while the request is below servoGovernorMinRequest - that is how
  *   idle, motor interlock off and autorotation reach the throttle. A lost request keeps the
- *   governor holding speed on the last feed-forward.
+ *   governor holding speed on the last feed-forward. While the feed-forward is not live - the
+ *   request lost, or the CAN frame's FF_HELD set - it can lag the load by any amount, so the
+ *   trim may use the whole throttle range instead of servoGovernorPid min/max and the governor
+ *   alone holds the target; once the feed-forward is live again the trim restarts from zero.
  * Overspeed (servoThrottleOverspeedRpm, both modes): the throttle is closed until RPM falls back.
  *
  * The output is started once at boot (hardware PWM timer channels are never released), so a pin
@@ -59,8 +62,10 @@ public:
 	// One control step: request (may be invalid), engine RPM (may be invalid), time step. Governor
 	// target and enable from the configuration.
 	void update(SensorResult request, SensorResult rpm, float dtSeconds);
-	// Same with the effective governor target and enable (CAN request source)
-	void update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled);
+	// Same with the effective governor target and enable (CAN request source), and whether the
+	// sender holds the feed-forward (FF_HELD)
+	void update(SensorResult request, SensorResult rpm, float dtSeconds, float governorTargetRpm, bool governorEnabled,
+		bool feedForwardHeld = false);
 
 	// Output pulse width for a throttle position: closedUs at 0%, openUs at 100%
 	static float positionToPulseUs(percent_t position, float closedUs, float openUs);
@@ -90,6 +95,11 @@ public:
 		return m_trim;
 	}
 
+	// The request is valid and not held by its sender
+	bool isFeedForwardLive() const {
+		return m_feedForwardLive;
+	}
+
 	// RPM has reached the governor engage window since the engine started
 	bool isRunUpDone() const {
 		return m_runUpDone;
@@ -99,7 +109,8 @@ public:
 	void reset();
 
 private:
-	ServoGovernorState governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds, float target);
+	ServoGovernorState governorStep(percent_t feedForward, SensorResult rpm, float dtSeconds, float target,
+		bool feedForwardLive);
 
 	Pid m_pid;
 	percent_t m_feedForward = 0;
@@ -109,6 +120,7 @@ private:
 	float m_commandPulseUs = 0;
 	bool m_requestValid = false;
 	bool m_runUpDone = false;
+	bool m_feedForwardLive = false;
 	ServoGovernorState m_state = ServoGovernorState::Passthrough;
 };
 

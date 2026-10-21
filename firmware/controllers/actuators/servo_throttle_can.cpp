@@ -65,6 +65,7 @@ void HcuEngineCommandListener::decodeFrame(const CANRxFrame& frame, efitick_t no
 	received.feedForward = feedForward / 100.0f;
 	received.targetRpm = (payload[2] << 8) | payload[3];
 	received.governorOn = (payload[0] & 0x02) != 0;
+	received.feedForwardHeld = (payload[0] & 0x04) != 0;
 
 	{
 		chibios_rt::CriticalSectionLocker csl;

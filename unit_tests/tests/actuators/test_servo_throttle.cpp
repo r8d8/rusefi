@@ -371,23 +371,51 @@ TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
 	EXPECT_GT(servo().getCommandPercent(), 50.9);
 }
 
-// A lost request while governing keeps the last feed-forward and trims only within the PID's
-// authority (+-20 % here): when the load rises meanwhile, the governor cannot reach the throttle it
-// needs and RPM sags. Clearwater HZ-41: the hybrid controller's command lost just after the run-up,
-// then the take-off - the held 47 % plus 20 % against 78 % for hover, the rotor down to ~480 rpm.
-TEST(ServoGovernor, lostRequestTrimsOnlyWithinTheTrimAuthority) {
+// A lost request while governing keeps the last feed-forward, and the trim may then use the whole
+// throttle range: the held feed-forward can lag the load by any amount, so the governor alone holds
+// the target. Within the PID's +-20 % it stayed at the held 47 % + 20 % against 78 % for hover
+// (clearwater HZ-41: the hybrid controller's command lost just after the run-up, then the take-off;
+// the rotor sagged to ~480 rpm).
+TEST(ServoGovernor, lostRequestGovernsWithTheWholeThrottleRange) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	configureGovernor();
 
 	servo().update(47.0f, rpmOf(6000), dt);
 	ASSERT_EQ(ServoGovernorState::Governing, servo().getState());
+	ASSERT_TRUE(servo().isFeedForwardLive());
 
 	for (int i = 0; i < 2000; i++) {
 		servo().update(UnexpectedCode::Timeout, rpmOf(4000), dt);
 	}
+	EXPECT_FALSE(servo().isFeedForwardLive());
 	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
-	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
-	EXPECT_NEAR(67, servo().getCommandPercent(), EPS4D) << "the held 47 % plus the 20 % trim limit";
+	EXPECT_NEAR(53, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(100, servo().getCommandPercent(), EPS4D) << "the governor alone, up to full throttle";
+
+	// No windup past the throttle range: the trim comes down at once on an overshoot
+	// (P = 0.01 * -200 = -2 %, the integrator stopped at 53 %)
+	servo().update(UnexpectedCode::Timeout, rpmOf(6200), dt);
+	EXPECT_NEAR(50.98, servo().getTrim(), 1e-3);
+
+	// Live again: the trim restarts from zero on the live feed-forward
+	servo().update(78.0f, rpmOf(6000), dt);
+	EXPECT_TRUE(servo().isFeedForwardLive());
+	EXPECT_NEAR(0, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(78, servo().getCommandPercent(), EPS4D);
+}
+
+// Not live, the trim may also close the throttle fully: a held high feed-forward in a descent
+TEST(ServoGovernor, lostRequestCanCloseTheThrottle) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+
+	servo().update(60.0f, rpmOf(6000), dt);
+	// I = 0.02 %/(rpm s) * -250 rpm = -5 %/s: 20 s reach the -60 % stop
+	for (int i = 0; i < 4000; i++) {
+		servo().update(UnexpectedCode::Timeout, rpmOf(6250), dt);
+	}
+	EXPECT_NEAR(-60, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(0, servo().getCommandPercent(), EPS4D);
 }
 
 // ---- Lost request in the run-up (servoThrottleLostRequestIdle) ----
