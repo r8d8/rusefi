@@ -5,6 +5,16 @@ When adding new calibration parameters to rusEFI, it is important to ensure that
 ## The Problem
 When a new parameter is added to the `engine_configuration_s` struct, it will initially have a value of 0 in existing user tunes. If 0 is not a sensible or safe default for that parameter, the engine might not start or might behave unexpectedly after an update.
 
+## Where the field goes
+The ECU loads its stored configuration from flash as raw bytes: there is no per-field migration on
+the ECU (TunerStudio maps an .msq by field name, the ECU does not). A field inserted before existing
+ones moves them, and while the structure size stays the same the stored tune is accepted and read
+shifted. Put a new field into unused space - a padding byte or an `unused` block - so that every
+existing field keeps its offset and the new field reads 0 in an existing tune. Example: the fork's
+`servoThrottleLostRequestIdle` first went in before `servoGovernorMinRequest`, which then read the
+old padding byte (0) and kept the servo governor engaged at idle; it now sits in that padding byte
+after it. `ServoGovernor.configLayout` checks the offsets.
+
 ## The Solution: `applyDefaultsOrFixAfterBurn()`
 The `applyDefaultsOrFixAfterBurn()` function in `firmware/controllers/algo/defaults/default_base_engine.cpp` is specifically designed to handle these migrations. This function is called during startup and whenever a "burn" (save configuration) operation occurs.
 

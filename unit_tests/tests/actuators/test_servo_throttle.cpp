@@ -374,17 +374,19 @@ TEST(ServoGovernor, lostRequestKeepsGoverningOnLastFeedForward) {
 // ---- Lost request in the run-up (servoThrottleLostRequestIdle) ----
 
 // The configuration is loaded from flash as raw bytes, so a field inserted before others moves
-// them and a tune stored by the previous firmware is read shifted. servoThrottleLostRequestIdle
-// went in before servoGovernorMinRequest: an older tune then reads its minimum request (20 in the
-// DLE presets) as the run-up idle, and its padding byte (0) as the minimum request, so the governor
-// no longer drops out at idle (found on the HITL bench, 2026-10-21).
+// them and a tune stored by the previous firmware is read shifted. servoGovernorMinRequest stays
+// where that firmware stored it, right after the engage window, and servoThrottleLostRequestIdle
+// takes the padding byte after it, which an older tune holds as 0: the run-up idle off, the old
+// hold. Inserted before the minimum request, it made an older tune read its minimum request (20 in
+// the DLE presets) as the run-up idle and its padding (0) as the minimum request, so the governor
+// no longer dropped out at idle (found on the HITL bench, 2026-10-21).
 TEST(ServoGovernor, configLayout) {
 	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorEngageWindow) + 2,
-		offsetof(engine_configuration_s, servoThrottleLostRequestIdle)) << "the old minimum request's byte";
-	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorEngageWindow) + 3,
-		offsetof(engine_configuration_s, servoGovernorMinRequest)) << "moved into the old padding byte";
+		offsetof(engine_configuration_s, servoGovernorMinRequest)) << "where an older tune has it";
 	EXPECT_EQ(offsetof(engine_configuration_s, servoGovernorMinRequest) + 1,
-		offsetof(engine_configuration_s, servoThrottleOverspeedRpm));
+		offsetof(engine_configuration_s, servoThrottleLostRequestIdle)) << "the old padding byte";
+	EXPECT_EQ(offsetof(engine_configuration_s, servoThrottleLostRequestIdle) + 1,
+		offsetof(engine_configuration_s, servoThrottleOverspeedRpm)) << "nothing after it moved";
 }
 
 
