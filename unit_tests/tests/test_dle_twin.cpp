@@ -5,6 +5,9 @@
 
 #include "can_msg_tx.h"
 #include "trip_odometer.h"
+#include "ignition_controller.h"
+#include "servo_throttle.h"
+#include "servo_throttle_can.h"
 
 #include <array>
 #include <map>
@@ -291,7 +294,8 @@ TEST(DleTwin, verboseCanLayoutForHybridController) {
 
 	captureVerboseBroadcast();
 
-	ASSERT_EQ(12u, verboseFrames.size());
+	// 0x200 - 0x20B, and the fork's 0x20C with the CAN request source
+	ASSERT_EQ(13u, verboseFrames.size());
 	// 0x200: warning counter, last error code, bit 0 of byte 4 = fuel or spark cut active
 	EXPECT_EQ(3, u16At(0x200, 0));
 	EXPECT_EQ(static_cast<int>(ObdCode::OBD_Map_Timeout), u16At(0x200, 2));
@@ -321,9 +325,9 @@ TEST(DleTwin, verboseCanLayoutForHybridController) {
 }
 
 /**
- * Clearwater HZ-43: the head temperatures (CHT 1 on CLT, CHT 2 on AuxTemp1) reach the hybrid
- * controller only as Sensors1's uint8 + 40. Nothing above 215 C fits, and a failed sensor (open, or
- * above the thermistor's 250 C validation limit) goes out as 0 C, a cold engine.
+ * Clearwater HZ-43: Sensors1 carries the head temperatures (CHT 1 on CLT, CHT 2 on AuxTemp1) as a
+ * uint8 + 40, saturated at 215 C, and a failed sensor (open, or above the thermistor's 250 C
+ * validation limit) as 0 C. The fork's 0x20C carries them in 0.1 C with a failed mark.
  */
 TEST(DleTwin, verboseCanHeadTemperatures) {
 	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
@@ -335,12 +339,20 @@ TEST(DleTwin, verboseCanHeadTemperatures) {
 	captureVerboseBroadcast();
 	EXPECT_EQ(255, verboseFrames.at(0x203)[2]);
 	EXPECT_EQ(220, verboseFrames.at(0x203)[4]);
+	EXPECT_EQ(2150, s16At(0x20C, 0));
+	EXPECT_EQ(1800, s16At(0x20C, 2));
 
-	// Above it the float to uint8 conversion is out of range (undefined behaviour; x86 and ARM wrap,
-	// 230 C reading -26 C): neither the temperature nor the top of the byte
-	Sensor::setMockValue(SensorType::Clt, 230);
+	// Above it Sensors1 stays at the top of the byte; 0x20C has the temperature
+	Sensor::setMockValue(SensorType::Clt, 230.04);
 	captureVerboseBroadcast();
-	EXPECT_NE(255, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(255, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(2300, s16At(0x20C, 0));
+
+	// and below -40 C at the bottom
+	Sensor::setMockValue(SensorType::Clt, -50.06);
+	captureVerboseBroadcast();
+	EXPECT_EQ(0, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(-501, s16At(0x20C, 0));
 
 	// A failed sensor goes out as 0 C
 	Sensor::resetMockValue(SensorType::Clt);
@@ -350,7 +362,84 @@ TEST(DleTwin, verboseCanHeadTemperatures) {
 	captureVerboseBroadcast();
 	EXPECT_EQ(40, verboseFrames.at(0x203)[2]);
 	EXPECT_EQ(40, verboseFrames.at(0x203)[4]);
+	// 0x20C marks it failed
+	EXPECT_EQ(INT16_MIN, s16At(0x20C, 0));
+	EXPECT_EQ(INT16_MIN, s16At(0x20C, 2));
+}
 
-	// and no other frame carries them
+/**
+ * 0x20C byte 4: the HCU_ENGINE_CMD state, FF_HELD, the feed-forward live, the run-up done, the
+ * ignition state and the overspeed entries modulo 4; byte 5 the governor state; bytes 6 / 7 the fuel
+ * and spark cut reasons.
+ */
+TEST(DleTwin, hybridStatusFrame) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	getHcuEngineCommandListener().reset();
+	engine->module<ServoThrottle>()->reset();
+
+	// Nothing yet: no command, governor off, ignition off (no battery voltage seen), not cut
+	captureVerboseBroadcast();
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[4]);
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[5]);
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[6]);
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[7]);
+
+	// A fresh command with FF_HELD, the governor holding the target, ignition on
+	CANRxFrame frame{};
+	frame.IDE = CAN_IDE_STD;
+	frame.RTR = CAN_RTR_DATA;
+	frame.SID = HCU_ENGINE_CMD_DEFAULT_ID;
+	frame.DLC = 8;
+	frame.data8[0] = 0x01 | 0x02 | 0x04; // RUN, GOV_ON, FF_HELD
+	frame.data8[1] = HCU_ENGINE_CMD_VERSION << 4;
+	frame.data8[4] = 4700 >> 8;
+	frame.data8[5] = 4700 & 0xFF;
+	frame.data8[7] = hcuEngineCmdCrc(frame.data8, 7);
+	getHcuEngineCommandListener().processFrame(/*busIndex*/0, frame, getTimeNowNt());
+	engine->module<ServoThrottle>()->update(47, 7650, 0.005f, 7650, true, /*feedForwardHeld*/ true);
+	ASSERT_EQ(ServoGovernorState::Governing, engine->module<ServoThrottle>()->getState());
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
+	engine->module<IgnitionController>()->onSlowCallback();
+	ASSERT_TRUE(engine->module<IgnitionController>()->getIgnState());
+	captureVerboseBroadcast();
+	// fresh (1), FF_HELD, not live (held), run-up done, ignition on
+	EXPECT_EQ(0x01 | 0x04 | 0x10 | 0x20, verboseFrames.at(0x20C)[4]);
+	EXPECT_EQ(static_cast<int>(ServoGovernorState::Governing), verboseFrames.at(0x20C)[5]);
+
+	// Injection disabled in the settings: the fuel cut reason
+	engineConfiguration->isInjectionEnabled = false;
+	engine->module<LimpManager>()->updateState(7650, getTimeNowNt());
+	captureVerboseBroadcast();
+	EXPECT_EQ(static_cast<int>(ClearReason::Settings), verboseFrames.at(0x20C)[6]);
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[7]);
+
+	// Five overspeeds (above 8700 rpm, released at the 7650 target): 5 modulo 4 in bits 6-7, and
+	// reset() keeps the count, so the hybrid controller can count by difference
+	for (int i = 0; i < 5; i++) {
+		engine->module<ServoThrottle>()->update(47, 8800, 0.005f, 7650, true);
+		ASSERT_EQ(ServoGovernorState::Overspeed, engine->module<ServoThrottle>()->getState());
+		engine->module<ServoThrottle>()->update(47, 8800, 0.005f, 7650, true);
+		engine->module<ServoThrottle>()->update(47, 7500, 0.005f, 7650, true);
+		ASSERT_NE(ServoGovernorState::Overspeed, engine->module<ServoThrottle>()->getState());
+	}
+	engine->module<ServoThrottle>()->reset();
+	EXPECT_EQ(5, engine->module<ServoThrottle>()->getOverspeedEntries());
+	captureVerboseBroadcast();
+	EXPECT_EQ(0x40, verboseFrames.at(0x20C)[4] & 0xC0);
+	// The values the hybrid controller names
+	static_assert(static_cast<int>(ClearReason::StopRequested) == 7);
+	static_assert(static_cast<int>(ClearReason::IgnitionOff) == 14);
+	static_assert(static_cast<int>(ServoGovernorState::Overspeed) == 3);
+	static_assert(static_cast<int>(HcuCommandState::Held) == 2);
+}
+
+// No 0x20C without the CAN request source
+TEST(DleTwin, hybridStatusFrameOnlyWithTheCanRequest) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	engineConfiguration->servoThrottleRequestSource = ServoThrottleRequestSource::PwmInput;
+	captureVerboseBroadcast();
 	EXPECT_EQ(12u, verboseFrames.size());
+	EXPECT_EQ(0u, verboseFrames.count(0x20C));
 }

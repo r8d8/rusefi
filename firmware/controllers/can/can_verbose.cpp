@@ -22,8 +22,20 @@
 #include "hellen_meta.h"
 #endif // HW_HELLEN
 
+#if EFI_SERVO_THROTTLE
+#include "servo_throttle.h"
+#include "servo_throttle_can.h"
+#include "ignition_controller.h"
+#endif // EFI_SERVO_THROTTLE
+
 #define CAN_PEDAL_TPS_OFFSET 2
 #define CAN_SENSOR_1_OFFSET 3
+
+// A temperature as a uint8 with PACK_ADD_TEMPERATURE, -40 .. 215 C, saturated: a float outside
+// the uint8 range converts with undefined behaviour (x86 and ARM wrap, so a 230 C head read -26 C)
+static uint8_t packTemperature(float temperatureC) {
+	return static_cast<uint8_t>(clampF(0, temperatureC + PACK_ADD_TEMPERATURE, UINT8_MAX));
+}
 
 struct Status {
 	uint16_t warningCounter;
@@ -130,14 +142,14 @@ struct Sensors1 {
 void populateFrame(Sensors1& msg) {
 	msg.map = Sensor::getOrZero(SensorType::Map);
 
-	msg.clt = Sensor::getOrZero(SensorType::Clt) + PACK_ADD_TEMPERATURE;
-	msg.iat = Sensor::getOrZero(SensorType::Iat) + PACK_ADD_TEMPERATURE;
+	msg.clt = packTemperature(Sensor::getOrZero(SensorType::Clt));
+	msg.iat = packTemperature(Sensor::getOrZero(SensorType::Iat));
 
-	msg.aux1 = Sensor::getOrZero(SensorType::AuxTemp1) + PACK_ADD_TEMPERATURE;
-	msg.aux2 = Sensor::getOrZero(SensorType::AuxTemp2) + PACK_ADD_TEMPERATURE;
+	msg.aux1 = packTemperature(Sensor::getOrZero(SensorType::AuxTemp1));
+	msg.aux2 = packTemperature(Sensor::getOrZero(SensorType::AuxTemp2));
 
 #if	HAL_USE_ADC
-	msg.mcuTemp = getMCUInternalTemperature() + PACK_ADD_TEMPERATURE;
+	msg.mcuTemp = packTemperature(getMCUInternalTemperature());
 #endif
 
 	msg.fuelLevel = Sensor::getOrZero(SensorType::FuelLevel);
@@ -154,8 +166,8 @@ struct Sensors2 {
 
 void populateFrame(Sensors2& msg) {
 	msg.oilPressure = Sensor::get(SensorType::OilPressure).value_or(-1);
-	msg.oilTemp = Sensor::getOrZero(SensorType::OilTemperature) + PACK_ADD_TEMPERATURE;
-	msg.fuelTemp = Sensor::getOrZero(SensorType::FuelTemperature) + PACK_ADD_TEMPERATURE;
+	msg.oilTemp = packTemperature(Sensor::getOrZero(SensorType::OilTemperature));
+	msg.fuelTemp = packTemperature(Sensor::getOrZero(SensorType::FuelTemperature));
 	msg.vbatt = Sensor::getOrZero(SensorType::BatteryVoltage);
 }
 
@@ -252,6 +264,72 @@ void populateFrame(Egts& msg) {
 	// DBC Defines signals Egt3 through Egt8 but we do not have the code
 }
 
+#if EFI_SERVO_THROTTLE
+/**
+ * Fork-only (r8d8/rusefi), base + 12: sent while the servo throttle takes its request from the
+ * hybrid controller's HCU_ENGINE_CMD. The head temperatures without Sensors1's limits (clearwater
+ * HZ-43), and the state of the servo throttle, the command and the cuts. The hybrid controller
+ * (r8d8/hybrid_ctrl rusefi_link.c) decodes it; the layout is pinned by test_dle_twin.cpp.
+ */
+struct HybridStatus {
+	// 0.1 C; HYBRID_STATUS_TEMPERATURE_INVALID for a failed or unconfigured sensor
+	int16_t clt;
+	int16_t auxTemp1;
+
+	// HcuCommandState: 0 none since boot, 1 fresh, 2 held
+	uint8_t commandState : 2;
+	// FF_HELD in the fresh command
+	uint8_t feedForwardHeld : 1;
+	uint8_t feedForwardLive : 1;
+	// RPM has reached the governor engage window since the engine started
+	uint8_t runUpDone : 1;
+	// Off: fuel and spark are cut (ClearReason::IgnitionOff)
+	uint8_t ignitionOn : 1;
+	// Overspeed entries since boot, modulo 4: an overspeed shorter than the 50 ms period still counts
+	uint8_t overspeedEntries : 2;
+
+	// ServoGovernorState: 0 passthrough, 1 following, 2 governing, 3 overspeed (throttle closed)
+	uint8_t governorState;
+	// ClearReason, 0 = not cut
+	uint8_t fuelCutReason;
+	uint8_t sparkCutReason;
+};
+static_assert(sizeof(HybridStatus) == 8);
+
+#define HYBRID_STATUS_TEMPERATURE_INVALID INT16_MIN
+
+static int16_t packTenthsC(SensorType type) {
+	auto temperature = Sensor::get(type);
+	if (!temperature) {
+		return HYBRID_STATUS_TEMPERATURE_INVALID;
+	}
+	return static_cast<int16_t>(std::roundf(clampF(-3276.7f, temperature.Value, 3276.7f) * 10));
+}
+
+void populateFrame(HybridStatus& msg) {
+	msg.clt = packTenthsC(SensorType::Clt);
+	msg.auxTemp1 = packTenthsC(SensorType::AuxTemp1);
+
+#if HAS_SERVO_THROTTLE_CAN
+	HcuEngineCommand command;
+	auto commandState = getHcuEngineCommandListener().get(command, getTimeNowNt());
+	msg.commandState = static_cast<uint8_t>(commandState);
+	msg.feedForwardHeld = commandState == HcuCommandState::Fresh && command.feedForwardHeld;
+#endif // HAS_SERVO_THROTTLE_CAN
+	const auto& servo = *engine->module<ServoThrottle>();
+	msg.feedForwardLive = servo.isFeedForwardLive();
+	msg.runUpDone = servo.isRunUpDone();
+	msg.governorState = static_cast<uint8_t>(servo.getState());
+	msg.overspeedEntries = servo.getOverspeedEntries() & 0x3;
+	msg.ignitionOn = engine->module<IgnitionController>()->getIgnState();
+
+#if EFI_ENGINE_CONTROL
+	msg.fuelCutReason = static_cast<uint8_t>(engine->module<LimpManager>()->allowInjection().reason);
+	msg.sparkCutReason = static_cast<uint8_t>(engine->module<LimpManager>()->allowIgnition().reason);
+#endif // EFI_ENGINE_CONTROL
+}
+#endif // EFI_SERVO_THROTTLE
+
 void sendCanVerbose() {
 #if HW_HELLEN && EFI_PROD_CODE
         if (!getHellenBoardEnabled()) {
@@ -275,6 +353,12 @@ void sendCanVerbose() {
 	transmitStruct<Egts>	(CanCategory::VERBOSE, base + 9, isExt, canChannel);
 	transmitStruct<PerCylinderKnock>	(CanCategory::VERBOSE, base + 10, isExt, canChannel);
 	transmitStruct<Status11>	(CanCategory::VERBOSE, base + 11, isExt, canChannel);
+
+#if EFI_SERVO_THROTTLE
+	if (engineConfiguration->servoThrottleRequestSource == ServoThrottleRequestSource::Can) {
+		transmitStruct<HybridStatus>	(CanCategory::VERBOSE, base + 12, isExt, canChannel);
+	}
+#endif // EFI_SERVO_THROTTLE
 }
 
 #endif // EFI_CAN_SUPPORT || EFI_UNIT_TEST

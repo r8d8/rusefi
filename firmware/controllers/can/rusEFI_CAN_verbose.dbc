@@ -130,6 +130,19 @@ BO_ 522 BASE10: 8 Vector__XXX
 BO_ 523 BASE11: 8 Vector__XXX
  SG_ BrakePedal : 0|1@1+ (1,0) [0|0] "" Vector__XXX
 
+BO_ 524 BASE12: 8 Vector__XXX
+ SG_ CltTenths : 0|16@1- (0.1,0) [-3276.7|3276.7] "deg C" Vector__XXX
+ SG_ AuxTemp1Tenths : 16|16@1- (0.1,0) [-3276.7|3276.7] "deg C" Vector__XXX
+ SG_ HcuCommandState : 32|2@1+ (1,0) [0|2] "" Vector__XXX
+ SG_ FeedForwardHeld : 34|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ FeedForwardLive : 35|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ RunUpDone : 36|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ IgnitionOn : 37|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ OverspeedEntries : 38|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ GovernorState : 40|8@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ FuelCutReason : 48|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ SparkCutReason : 56|8@1+ (1,0) [0|255] "" Vector__XXX
+
 
 CM_ SG_ 512 WarningCounter "Total warnings since ECU start time";
 CM_ SG_ 512 LastError "Last error code";
@@ -183,4 +196,16 @@ CM_ SG_ 520 Cam2I "Cam bank 2 intake actual";
 CM_ SG_ 520 Cam2Itar "Cam bank 2 intake target";
 CM_ SG_ 520 Cam2E "Cam bank 2 exhaust actual";
 CM_ SG_ 520 Cam2Etar "Cam bank 2 exhaust target";
+CM_ BO_ 524 "Fork only (r8d8/rusefi): hybrid controller status, sent with the servo throttle on the CAN request";
+CM_ SG_ 524 CltTenths "Coolant (head 1) temperature; -3276.8 = failed or not configured";
+CM_ SG_ 524 AuxTemp1Tenths "Aux temperature 1 (head 2); -3276.8 = failed or not configured";
+CM_ SG_ 524 HcuCommandState "HCU_ENGINE_CMD: 0 none since boot, 1 fresh, 2 held";
+CM_ SG_ 524 FeedForwardHeld "FF_HELD set in the fresh command";
+CM_ SG_ 524 FeedForwardLive "Servo throttle feed-forward live (request valid and not held)";
+CM_ SG_ 524 RunUpDone "RPM has reached the governor engage window since the engine started";
+CM_ SG_ 524 IgnitionOn "Ignition state; off cuts fuel and spark";
+CM_ SG_ 524 OverspeedEntries "Servo throttle overspeed entries since boot, modulo 4";
+CM_ SG_ 524 GovernorState "0 passthrough, 1 following, 2 governing, 3 overspeed";
+CM_ SG_ 524 FuelCutReason "ClearReason (limp_manager.h), 0 = not cut";
+CM_ SG_ 524 SparkCutReason "ClearReason (limp_manager.h), 0 = not cut";
 

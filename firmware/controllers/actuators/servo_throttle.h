@@ -105,6 +105,11 @@ public:
 		return m_runUpDone;
 	}
 
+	// Overspeed entries since boot, wrapping. reset() keeps it, so a reader counts by difference.
+	uint8_t getOverspeedEntries() const {
+		return m_overspeedEntries;
+	}
+
 	// Back to "closed, no request seen yet"
 	void reset();
 
@@ -121,6 +126,7 @@ private:
 	bool m_requestValid = false;
 	bool m_runUpDone = false;
 	bool m_feedForwardLive = false;
+	uint8_t m_overspeedEntries = 0;
 	ServoGovernorState m_state = ServoGovernorState::Passthrough;
 };
 

@@ -142,6 +142,9 @@ void ServoThrottle::update(SensorResult request, SensorResult rpm, float dtSecon
 	ServoGovernorState previous = m_state;
 
 	if (isOverspeed(rpm, previous == ServoGovernorState::Overspeed, governorTargetRpm, governorEnabled)) {
+		if (previous != ServoGovernorState::Overspeed) {
+			m_overspeedEntries++;
+		}
 		m_state = ServoGovernorState::Overspeed;
 		m_trim = 0;
 		m_commandPercent = 0;

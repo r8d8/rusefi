@@ -25,7 +25,9 @@
  *
  * CAN: the standard rusEFI verbose broadcast (rusEFI_CAN_verbose.dbc, 11-bit IDs 0x200-0x20B,
  * every 50 ms) is the engine status for the hybrid controller, which forwards it to the autopilot
- * as DroneCAN ICE status. Its byte layout is pinned by test_dle_twin.cpp. In the other direction the
+ * as DroneCAN ICE status. With the CAN request source the fork adds 0x20C (can_verbose.cpp
+ * HybridStatus): the head temperatures in 0.1 C with a failed mark, and the servo throttle's and
+ * the cuts' state. Its byte layout is pinned by test_dle_twin.cpp. In the other direction the
  * hybrid controller sends HCU_ENGINE_CMD (0x1A0, servo_throttle_can.h): throttle feed-forward,
  * governor target and on/off, run/stop. CAN user control is limited to the engine stop.
  *
