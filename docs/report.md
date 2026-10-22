@@ -1670,3 +1670,31 @@ Open:
   commit message with `only:mre_f4` still builds it), no further feature trim.
 - Bench: image H, then simulation's take-off re-fly with the governor at full authority (the PID
   gains were tuned for +-20 %).
+
+## 2026-10-21 - Stage 1.0 head thermistors in the DLE-60 preset; the CHT path's CAN limits
+
+Head temperatures (user decision 2026-10-21, clearwater design 2df1028): a 47 kOhm NTC, B 3950, on
+each head of the DLE-60 twin - CHT 1 on CLT, CHT 2 on AuxTemp1. The DLE-60 preset sets both curves
+(`setDle47kHeadThermistor()`: 0 / 100 / 200 C at 158017 / 3278 / 350 Ohm, provisional from the
+B-equation - TunerStudio takes points up to 200 C, and Steinhart-Hart through three B-curve points
+reproduces it exactly, -7 C ... 250 C). The pull-up values and the AuxTemp1 input pin stay the
+board's and the harness's: uaEFI's CLT has a 4.7 kOhm pull-up on the board, its AUX inputs only a
+500 kOhm pull-down, so the harness adds 4.7 kOhm to 5 V for AuxTemp1. The DLE-120 keeps the board's
+default CLT curve until stage 1.1's sensor is chosen.
+
+Limits found on the way (booked in clearwater as HZ-43):
+- `ResistanceFunc` rejects a thermistor above 0.98 x 5 V: on 4.7 kOhm the 47k part reads as open
+  below about -7 C (the 100k part considered first: below +7 C).
+- `ThermistorFunc` rejects above `CLT_UPPER_VALIDATION_LIMIT` (250 C).
+- The verbose CAN broadcast carries CLT / AuxTemp as uint8 + 40, so nothing above 215 C, and a
+  failed sensor goes out as 0 C (`getOrZero`). A fork frame with 0.1 C values and an invalid code is
+  proposed for the user's decision.
+
+| Change | Content |
+|---|---|
+| preset | DLE-60: the 47k B3950 curve on `clt` and `auxTempSensor1` |
+| test | `DleTwin.dle60Configuration` converts -7 / 25 / 150 / 240 C on both and rejects 258 C |
+
+Validation: DleTwin 9 / 9, all unit tests 1459 / 1459 (GCC 13, 8 jobs).
+
+Open: the bought part's R-T table for the final three points (design); the AuxTemp1 pin (harness).
