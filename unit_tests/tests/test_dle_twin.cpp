@@ -443,3 +443,62 @@ TEST(DleTwin, hybridStatusFrameOnlyWithTheCanRequest) {
 	EXPECT_EQ(12u, verboseFrames.size());
 	EXPECT_EQ(0u, verboseFrames.count(0x20C));
 }
+
+/**
+ * Clearwater HZ-44: what the DLE preset's held key input on uaEFI takes away. Without a key input
+ * the ignition follows the battery voltage: above 6.0 V it is on; 0.2 s after the last slow callback
+ * that saw more than 6 V it goes off (fuel and spark cut, ClearReason::IgnitionOff), so a dip of
+ * 0.15 - 0.25 s at the 20 Hz callback can cut; it is back on at the first callback above 6 V; and a
+ * failed battery-voltage reading counts as 0 V.
+ */
+TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	auto ignitionOn = [] {
+		return engine->module<IgnitionController>()->getIgnState();
+	};
+	auto slowCallbackAfterMs = [&](float ms) {
+		eth.moveTimeForwardMs(ms);
+		engine->module<IgnitionController>()->onSlowCallback();
+	};
+
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
+	slowCallbackAfterMs(50);
+	ASSERT_TRUE(ignitionOn());
+
+	// 6.0 V for 0.15 s, then 6.1 V: on throughout
+	Sensor::setMockValue(SensorType::BatteryVoltage, 6.0);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	EXPECT_TRUE(ignitionOn());
+	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1);
+	slowCallbackAfterMs(50);
+	EXPECT_TRUE(ignitionOn());
+
+	// 5.9 V: off once 0.2 s have passed since the last callback above 6 V
+	Sensor::setMockValue(SensorType::BatteryVoltage, 5.9);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	EXPECT_TRUE(ignitionOn());
+	slowCallbackAfterMs(60);
+	EXPECT_FALSE(ignitionOn());
+
+	// back above 6 V: on at the next callback
+	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1);
+	slowCallbackAfterMs(50);
+	EXPECT_TRUE(ignitionOn());
+
+	// A failed battery-voltage reading counts as 0 V
+	Sensor::resetMockValue(SensorType::BatteryVoltage);
+	ASSERT_FALSE(Sensor::get(SensorType::BatteryVoltage).Valid);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(50);
+	slowCallbackAfterMs(60);
+	EXPECT_FALSE(ignitionOn());
+
+	// Unit tests are no uaEFI: the preset leaves the key input to the board here
+	EXPECT_FALSE(isBrainPinValid(engineConfiguration->ignitionKeyDigitalPin));
+}

@@ -47,6 +47,11 @@
 
 #include "dle_twin.h"
 
+#ifdef HW_HELLEN_UAEFI
+// MM100_IN_VSS, the held ignition key input (HZ-44)
+#include "hellen_meta.h"
+#endif // HW_HELLEN_UAEFI
+
 #if EFI_SERVO_THROTTLE
 #include "servo_throttle_can.h"
 
@@ -137,6 +142,18 @@ static void setDleTwinCommon(float maxRpm) {
 	engineConfiguration->verboseCanBaseAddress = CAN_DEFAULT_BASE;
 	engineConfiguration->rusefiVerbose29b = false;
 	engineConfiguration->canSleepPeriodMs = 50;
+
+	// Clearwater HZ-44: rusEFI cuts fuel and spark (ClearReason::IgnitionOff) once its ignition input
+	// has read 6 V or less for 0.2 s. Without a key input that is the board's own supply, so a supply
+	// dip stops the engine in flight, and so does a failed battery-voltage reading (0 V). A key input
+	// decides alone: uaEFI's FLEX input (D5) has a 10k pull-up on the board and stays unwired, so it
+	// always reads "on" and only the hardware's own supply limits remain. The engine stop does not use
+	// the ignition state (CAN RUN = 0; the start/stop input, which rusEFI ignores without ignition,
+	// then always works). The HITL Nucleo holds its own key input (its board_configuration.cpp).
+#ifdef HW_HELLEN_UAEFI
+	engineConfiguration->ignitionKeyDigitalPin = Gpio::MM100_IN_VSS;
+	engineConfiguration->ignitionKeyDigitalPinMode = PI_PULLUP;
+#endif // HW_HELLEN_UAEFI
 
 	// Tables
 	setTpsLoadBins(config->veLoadBins);
