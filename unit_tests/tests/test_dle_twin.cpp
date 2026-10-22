@@ -1,6 +1,7 @@
 #include "pch.h"
 
 #include "dle_twin.h"
+#include "thermistor_func.h"
 
 #include "can_msg_tx.h"
 #include "trip_odometer.h"
@@ -81,6 +82,17 @@ TEST(DleTwin, dle60Configuration) {
 	expectDleTwinCommon();
 	EXPECT_NEAR(0.061, engineConfiguration->displacement, EPS4D);
 	EXPECT_EQ(9000, engineConfiguration->rpmHardLimit);
+
+	// Stage 1.0 head temperatures: 47 kOhm B3950 on CLT and AuxTemp1, the B-equation's curve
+	for (ThermistorConf* sensor : { &engineConfiguration->clt, &engineConfiguration->auxTempSensor1 }) {
+		ThermistorFunc func;
+		func.configure(sensor->config);
+		EXPECT_NEAR(-7, func.convert(231143).Value, 0.1);
+		EXPECT_NEAR(25, func.convert(47000).Value, 0.1);
+		EXPECT_NEAR(150, func.convert(938.5).Value, 0.1);
+		EXPECT_NEAR(240, func.convert(182.5).Value, 0.2);
+		EXPECT_FALSE(func.convert(140).Valid) << "258 C: above the 250 C validation limit";
+	}
 }
 
 TEST(DleTwin, dle120Configuration) {

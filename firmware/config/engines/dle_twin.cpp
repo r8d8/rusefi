@@ -211,6 +211,23 @@ static void setDleTwinCommon(float maxRpm) {
 }
 
 /**
+ * Stage 1.0 head temperatures (user decision 2026-10-21): a 47 kOhm NTC, B 3950, on each head - CHT 1
+ * on CLT, CHT 2 on AuxTemp1 (its 4.7 kOhm pull-up is in the harness; CLT has the board's). Provisional
+ * points from the B-equation at 0 / 100 / 200 C (the range TunerStudio takes); the final three come
+ * from the bought part's R-T table. The pull-up value and the AuxTemp1 input pin stay the board's and
+ * the harness's. On a 4.7 kOhm pull-up the part reads as open below about -7 C (above 0.98 x 5 V),
+ * and rusEFI rejects a reading above CLT_UPPER_VALIDATION_LIMIT (250 C).
+ */
+static void setDle47kHeadThermistor(ThermistorConf& sensor) {
+	sensor.config.tempC_1 = 0;
+	sensor.config.resistance_1 = 158017;
+	sensor.config.tempC_2 = 100;
+	sensor.config.resistance_2 = 3278;
+	sensor.config.tempC_3 = 200;
+	sensor.config.resistance_3 = 350;
+}
+
+/**
  * DLE-60 Twin: 61 cc, 7.0 hp @ 8500 rpm, 1400-8500 rpm.
  * Fuel at rated power ~5.2 kW x 540 g/kWh ~ 47 g/min: a ~100 cc/min injector stays below ~85% duty.
  */
@@ -228,6 +245,9 @@ void setDle60Twin() {
 	engineConfiguration->servoThrottleOverspeedRpm = 8700;
 	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated, as for the DLE-120
 	engineConfiguration->servoGovernorTargetRpm = 7650;
+
+	setDle47kHeadThermistor(engineConfiguration->clt);
+	setDle47kHeadThermistor(engineConfiguration->auxTempSensor1);
 }
 
 /**
