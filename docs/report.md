@@ -1698,3 +1698,53 @@ Limits found on the way (booked in clearwater as HZ-43):
 Validation: DleTwin 9 / 9, all unit tests 1459 / 1459 (GCC 13, 8 jobs).
 
 Open: the bought part's R-T table for the final three points (design); the AuxTemp1 pin (harness).
+
+## 2026-10-22 - HZ-43 hybrid controller status frame 0x20C; temperatures saturate; HZ-44 held ignition key
+
+HZ-43 (clearwater, user decision 2026-10-22): the head temperatures (CHT 1 on CLT, CHT 2 on
+AuxTemp1) reached the hybrid controller only as Sensors1's uint8 + 40. Nothing above 215 C fitted,
+and above it the float to uint8 conversion was out of range - undefined behaviour that wraps on x86
+and ARM, so a 230 C head went out as -26 C. A failed sensor (open, or above the thermistor's 250 C
+validation limit) went out as 0 C (`getOrZero`), a cold engine.
+
+- All verbose temperature bytes (CLT, IAT, AuxTemp 1 / 2, MCU, oil, fuel) now saturate at -40 /
+  215 C (`packTemperature()`). The layout is unchanged; a failed sensor still reads 0 C there.
+- Fork-only frame at base + 12 (0x20C), `HybridStatus`, sent with the verbose broadcast while
+  `servoThrottleRequestSource` is CAN (so only the hybrid controller's ECU sends it). Bytes 0-1 / 2-3:
+  CLT and AuxTemp1, int16 0.1 C, INT16_MIN for a failed or unconfigured sensor. Byte 4: bits 0-1 the
+  HCU_ENGINE_CMD state (none / fresh / held), bit 2 FF_HELD in the fresh command, bit 3 feed-forward
+  live, bit 4 run-up done, bit 5 ignition on, bits 6-7 the servo throttle's overspeed entries since
+  boot modulo 4 (`ServoThrottle::getOverspeedEntries()`, kept by `reset()`, so the hybrid controller
+  counts by difference and an overspeed shorter than the 50 ms period still counts). Byte 5: the
+  servo governor state (3 = overspeed). Bytes 6 / 7: the fuel and spark `ClearReason`. In
+  rusEFI_CAN_verbose.dbc as BASE12.
+
+HZ-44 (clearwater, user decision 2026-10-22): rusEFI cuts fuel and spark (`ClearReason::IgnitionOff`)
+once `isIgnVoltage()` has been false for 0.2 s. Without a key input that is the battery input above a
+hard-coded 6.0 V, read at the 20 Hz slow callback, and the 0.2 s counts from the last callback that
+saw voltage - so a dip of 0.15 - 0.25 s cuts. A failed battery-voltage reading counts as 0 V and cuts
+the same way. A digital key input decides alone. The DLE preset now sets it on uaEFI (`HW_HELLEN_UAEFI`)
+to the FLEX input (D5, `MM100_IN_VSS`), which has a 10k pull-up on the board and stays unwired, with
+`PI_PULLUP`: it always reads "on", and only the hardware's own supply limits remain. The engine stop
+does not use the ignition state (CAN RUN = 0; the start/stop input, which rusEFI ignores without
+ignition, then always works). The HITL Nucleo already held its own key input (F12), so the bench
+cannot show the 6 V cut. The pin path of `isIgnVoltage()` is production-only, so the unit tests
+cannot see the uaEFI branch: a uaEFI on the bench must show ignition on with D5 open.
+
+| Change | Content |
+|---|---|
+| coverage (HZ-43) | `DleTwin.verboseCanHeadTemperatures`: 215 C at the top of the byte, 230 C neither the temperature nor the top, a failed sensor 0 C, no other frame (12) |
+| fix (HZ-43) | `packTemperature()` saturation; `HybridStatus` at base + 12; DBC BASE12; the test expects 255 at 230 C, 0 below -40 C, 0x20C 2150 / 1800 / 2300 / -501 and INT16_MIN for failed; `DleTwin.hybridStatusFrame` (incl. five overspeeds -> 1 modulo 4), `DleTwin.hybridStatusFrameOnlyWithTheCanRequest`; `ServoThrottle::getOverspeedEntries()`; the layout test now sees 13 frames |
+| HZ-44 | DLE preset: `ignitionKeyDigitalPin` = FLEX (`MM100_IN_VSS`), `PI_PULLUP`, on uaEFI; `DleTwin.ignitionFollowsBatteryVoltageWithoutAKeyInput` pins the cut it removes (on above 6.0 V; off 0.2 s after the last callback above 6 V; on again at the first callback above it; a failed reading counts as 0 V) |
+
+Validation: coverage - DleTwin 10 / 10 on the old code; fix and HZ-44 - all unit tests
+1463 / 1463 (GCC 13, 8 jobs). Firmware (local GCC 14.2, clean builds): uaefi 4364 B free (the frame,
+the saturation and the key input cost ~460 B there), hellen121nissan 1128 B, hellen-honda-k 892 B,
+hellen154hyundai 1312 B; the nucleo_f429 HITL variant builds. The uaEFI branch of the preset needs
+`hellen_meta.h` for the MM100 pin names (the first uaEFI build failed without it).
+
+Open:
+- Bench on a uaEFI: ignition on with D5 open; the HZ-44 supply dip test (7 / 6.5 / 6 / 5.5 V for
+  0.1 / 0.15 / 0.2 / 0.3 / 1 s) then measures the board's own limit.
+- The hybrid controller decodes 0x20C (hybrid_ctrl), forwards CHT with NaN for failed, and the rest
+  in an HCU status message (ID from clearwater design).
