@@ -224,6 +224,8 @@ TEST(DleTwin, dle120With60minus2Wheel) {
 	expectWheelRunsCleanly(engine_type_e::DLE_120_TWIN, trigger_type_e::TT_TOOTHED_WHEEL_60_2, 60, 2, 8000);
 }
 
+void sendCanVerbose();
+
 namespace {
 
 CANDriver verboseCan;
@@ -246,6 +248,20 @@ int s16At(uint32_t id, int offset) {
 	return static_cast<int16_t>(u16At(id, offset));
 }
 
+// One verbose broadcast into verboseFrames
+void captureVerboseBroadcast() {
+	engine->allowCanTx = true;
+	canTransmitMock = captureVerboseFrame;
+	CanTxMessage::setDevice(0, &verboseCan);
+	verboseFrames.clear();
+
+	sendCanVerbose();
+	while (CanTxMessage::serviceOne(0)) {
+	}
+	CanTxMessage::removeDevice(0);
+	canTransmitMock = nullptr;
+}
+
 } // namespace
 
 /**
@@ -255,10 +271,6 @@ int s16At(uint32_t id, int offset) {
 TEST(DleTwin, verboseCanLayoutForHybridController) {
 	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
 	setDle60Twin();
-	engine->allowCanTx = true;
-	canTransmitMock = captureVerboseFrame;
-	CanTxMessage::setDevice(0, &verboseCan);
-	verboseFrames.clear();
 
 	Sensor::setMockValue(SensorType::Rpm, 7250);
 	Sensor::setMockValue(SensorType::Tps1, 42.5);
@@ -277,12 +289,7 @@ TEST(DleTwin, verboseCanLayoutForHybridController) {
 	engine->module<TripOdometer>()->consumeFuel(37.5, getTimeNowNt());
 #endif
 
-	void sendCanVerbose();
-	sendCanVerbose();
-	while (CanTxMessage::serviceOne(0)) {
-	}
-	CanTxMessage::removeDevice(0);
-	canTransmitMock = nullptr;
+	captureVerboseBroadcast();
 
 	ASSERT_EQ(12u, verboseFrames.size());
 	// 0x200: warning counter, last error code, bit 0 of byte 4 = fuel or spark cut active
@@ -311,4 +318,39 @@ TEST(DleTwin, verboseCanLayoutForHybridController) {
 	// 0x209: EGT 1 and 2 / 5
 	EXPECT_EQ(122, verboseFrames.at(0x209)[0]);
 	EXPECT_EQ(128, verboseFrames.at(0x209)[1]);
+}
+
+/**
+ * Clearwater HZ-43: the head temperatures (CHT 1 on CLT, CHT 2 on AuxTemp1) reach the hybrid
+ * controller only as Sensors1's uint8 + 40. Nothing above 215 C fits, and a failed sensor (open, or
+ * above the thermistor's 250 C validation limit) goes out as 0 C, a cold engine.
+ */
+TEST(DleTwin, verboseCanHeadTemperatures) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+
+	// 215 C is the top of the byte
+	Sensor::setMockValue(SensorType::Clt, 215);
+	Sensor::setMockValue(SensorType::AuxTemp1, 180);
+	captureVerboseBroadcast();
+	EXPECT_EQ(255, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(220, verboseFrames.at(0x203)[4]);
+
+	// Above it the float to uint8 conversion is out of range (undefined behaviour; x86 and ARM wrap,
+	// 230 C reading -26 C): neither the temperature nor the top of the byte
+	Sensor::setMockValue(SensorType::Clt, 230);
+	captureVerboseBroadcast();
+	EXPECT_NE(255, verboseFrames.at(0x203)[2]);
+
+	// A failed sensor goes out as 0 C
+	Sensor::resetMockValue(SensorType::Clt);
+	Sensor::resetMockValue(SensorType::AuxTemp1);
+	ASSERT_FALSE(Sensor::get(SensorType::Clt).Valid);
+	ASSERT_FALSE(Sensor::get(SensorType::AuxTemp1).Valid);
+	captureVerboseBroadcast();
+	EXPECT_EQ(40, verboseFrames.at(0x203)[2]);
+	EXPECT_EQ(40, verboseFrames.at(0x203)[4]);
+
+	// and no other frame carries them
+	EXPECT_EQ(12u, verboseFrames.size());
 }
