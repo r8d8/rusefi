@@ -66,7 +66,7 @@ static void expectDleTwinCommon() {
 	EXPECT_NEAR(0, engineConfiguration->servoGovernorPid.dFactor, 1e-6);
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
-	EXPECT_EQ(600, engineConfiguration->servoGovernorEngageWindow);
+	EXPECT_EQ(1000, engineConfiguration->servoGovernorEngageWindow);
 	// A request lost in the run-up drops to the HCU's idle feed-forward (clearwater HZ-39)
 	EXPECT_EQ(12, engineConfiguration->servoThrottleLostRequestIdle);
 
@@ -506,17 +506,26 @@ TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
 /**
  * Clearwater stage 1.0 run-up (simulation 2026-10-23, SITL): on the derated DLE-60 with an 8 m/s
  * crosswind the autopilot's throttle curve settles the engine at 6881 rpm against the HCU's 7489 rpm
- * target. The governor engages only within servoGovernorEngageWindow under the target, so with
- * 600 rpm it never engages and the rotor hangs at 92 %, under the autopilot's run-up gate.
+ * target. The governor engages only within servoGovernorEngageWindow under the target: with 600 rpm
+ * it never engaged and the rotor hung at 92 %, under the autopilot's run-up gate. The DLE presets
+ * engage within 1000 rpm.
  */
 TEST(DleTwin, governorEngagesFromTheOpenLoopRunUp) {
 	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
 	setDle60Twin();
 	engine->module<ServoThrottle>()->reset();
 
+	// Just outside the window: still following the feed-forward
 	for (int i = 0; i < 200; i++) {
-		engine->module<ServoThrottle>()->update(51, 6881, 0.005f, 7489, true);
+		engine->module<ServoThrottle>()->update(51, 6488, 0.005f, 7489, true);
 	}
 	EXPECT_EQ(ServoGovernorState::Following, engine->module<ServoThrottle>()->getState());
 	EXPECT_NEAR(51, engine->module<ServoThrottle>()->getCommandPercent(), 1e-3);
+
+	// Where the crosswind run-up settled: governing, the trim opening the throttle towards the target
+	for (int i = 0; i < 200; i++) {
+		engine->module<ServoThrottle>()->update(51, 6881, 0.005f, 7489, true);
+	}
+	EXPECT_EQ(ServoGovernorState::Governing, engine->module<ServoThrottle>()->getState());
+	EXPECT_GT(engine->module<ServoThrottle>()->getCommandPercent(), 51 + 10);
 }

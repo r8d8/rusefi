@@ -210,14 +210,17 @@ static void setDleTwinCommon(float maxRpm) {
 	engineConfiguration->servoGovernorPid.dFactor = 0;
 	engineConfiguration->servoGovernorPid.minValue = -20;
 	engineConfiguration->servoGovernorPid.maxValue = 20;
-	// Engages within 600 rpm (~9 %) under the target: in the SITL run-up the low-collective throttle
-	// curve left the engine ~560 rpm under the target with the generator loaded, so the default
-	// 300 rpm window never engaged
-	engineConfiguration->servoGovernorEngageWindow = 600;
+	// Engages within 1000 rpm (~13 %) under the target. The window only sets where the governor
+	// first engages (once governing it stays engaged), and the open-loop run-up settles wherever the
+	// autopilot's throttle curve puts it: the default 300 never engaged with the generator loaded
+	// (~560 rpm under), and 600 missed by 8 rpm on stage 1.0's derated engine in an 8 m/s crosswind
+	// (6881 against 7489; clearwater simulation 2026-10-23, user decision 2026-10-24)
+	engineConfiguration->servoGovernorEngageWindow = 1000;
 	// A request lost in the run-up drops to the HCU's 12% idle feed-forward instead of holding a part
 	// throttle: the stage 1.1 helicopter's stiff in-plane rotor head must not dwell at its 3/rev and
 	// 2/rev lag crossings, ~480 and ~730 rotor rpm (~3240 / ~4930 engine rpm at 6.75:1; clearwater
-	// HZ-39). From the engage window on (6150 rpm, rotor ~911) a lost request is held, as in flight:
+	// HZ-39). From the engage window on (stage 1.1: 5750 rpm, rotor ~852; stage 1.0: 6496 rpm, rotor
+	// ~850 - where the hybrid controller also ends its run-up) a lost request is held, as in flight:
 	// the autopilot completes its run-up at 970 rotor rpm, and no lift-off may come before that.
 	engineConfiguration->servoThrottleLostRequestIdle = 12;
 
