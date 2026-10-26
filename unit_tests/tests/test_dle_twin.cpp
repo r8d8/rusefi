@@ -502,3 +502,21 @@ TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
 	// Unit tests are no uaEFI: the preset leaves the key input to the board here
 	EXPECT_FALSE(isBrainPinValid(engineConfiguration->ignitionKeyDigitalPin));
 }
+
+/**
+ * Clearwater stage 1.0 run-up (simulation 2026-10-23, SITL): on the derated DLE-60 with an 8 m/s
+ * crosswind the autopilot's throttle curve settles the engine at 6881 rpm against the HCU's 7489 rpm
+ * target. The governor engages only within servoGovernorEngageWindow under the target, so with
+ * 600 rpm it never engages and the rotor hangs at 92 %, under the autopilot's run-up gate.
+ */
+TEST(DleTwin, governorEngagesFromTheOpenLoopRunUp) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	engine->module<ServoThrottle>()->reset();
+
+	for (int i = 0; i < 200; i++) {
+		engine->module<ServoThrottle>()->update(51, 6881, 0.005f, 7489, true);
+	}
+	EXPECT_EQ(ServoGovernorState::Following, engine->module<ServoThrottle>()->getState());
+	EXPECT_NEAR(51, engine->module<ServoThrottle>()->getCommandPercent(), 1e-3);
+}
