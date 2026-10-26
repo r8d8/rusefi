@@ -1748,3 +1748,34 @@ Open:
   0.1 / 0.15 / 0.2 / 0.3 / 1 s) then measures the board's own limit.
 - The hybrid controller decodes 0x20C (hybrid_ctrl), forwards CHT with NaN for failed, and the rest
   in an HCU status message (ID from clearwater design).
+
+## 2026-10-26 - DLE presets: servo governor engage window 600 -> 1000 rpm
+
+Clearwater stage 1.0 run-up (simulation 2026-10-23, SITL): on the derated DLE-60 (78 %, 1500 m
+ISA+15, the hybrid controller's target 7489 rpm) with an 8 m/s crosswind, the autopilot's throttle
+curve gives 51 % at the landing collective and settles the engine at 6881 rpm - 8 rpm under the
+600 rpm engage window. The governor never engaged, the rotor hung at 92 % and the autopilot's 97 %
+run-up gate never opened. The user chose both fixes (2026-10-24): a higher low end on the throttle
+curve (simulation's parameter set) and a 1000 rpm window here (clearwater shared number
+`gov_window_rpm`, design 4a8b816).
+
+The window only sets where the governor first engages: once governing, `governorStep()` stays
+engaged until the request drops below `servoGovernorMinRequest` or RPM is lost, however far the
+engine droops. At 1000 rpm the run-up end of `servoThrottleLostRequestIdle` (HZ-39) moves to rotor
+~852 rpm on stage 1.1 (5750 engine rpm at 6.75:1) and ~850 on stage 1.0 (6496 at 7.642:1), where
+the hybrid controller also ends its run-up (`Arm_Rotor_Rpm` 850). With Kp 0.04 %/rpm the trim is at
+its +20 % limit on engaging at either window; simulation re-checks the engagement overshoot and the
+crosswind run-up.
+
+| Change | Content |
+|---|---|
+| coverage | `DleTwin.governorEngagesFromTheOpenLoopRunUp`: 51 % feed-forward at 6881 rpm against 7489 - still following (the 600 window) |
+| fix | `servoGovernorEngageWindow` 1000 in both DLE presets; the test expects governing at 6881 (trim opening the throttle past 61 %) and following just outside the window (6488); `dle60Configuration` expects 1000 |
+
+Validation: coverage - DleTwin 14 / 14 on the 600 window; fix - all unit tests 1464 / 1464 (GCC 13,
+8 jobs). No firmware code changed (a preset value), so no flash change. Simulation (2026-10-26, SITL, its
+governor model): with 1000 and the raised throttle-curve low end every one of nine run-ups engages at rotor
+850 and reaches the 97 % gate in 9.5 - 20 s; the rotor then overshoots +3.6 to +5.3 % (+3.2 % with 600).
+
+Open: the overshoot after engagement - a setpoint ramp from the engagement speed is proposed (simulation
+models it first, the user decides); the gains were swept with the 600 window and are untested on the engine.
