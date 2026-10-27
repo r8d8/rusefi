@@ -1838,3 +1838,78 @@ preset the uaEFI build already compiles.
 
 Open: the engine's speed at the 12 % start throttle (first engine run); the DLE-120 keeps 900 until
 stage 1.1's starter is known.
+
+## 2026-10-27 - DLE-60 preset: coil 2 on the trailing output, the Grom 125 injector
+
+Clearwater stage 1.0 (user decisions 2026-10-27): each plug gets its own passive single-fire coil on
+uaEFI's optional IGBTs (ISL9V3040D3ST; Q7 / Q8 fitted and R20 / R21 removed - to check against the
+delivered board's revision), and the fuel system is the Honda Grom 125 pump unit with its Keihin
+injector (~80 cc/min, unverified). The engine model stays one cylinder (both pistons reach TDC
+together), so coil 2 goes on rusEFI's trailing output with the trailing table at 0:
+`turnSparkPinHighStartCharging()` schedules its charge from coil 1's dwell start and
+`fireSparkAndPrepareNextSchedule()` its firing from coil 1's spark, both through `scheduleByAngle()`
+at `trailingSparkAngle`, so at 0 both switch at the same timestamp. A cut spark never starts its
+dwell (`limitedSpark`), so no trailing charge is scheduled either; with the trigger lost mid-dwell
+the over-dwell protection fires coil 1 at 1.5 x the dwell through the same function, which releases
+coil 2. Gaps found in the review, none reachable with this preset: that function returns before the
+trailing fire when the dwell angle or dwell is NaN (only `dwellDutyModeEnabled` at 0 rpm), which
+would leave coil 2 charged; kick-start cranking (off) fires `coils[0]` / `coils[1]` only;
+`getTrailingSparkAngle()` gives 10 deg for a NaN load (alpha-N reports 100 % for a failed TPS).
+
+Dwell stays at rusEFI's defaults, now set by the preset: 4 ms running, 6 ms cranking - on the coil's
+listing (3 ohm, 16 mH) ~2.1 A / ~36 mJ and ~2.7 A / ~58 mJ. Injector flow 80: on the preset's
+starting VE and lambda (1.3 ms dead time, the unit tests' 0 V bin) full-throttle duty is 80 % at the
+governed 7500 rpm and 89 % at the rated 8500; design's estimate from the rated fuel flow is higher
+(91 - 94 % at 7500 with 0.8 - 1.0 ms of dead time). A 110 - 120 cc/min injector of the same fit for
+full power (HZ-28). The HITL Nucleo's coil 2 is PF15 (Zio D2; the plant's G474 PA1, TIM2 CH2,
+simulation 2026-10-27); it stays idle under the bench's default DLE-120 preset.
+
+| Change | Content |
+|---|---|
+| coverage | `DleTwin.dle60SecondCoil` (coil 1 once a revolution, 6 / 4 ms dwell at 1000 / 3000 / 7500 rpm, the trailing output idle), `everySparkCutCutsBothCoils` (hard rev limit, engine stop, Lua cut) and `trailingCoilReleasedWhenTheTriggerStopsInDwell` with the trailing spark at 0 set by the test, `dle60Configuration` / `dle120Configuration` trailing off, DLE-60 100 cc/min; the wheel spinner records both coil outputs event by event (`CoilEdges`) |
+| fix | DLE-60: `enableTrailingSparks`, trailing table 0, `setConstantDwell(4)`, cranking dwell 6, `injector.flow` 80, on uaEFI coil 1 MM100_IGN1 (B15) and coil 2 MM100_IGN2 (B14); HITL Nucleo `trailingCoilPins[0]` PF15. Tests: coil 2 edge for edge with coil 1 at the same timestamps, the cut and trigger tests on the preset alone, `dle60InjectorDutyAtRatedPower` at 7500 (< 85 %) and 8500 (85 - 100 %) |
+
+Validation: coverage - DleTwin 18 / 18 on the old preset; fix - all unit tests 1473 / 1473 (GCC, WSL,
+8 jobs). Firmware (local GCC 14.2, clean build): uaEFI F4 4124 B free, the change costs 64 B.
+
+Open: the IGBT positions, the coil current and the spark on the bench; the injector's flow and dead
+time at 12 / 14 V; a timing light on both plugs at the first engine run.
+
+## 2026-10-27 - 0x20C marks a failed IAT; the HCU sends it as unknown
+
+Clearwater fcs (HITL bench, image I, no intake sensor fitted): the autopilot logged the intake
+temperature as 273.25 K. Sensors1 (base + 3) sends `getOrZero(Iat)`, so an absent or failed sensor
+goes out as exactly 0 C; the hybrid controller passed it on, and DroneCAN's float16 rounds 273.15 K to
+273.25 K. Nothing in the frames told 0 C from no sensor - the heads' case before 0x20C (HZ-43). 0x20C
+is full, so its byte 5 now holds the governor state in bits 0 - 1 (values 0 - 3, as before) and
+`iatInvalid` in bit 2; a valid IAT leaves the byte as it was. hybrid_ctrl decodes the bit and sends
+NaN, and from a rusEFI without it treats exactly 0 C as unknown, as for the heads. rusEFI's fueling
+is unaffected: alpha-N falls back to its standard 20 C for a failed IAT.
+
+| Change | Content |
+|---|---|
+| coverage | `DleTwin.verboseCanIntakeTemperature`: 23 C is byte 63; without the sensor byte 40 (0 C), 0x20C byte 5 the governor state alone |
+| fix | `HybridStatus::governorState : 2`, `iatInvalid : 1`; DBC BASE12 `GovernorState` 2 bits, `IatInvalid` bit 42. The test expects 0x04 without the sensor, 0x06 with the governor governing, 0x02 with -5 C |
+
+Validation: coverage - DleTwin and ServoThrottleCan 39 / 39 on the old code; fix - all unit tests (see
+below).
+
+## 2026-10-27 - HCU stop: one console message per stop
+
+Clearwater simulation (HITL image I): while the hybrid controller sends RUN = 0, rusEFI printed
+"Let's stop this engine!" on every command frame (100 Hz), filling its text log. Since 0f104f59467
+(2026-10-13) every RUN = 0 frame after the third renews the stop window through
+`doScheduleStopEngine()`, which also prints; the header still said the stop was issued once per
+transition. The renewals now go to `ShutdownController::stopEngine()` directly; the stop itself still
+goes through `doScheduleStopEngine()`. The standing stop is unchanged (`stopHoldsWhileRunStaysZero`).
+
+| Change | Content |
+|---|---|
+| coverage | `ServoThrottleCan.stopMessageWhileRunStaysZero` (a `LoggingTestSink` counting the message): 1 at the stop, 101 after 1 s of RUN = 0, 102 after RUN = 1 and a new stop |
+| fix | the renewal without the message, the header's stop paragraph; the test expects 1, then 2 |
+
+Validation: coverage - with the IAT coverage above; fixes - all unit tests 1475 / 1475 (GCC, WSL, 8 jobs).
+Firmware (local GCC 14.2, clean build): uaEFI F4 4052 B free with all three changes, the IAT bit and the
+stop renewal 72 B.
+
+Open: HITL image J (both fixes and coil 2) on the bench.
