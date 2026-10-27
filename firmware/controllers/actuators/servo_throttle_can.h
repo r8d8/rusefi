@@ -22,12 +22,13 @@
  * like a lost pulse request: a lost command never stops the engine. Before the first counted frame
  * the throttle is closed.
  *
- * Stop: RUN = 0 in HCU_ENGINE_CMD_STOP_FRAMES consecutive counted frames schedules one engine stop
- * (doScheduleStopEngine, StopRequestedReason::CanCommand), and a counted RUN = 1 frame re-arms it.
- * The stop is issued once per run-to-stop transition, not on every frame while RUN stays 0: each
- * doScheduleStopEngine() restarts the engineShutDownPeriod window and prints to the console, so at
- * 100 Hz it would flood the console and keep the window open for as long as RUN = 0. After the
- * window the engine stays stopped because nothing cranks it - cranking is the HCU's job.
+ * Stop: RUN = 0 in HCU_ENGINE_CMD_STOP_FRAMES consecutive counted frames stops the engine
+ * (doScheduleStopEngine, StopRequestedReason::CanCommand), and every counted RUN = 0 frame after it
+ * renews the engineShutDownPeriod window (ShutdownController::stopEngine), so spark and fuel stay cut
+ * for as long as RUN = 0 lasts. Only the stop itself prints to the console: at 100 Hz a message per
+ * frame would flood it. A counted RUN = 1 frame re-arms the count and ends a stop of ours at once
+ * (cancelStop). With the command lost the window runs out engineShutDownPeriod after the last
+ * RUN = 0 frame; the engine then stays stopped because nothing cranks it - cranking is the HCU's job.
  *
  * Threads: frames are decoded in the CAN RX thread and the command is read by the 200 Hz fast
  * callback (which the trigger ISR also runs once when RPM appears). The command and its timestamp

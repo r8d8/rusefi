@@ -518,8 +518,8 @@ private:
 	priv::LoggingTestSink* m_previous;
 };
 
-// Every RUN = 0 frame after the stop renews its window (stopHoldsWhileRunStaysZero) through
-// doScheduleStopEngine(), which prints: at the command's 100 Hz the console fills with the message
+// Every RUN = 0 frame after the stop renews its window (stopHoldsWhileRunStaysZero), but only the
+// stop prints: at the command's 100 Hz a message per frame would fill the console
 TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
 	StopMessages messages;
 	const HcuCmd stop = stopCmd(1200);
@@ -537,14 +537,15 @@ TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
 		send(stop);
 	}
 	EXPECT_TRUE(isEngineStopRequested());
-	EXPECT_EQ(101, messages.count);
+	EXPECT_EQ(1, messages.count);
+	EXPECT_EQ((uint8_t)StopRequestedReason::CanCommand, engine->outputChannels.stopEngineCode);
 
 	// RUN = 1, then a new stop
 	send(run);
 	send(stop);
 	send(stop);
 	send(stop);
-	EXPECT_EQ(102, messages.count);
+	EXPECT_EQ(2, messages.count);
 }
 
 // RUN = 1 after a CAN stop ends the stop window, so a new start is not fuel- and spark-cut for
