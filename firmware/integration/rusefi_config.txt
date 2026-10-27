@@ -2063,6 +2063,8 @@ end_struct
 	custom ServoThrottleRequestSource 1 bits, U08, @OFFSET@, [0:0], "PWM input", "CAN"
 	ServoThrottleRequestSource servoThrottleRequestSource;Servo throttle: request source. PWM input: the PWM input TPS pulse. CAN: the hybrid controller's HCU_ENGINE_CMD frame (feed-forward, governor target and on/off, run/stop). A lost request is held.
 	uint16_t servoThrottleCanId;Servo throttle: 11-bit CAN ID of HCU_ENGINE_CMD. 0 = 416 (0x1A0).;"", 1, 0, 0, 2047, 0
+	! In the padding before the bit word, so every existing field keeps its offset and a stored tune reads 0 (off)
+	uint16_t servoGovernorEngageRampRpmPerS;Servo throttle governor: when the governor engages, its reference starts at the engine RPM and rises at this rate to the target, never below the engine RPM, so the trim does not start saturated by the error of a run-up engagement and carry the engine through the target. Once at the target it tracks the target. 0 = off (the reference is the target at once).;"rpm/s", 1, 0, 0, 20000, 0
 
 	! --- Servo throttle governor ---
 	bit servoGovernorEnabled,"enabled","disabled";Servo throttle governor: closed-loop engine speed control. The throttle request becomes feed-forward and a PID adds a trim to hold the target RPM. Follows the request without governing while it is below the minimum request (idle, motor interlock off, autorotation) and until RPM first comes within the engage window.

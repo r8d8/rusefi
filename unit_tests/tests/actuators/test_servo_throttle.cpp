@@ -197,6 +197,8 @@ TEST(ServoGovernor, defaults) {
 	EXPECT_EQ(0, engineConfiguration->servoThrottleOverspeedRpm);
 	// Off: a lost request is always held
 	EXPECT_EQ(0, engineConfiguration->servoThrottleLostRequestIdle);
+	// Off: the reference is the target at once
+	EXPECT_EQ(0, engineConfiguration->servoGovernorEngageRampRpmPerS);
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
 }
@@ -238,22 +240,93 @@ TEST(ServoGovernor, engagesBumplessInsideWindow) {
 
 // Clearwater stage 1.0 run-up (simulation 2026-10-26): with the 1000 rpm engage window the
 // governor engages ~1000 rpm under the target. The PID starts from zero, but its P term alone
-// (0.04 %/rpm in the DLE presets) saturates the +20 % trim at once, and that carries the engine
-// through the target: the rotor overshot by +3.6 to +5.3 %.
-TEST(ServoGovernor, engagingFarUnderTheTargetSaturatesTheTrimAtOnce) {
-	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+// (0.04 %/rpm in the DLE presets) saturated the +20 % trim at once, and that carried the engine
+// through the target: the rotor overshot by +3.6 to +5.3 %. With the engagement ramp the
+// reference starts at the engine RPM and rises at servoGovernorEngageRampRpmPerS.
+static void configureRunUpEngagement(int rampRpmPerS) {
 	configureGovernor();
 	engineConfiguration->servoGovernorTargetRpm = 7489;
 	engineConfiguration->servoGovernorEngageWindow = 1000;
 	engineConfiguration->servoGovernorPid.pFactor = 0.04;
 	engineConfiguration->servoGovernorPid.iFactor = 0.1;
+	engineConfiguration->servoGovernorEngageRampRpmPerS = rampRpmPerS;
+}
+
+TEST(ServoGovernor, engagingFarUnderTheTargetRampsTheReference) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureRunUpEngagement(500);
 
 	servo().update(51.0f, rpmOf(6400), dt);
 	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
 	servo().update(51.0f, rpmOf(6500), dt);
 	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	// Reference 6500 + 500 rpm/s x 5 ms: P = 0.04 x 2.5, I = 0.1 x 0.005 x 2.5
+	EXPECT_NEAR(6502.5, servo().getReference(), 1e-2);
+	EXPECT_NEAR(0.10125, servo().getTrim(), 1e-3);
+	EXPECT_NEAR(51.10125, servo().getCommandPercent(), 1e-3);
+
+	// An engine that does not follow: the reference keeps rising at the rate
+	for (int i = 0; i < 199; i++) {
+		servo().update(51.0f, rpmOf(6500), dt);
+	}
+	EXPECT_NEAR(7000, servo().getReference(), 1e-1);
+}
+
+// 0 = off: the reference is the target at once and the trim saturates, as before the ramp
+TEST(ServoGovernor, engageRampOffSaturatesTheTrimAtOnce) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureRunUpEngagement(0);
+
+	servo().update(51.0f, rpmOf(6500), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(7489, servo().getReference(), EPS4D);
 	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
 	EXPECT_NEAR(71, servo().getCommandPercent(), EPS4D);
+}
+
+// An engine the feed-forward accelerates faster than the ramp is not held back: the reference
+// never falls below the engine RPM, so the trim does not turn negative
+TEST(ServoGovernor, engageRampNeverFallsBelowTheEngine) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureRunUpEngagement(500);
+
+	servo().update(51.0f, rpmOf(6500), dt);
+	servo().update(51.0f, rpmOf(7000), dt);
+	EXPECT_NEAR(7000, servo().getReference(), 1e-2);
+	EXPECT_GE(servo().getTrim(), 0);
+	EXPECT_LT(servo().getTrim(), 0.01);
+}
+
+// At the target the ramp ends: from then on the reference is the target, a new target included
+TEST(ServoGovernor, engageRampEndsAtTheTarget) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureRunUpEngagement(500);
+
+	servo().update(51.0f, rpmOf(6500), dt);
+	// The engine follows the reference: 989 rpm at 2.5 rpm a step, 396 steps
+	for (int i = 0; i < 400; i++) {
+		servo().update(51.0f, rpmOf(servo().getReference()), dt);
+	}
+	EXPECT_NEAR(7489, servo().getReference(), EPS4D);
+	engineConfiguration->servoGovernorTargetRpm = 7600;
+	servo().update(51.0f, rpmOf(7489), dt);
+	EXPECT_NEAR(7600, servo().getReference(), EPS4D);
+}
+
+// Every engagement ramps again, e.g. after a low request (practice autorotation) turned it off
+TEST(ServoGovernor, engageRampRestartsOnReEngagement) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureRunUpEngagement(500);
+
+	for (int i = 0; i < 400; i++) {
+		servo().update(51.0f, rpmOf(7489), dt);
+	}
+	EXPECT_NEAR(7489, servo().getReference(), EPS4D);
+	servo().update(5.0f, rpmOf(7000), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	servo().update(51.0f, rpmOf(6600), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(6602.5, servo().getReference(), 1e-2);
 }
 
 TEST(ServoGovernor, onTargetCommandEqualsRequest) {
@@ -454,6 +527,11 @@ TEST(ServoGovernor, configLayout) {
 		offsetof(engine_configuration_s, servoThrottleLostRequestIdle)) << "the old padding byte";
 	EXPECT_EQ(offsetof(engine_configuration_s, servoThrottleLostRequestIdle) + 1,
 		offsetof(engine_configuration_s, servoThrottleOverspeedRpm)) << "nothing after it moved";
+	// servoGovernorEngageRampRpmPerS took the padding after the CAN ID, before the bit word
+	EXPECT_EQ(offsetof(engine_configuration_s, servoThrottleCanId) + 2,
+		offsetof(engine_configuration_s, servoGovernorEngageRampRpmPerS)) << "the old padding";
+	EXPECT_EQ(offsetof(engine_configuration_s, servoThrottleCanId) + 8,
+		offsetof(engine_configuration_s, servoGovernorTargetRpm)) << "the bit word and the target did not move";
 }
 
 

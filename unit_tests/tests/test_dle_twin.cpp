@@ -67,6 +67,8 @@ static void expectDleTwinCommon() {
 	EXPECT_EQ(-20, engineConfiguration->servoGovernorPid.minValue);
 	EXPECT_EQ(20, engineConfiguration->servoGovernorPid.maxValue);
 	EXPECT_EQ(1000, engineConfiguration->servoGovernorEngageWindow);
+	// The reference ramps from the engagement RPM instead of saturating the trim at once
+	EXPECT_EQ(500, engineConfiguration->servoGovernorEngageRampRpmPerS);
 	// A request lost in the run-up drops to the HCU's idle feed-forward (clearwater HZ-39)
 	EXPECT_EQ(12, engineConfiguration->servoThrottleLostRequestIdle);
 

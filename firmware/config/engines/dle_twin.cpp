@@ -216,6 +216,11 @@ static void setDleTwinCommon(float maxRpm) {
 	// (~560 rpm under), and 600 missed by 8 rpm on stage 1.0's derated engine in an 8 m/s crosswind
 	// (6881 against 7489; clearwater simulation 2026-10-23, user decision 2026-10-24)
 	engineConfiguration->servoGovernorEngageWindow = 1000;
+	// Engaging ~1000 rpm under the target, the P term alone saturates the +20 % trim and carries the
+	// engine through the target (stage 1.0: rotor +3.6 to +5.3 %). The reference instead ramps from the
+	// engagement RPM at 500 rpm/s (~2 s to the target): +1.1 to +1.5 %, the run-up gate at most 1.4 s
+	// later, a power recovery not slowed (clearwater simulation 2026-10-26, user decision)
+	engineConfiguration->servoGovernorEngageRampRpmPerS = 500;
 	// A request lost in the run-up drops to the HCU's 12% idle feed-forward instead of holding a part
 	// throttle: the stage 1.1 helicopter's stiff in-plane rotor head must not dwell at its 3/rev and
 	// 2/rev lag crossings, ~480 and ~730 rotor rpm (~3240 / ~4930 engine rpm at 6.75:1; clearwater

@@ -25,7 +25,10 @@
  * Modes:
  * - passthrough (governor disabled): command = request.
  * - governor: the request is feed-forward and a PID trim holds servoGovernorTargetRpm. The
- *   governor engages once RPM comes within servoGovernorEngageWindow of the target, and is off
+ *   governor engages once RPM comes within servoGovernorEngageWindow of the target - with
+ *   servoGovernorEngageRampRpmPerS its reference then starts at the engine RPM and rises at that rate
+ *   to the target, never below the engine RPM, so the trim does not start saturated by the engagement
+ *   error and carry the engine through the target - and is off
  *   (command follows the request) while the request is below servoGovernorMinRequest - that is how
  *   idle, motor interlock off and autorotation reach the throttle. A lost request keeps the
  *   governor holding speed on the last feed-forward. While the feed-forward is not live - the
@@ -105,6 +108,11 @@ public:
 		return m_runUpDone;
 	}
 
+	// The governor's reference: the engagement ramp while it runs, else the target (last step)
+	float getReference() const {
+		return m_reference;
+	}
+
 	// Overspeed entries since boot, wrapping. reset() keeps it, so a reader counts by difference.
 	uint8_t getOverspeedEntries() const {
 		return m_overspeedEntries;
@@ -126,6 +134,9 @@ private:
 	bool m_requestValid = false;
 	bool m_runUpDone = false;
 	bool m_feedForwardLive = false;
+	// Engagement ramp (servoGovernorEngageRampRpmPerS) still below the target
+	bool m_ramping = false;
+	float m_reference = 0;
 	uint8_t m_overspeedEntries = 0;
 	ServoGovernorState m_state = ServoGovernorState::Passthrough;
 };

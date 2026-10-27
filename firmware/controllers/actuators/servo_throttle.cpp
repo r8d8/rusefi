@@ -41,6 +41,8 @@ void ServoThrottle::reset() {
 	m_requestValid = false;
 	m_runUpDone = false;
 	m_feedForwardLive = false;
+	m_ramping = false;
+	m_reference = 0;
 	m_state = ServoGovernorState::Passthrough;
 }
 
@@ -88,6 +90,9 @@ ServoGovernorState ServoThrottle::governorStep(percent_t feedForward, SensorResu
 
 		// Bumpless engage: the trim starts from zero, so the command does not jump
 		m_pid.initPidClass(pidConfig);
+		// The engagement ramp starts at the engine RPM
+		m_ramping = engineConfiguration->servoGovernorEngageRampRpmPerS > 0 && rpm.Value < target;
+		m_reference = rpm.Value;
 	} else if (feedForwardLive && !m_feedForwardLive) {
 		// Live again: the trim that made up for the stale feed-forward is not needed any more
 		m_pid.reset();
@@ -107,7 +112,20 @@ ServoGovernorState ServoThrottle::governorStep(percent_t feedForward, SensorResu
 	// Anti-windup: the integrator never exceeds the trim authority
 	m_pid.iTermMin = trimMin;
 	m_pid.iTermMax = trimMax;
-	m_trim = clampF(trimMin, m_pid.getUnclampedOutput(target, rpm.Value, dtSeconds), trimMax);
+	// Engagement ramp: the reference rises from the engagement RPM at servoGovernorEngageRampRpmPerS,
+	// never below the engine RPM (an engine the feed-forward alone accelerates is not held back) and never
+	// above the target. A run-up engages ~servoGovernorEngageWindow under the target, and that whole
+	// error at once saturates the trim and carries the engine through the target (clearwater stage 1.0:
+	// the rotor +3.6 to +5.3 % with the 1000 rpm window, +1.1 to +1.5 % with a 500 rpm/s ramp).
+	if (m_ramping) {
+		m_reference = std::min(target, std::max(m_reference + engineConfiguration->servoGovernorEngageRampRpmPerS * dtSeconds,
+			rpm.Value));
+		m_ramping = m_reference < target;
+	} else {
+		m_reference = target;
+	}
+
+	m_trim = clampF(trimMin, m_pid.getUnclampedOutput(m_reference, rpm.Value, dtSeconds), trimMax);
 	m_pid.output = m_trim;
 	return ServoGovernorState::Governing;
 }
