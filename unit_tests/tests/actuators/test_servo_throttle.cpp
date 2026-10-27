@@ -236,6 +236,26 @@ TEST(ServoGovernor, engagesBumplessInsideWindow) {
 	EXPECT_NEAR(52.02, servo().getCommandPercent(), 1e-3);
 }
 
+// Clearwater stage 1.0 run-up (simulation 2026-10-26): with the 1000 rpm engage window the
+// governor engages ~1000 rpm under the target. The PID starts from zero, but its P term alone
+// (0.04 %/rpm in the DLE presets) saturates the +20 % trim at once, and that carries the engine
+// through the target: the rotor overshot by +3.6 to +5.3 %.
+TEST(ServoGovernor, engagingFarUnderTheTargetSaturatesTheTrimAtOnce) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	configureGovernor();
+	engineConfiguration->servoGovernorTargetRpm = 7489;
+	engineConfiguration->servoGovernorEngageWindow = 1000;
+	engineConfiguration->servoGovernorPid.pFactor = 0.04;
+	engineConfiguration->servoGovernorPid.iFactor = 0.1;
+
+	servo().update(51.0f, rpmOf(6400), dt);
+	EXPECT_EQ(ServoGovernorState::Following, servo().getState());
+	servo().update(51.0f, rpmOf(6500), dt);
+	EXPECT_EQ(ServoGovernorState::Governing, servo().getState());
+	EXPECT_NEAR(20, servo().getTrim(), EPS4D);
+	EXPECT_NEAR(71, servo().getCommandPercent(), EPS4D);
+}
+
 TEST(ServoGovernor, onTargetCommandEqualsRequest) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	configureGovernor();
