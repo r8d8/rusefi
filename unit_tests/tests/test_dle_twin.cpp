@@ -9,8 +9,10 @@
 #include "servo_throttle.h"
 #include "servo_throttle_can.h"
 
+#include <algorithm>
 #include <array>
 #include <map>
+#include <vector>
 
 template<typename TValue, int TSize>
 static void expectStrictlyAscending(const TValue (&bins)[TSize]) {
@@ -88,6 +90,10 @@ TEST(DleTwin, dle60Configuration) {
 	EXPECT_NEAR(0.061, engineConfiguration->displacement, EPS4D);
 	EXPECT_EQ(9000, engineConfiguration->rpmHardLimit);
 
+	// One coil output; the trailing output unused
+	EXPECT_FALSE(engineConfiguration->enableTrailingSparks);
+	EXPECT_EQ(100, engineConfiguration->injector.flow);
+
 	// Stage 1.0 head temperatures: 47 kOhm B3950 on CLT and AuxTemp1, the B-equation's curve
 	for (ThermistorConf* sensor : { &engineConfiguration->clt, &engineConfiguration->auxTempSensor1 }) {
 		ThermistorFunc func;
@@ -106,6 +112,8 @@ TEST(DleTwin, dle120Configuration) {
 	expectDleTwinCommon();
 	EXPECT_NEAR(0.120, engineConfiguration->displacement, EPS4D);
 	EXPECT_EQ(8500, engineConfiguration->rpmHardLimit);
+	// The two-tower coil on one output
+	EXPECT_FALSE(engineConfiguration->enableTrailingSparks);
 }
 
 // The presets leave pins to the board; give the test an injector and a coil
@@ -113,6 +121,42 @@ static void assignTestPins(engine_configuration_s* c) {
 	c->injectionPins[0] = Gpio::A1;
 	c->ignitionPins[0] = Gpio::A2;
 }
+
+// The coil outputs' edges with their times (the stage 1.0 ignition tests at the end)
+struct CoilEdges {
+	struct Edge {
+		efitimeus_t us;
+		bool high;
+	};
+
+	struct Output {
+		const OutputPin& pin;
+		bool high;
+		std::vector<Edge> edges;
+
+		explicit Output(const OutputPin& output) : pin(output), high(output.getLogicValue()) {
+		}
+
+		void sample() {
+			if (pin.getLogicValue() != high) {
+				high = !high;
+				edges.push_back({ getTimeNowUs(), high });
+			}
+		}
+
+		int rises() const {
+			return std::count_if(edges.begin(), edges.end(), [](const Edge& edge) { return edge.high; });
+		}
+	};
+
+	Output coil{ enginePins.coils[0] };
+	Output trailing{ enginePins.trailingCoils[0] };
+
+	void sample() {
+		coil.sample();
+		trailing.sample();
+	}
+};
 
 // Rising edge at the start of each present tooth, falling edge half a tooth pitch later. Speed ramps
 // linearly from fromRpm to toRpm over the revolutions; edge times are accumulated exactly so that
@@ -123,12 +167,38 @@ struct WheelSpinner {
 	int missingTeeth;
 	double timeUs = 0;
 	double firedUs = 0;
+	// When set, the scheduled events run one at a time, each at its own time, and the coils are
+	// sampled after each: every edge gets its time
+	CoilEdges* coils = nullptr;
+	// Stop the wheel as soon as coil 1 charges: the trigger lost mid-dwell
+	bool stopInDwell = false;
 
 	void advance(double us) {
 		timeUs += us;
 		int step = (int)(timeUs - firedUs);
-		eth.moveTimeForwardAndInvokeEventsUs(step);
 		firedUs += step;
+		if (!coils) {
+			eth.moveTimeForwardAndInvokeEventsUs(step);
+			return;
+		}
+		efitick_t targetNt = getTimeNowNt() + US2NT(step);
+		while (scheduling_s* next = engine->scheduler.getHead()) {
+			if (next->getMomentNt() > targetNt) {
+				break;
+			}
+			eth.setTimeAndInvokeEventsNt(next->getMomentNt());
+			coils->sample();
+		}
+		eth.setTimeAndInvokeEventsNt(targetNt);
+		coils->sample();
+	}
+
+	bool stopped() {
+		if (!coils) {
+			return false;
+		}
+		coils->sample();
+		return stopInDwell && coils->coil.high;
 	}
 
 	void spin(float fromRpm, float toRpm, int revolutions) {
@@ -138,12 +208,24 @@ struct WheelSpinner {
 			for (int tooth = 0; tooth < totalTeeth; tooth++) {
 				bool present = tooth < totalTeeth - missingTeeth;
 				advance(halfToothUs);
+				if (stopped()) {
+					return;
+				}
 				if (present) {
 					eth.firePrimaryTriggerRise();
 				}
+				if (stopped()) {
+					return;
+				}
 				advance(halfToothUs);
+				if (stopped()) {
+					return;
+				}
 				if (present) {
 					eth.firePrimaryTriggerFall();
+				}
+				if (stopped()) {
+					return;
 				}
 			}
 		}
@@ -555,4 +637,125 @@ TEST(DleTwin, dle60StarterSpeedStaysCranking) {
 	EXPECT_TRUE(engine->rpmCalculator.isRunning());
 	engine->rpmCalculator.setRpmValue(1500);
 	EXPECT_TRUE(engine->rpmCalculator.isRunning());
+}
+
+// ---- Stage 1.0 ignition: a passive coil per cylinder (clearwater, user decision 2026-10-27) ----
+
+/**
+ * The DLE-60 on the preset's 36-1 wheel, both coil outputs recorded. Stage 1.0 fires each cylinder's
+ * plug from its own passive single-fire coil on uaEFI's IGBTs: coil 1 on the main output, coil 2 on
+ * rusEFI's trailing output at 0 degrees, which charges from the main dwell's start and fires from
+ * the main spark.
+ */
+struct Dle60Bench {
+	EngineTestHelper eth{ engine_type_e::DLE_60_TWIN, assignTestPins };
+	WheelSpinner spinner{ eth, 36, 1 };
+
+	Dle60Bench() {
+		engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
+		Sensor::setMockValue(SensorType::Tps1, 30);
+	}
+
+	// From starter speed in ramps the decoder follows, then steady
+	void runUpTo(float rpm) {
+		spinner.spin(1000, 1000, 20);
+		if (rpm > 1000) {
+			spinner.spin(1000, rpm, 40 * (int)std::ceil((rpm - 1000) / 2500));
+			spinner.spin(rpm, rpm, 10);
+		}
+	}
+
+	void record(CoilEdges& edges, float rpm, int revolutions) {
+		spinner.coils = &edges;
+		spinner.spin(rpm, rpm, revolutions);
+		spinner.coils = nullptr;
+	}
+};
+
+// rusEFI's trailing spark at 0 degrees, the way stage 1.0 uses it
+static void setTrailingSparkAtZero() {
+	engineConfiguration->enableTrailingSparks = true;
+	setTable(config->trailingSparkTable, 0);
+}
+
+static void expectDwellUs(const CoilEdges::Output& output, float dwellUs, float rpm) {
+	for (size_t i = 0; i + 1 < output.edges.size(); i++) {
+		if (output.edges[i].high) {
+			EXPECT_NEAR(dwellUs, output.edges[i + 1].us - output.edges[i].us, 50) << rpm << " edge " << i;
+		}
+	}
+}
+
+TEST(DleTwin, dle60SecondCoil) {
+	// Starter speed (cranking up to 1700), the run-up and the governed speed
+	for (float rpm : { 1000.0f, 3000.0f, 7500.0f }) {
+		Dle60Bench bench;
+		bench.runUpTo(rpm);
+		CoilEdges edges;
+		bench.record(edges, rpm, 20);
+
+		// Coil 1: a spark a revolution, 6 ms of dwell cranking and 4 ms running
+		EXPECT_NEAR(20, edges.coil.rises(), 1) << rpm;
+		expectDwellUs(edges.coil, rpm < 1700 ? 6000 : 4000, rpm);
+		// The preset drives one coil: the trailing output stays idle
+		EXPECT_TRUE(edges.trailing.edges.empty()) << rpm;
+	}
+}
+
+// rusEFI cuts a spark by not starting its dwell, and the trailing coil charges from the main dwell:
+// every spark cut cuts both coils and leaves neither charged. The ignition-off cut (HZ-44) is not
+// compiled into unit tests; it clears the same spark permission.
+TEST(DleTwin, everySparkCutCutsBothCoils) {
+	std::pair<const char*, void (*)()> cuts[] = {
+		{ "hard rev limit", [] { engineConfiguration->rpmHardLimit = 2500; } },
+		{ "engine stop", [] { doScheduleStopEngine(StopRequestedReason::Console); } },
+		{ "Lua spark cut", [] { engine->engineState.lua.luaIgnCut = true; } },
+	};
+	for (auto [name, cut] : cuts) {
+		Dle60Bench bench;
+		setTrailingSparkAtZero();
+		bench.runUpTo(3000);
+		CoilEdges before;
+		bench.record(before, 3000, 5);
+		EXPECT_NEAR(5, before.coil.rises(), 1) << name;
+		EXPECT_EQ(before.coil.rises(), before.trailing.rises()) << name;
+
+		cut();
+		// A dwell started before the cut still ends in its spark
+		bench.spinner.spin(3000, 3000, 2);
+		CoilEdges during;
+		bench.record(during, 3000, 10);
+		EXPECT_EQ(0, during.coil.rises()) << name;
+		EXPECT_EQ(0, during.trailing.rises()) << name;
+		EXPECT_FALSE(during.coil.high) << name;
+		EXPECT_FALSE(during.trailing.high) << name;
+	}
+}
+
+// The trigger lost while both coils charge (a sensor or wiring fault): the main spark waits for a
+// tooth that never comes, rusEFI's over-dwell protection fires coil 1 at 1.5 x the dwell, and the
+// trailing spark is scheduled from that firing, so coil 2 is released with it
+TEST(DleTwin, trailingCoilReleasedWhenTheTriggerStopsInDwell) {
+	Dle60Bench bench;
+	setTrailingSparkAtZero();
+	bench.runUpTo(3000);
+
+	CoilEdges edges;
+	bench.spinner.coils = &edges;
+	bench.spinner.stopInDwell = true;
+	bench.spinner.spin(3000, 3000, 2);
+	ASSERT_TRUE(edges.coil.high);
+	ASSERT_TRUE(edges.trailing.high);
+	auto overDwells = engine->engineState.overDwellCanceledCounter;
+
+	// No more teeth
+	bench.spinner.advance(100'000);
+	EXPECT_FALSE(edges.coil.high);
+	EXPECT_FALSE(edges.trailing.high);
+	EXPECT_EQ(overDwells + 1, engine->engineState.overDwellCanceledCounter);
+	ASSERT_EQ(2u, edges.coil.edges.size());
+	ASSERT_EQ(2u, edges.trailing.edges.size());
+	EXPECT_NEAR(1.5 * 4000, edges.coil.edges[1].us - edges.coil.edges[0].us, 50);
+	EXPECT_EQ(edges.coil.edges[0].us, edges.trailing.edges[0].us);
+	EXPECT_EQ(edges.coil.edges[1].us, edges.trailing.edges[1].us);
 }
