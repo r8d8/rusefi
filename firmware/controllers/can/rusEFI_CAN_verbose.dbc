@@ -139,7 +139,8 @@ BO_ 524 BASE12: 8 Vector__XXX
  SG_ RunUpDone : 36|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ IgnitionOn : 37|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ OverspeedEntries : 38|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ GovernorState : 40|8@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ GovernorState : 40|2@1+ (1,0) [0|3] "" Vector__XXX
+ SG_ IatInvalid : 42|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ FuelCutReason : 48|8@1+ (1,0) [0|255] "" Vector__XXX
  SG_ SparkCutReason : 56|8@1+ (1,0) [0|255] "" Vector__XXX
 
@@ -206,6 +207,7 @@ CM_ SG_ 524 RunUpDone "RPM has reached the governor engage window since the engi
 CM_ SG_ 524 IgnitionOn "Ignition state; off cuts fuel and spark";
 CM_ SG_ 524 OverspeedEntries "Servo throttle overspeed entries since boot, modulo 4";
 CM_ SG_ 524 GovernorState "0 passthrough, 1 following, 2 governing, 3 overspeed";
+CM_ SG_ 524 IatInvalid "IAT failed or not configured; BASE3 then carries it as 0 C";
 CM_ SG_ 524 FuelCutReason "ClearReason (limp_manager.h), 0 = not cut";
 CM_ SG_ 524 SparkCutReason "ClearReason (limp_manager.h), 0 = not cut";
 

@@ -470,8 +470,9 @@ TEST(DleTwin, verboseCanHeadTemperatures) {
 
 /**
  * The intake air temperature (clearwater fcs, HITL bench 2026-10-27, no intake sensor fitted):
- * Sensors1 carries it as a uint8 + 40, and an absent or failed sensor as 0 C, which nothing else
- * marks. The hybrid controller passes 0 C on to the autopilot (273.25 K in DroneCAN's float16).
+ * Sensors1 carries it as a uint8 + 40, and an absent or failed sensor as 0 C, which the hybrid
+ * controller passed on to the autopilot (273.25 K in DroneCAN's float16). 0x20C byte 5 bit 2 marks
+ * it failed, bits 0-1 stay the governor state.
  */
 TEST(DleTwin, verboseCanIntakeTemperature) {
 	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
@@ -487,8 +488,17 @@ TEST(DleTwin, verboseCanIntakeTemperature) {
 	ASSERT_FALSE(Sensor::get(SensorType::Iat).Valid);
 	captureVerboseBroadcast();
 	EXPECT_EQ(40, verboseFrames.at(0x203)[3]);
-	// 0x20C byte 5 is the governor state alone
-	EXPECT_EQ(0, verboseFrames.at(0x20C)[5]);
+	EXPECT_EQ(0x04, verboseFrames.at(0x20C)[5]);
+
+	// With the governor state
+	engine->module<ServoThrottle>()->update(47, 7650, 0.005f, 7650, true);
+	ASSERT_EQ(ServoGovernorState::Governing, engine->module<ServoThrottle>()->getState());
+	captureVerboseBroadcast();
+	EXPECT_EQ(0x04 | static_cast<int>(ServoGovernorState::Governing), verboseFrames.at(0x20C)[5]);
+	Sensor::setMockValue(SensorType::Iat, -5);
+	captureVerboseBroadcast();
+	EXPECT_EQ(35, verboseFrames.at(0x203)[3]);
+	EXPECT_EQ(static_cast<int>(ServoGovernorState::Governing), verboseFrames.at(0x20C)[5]);
 }
 
 /**

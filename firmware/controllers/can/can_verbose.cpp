@@ -289,7 +289,10 @@ struct HybridStatus {
 	uint8_t overspeedEntries : 2;
 
 	// ServoGovernorState: 0 passthrough, 1 following, 2 governing, 3 overspeed (throttle closed)
-	uint8_t governorState;
+	uint8_t governorState : 2;
+	// The IAT failed or unconfigured: Sensors1 then sends it as 0 C
+	uint8_t iatInvalid : 1;
+	uint8_t : 5;
 	// ClearReason, 0 = not cut
 	uint8_t fuelCutReason;
 	uint8_t sparkCutReason;
@@ -309,6 +312,7 @@ static int16_t packTenthsC(SensorType type) {
 void populateFrame(HybridStatus& msg) {
 	msg.clt = packTenthsC(SensorType::Clt);
 	msg.auxTemp1 = packTenthsC(SensorType::AuxTemp1);
+	msg.iatInvalid = !Sensor::get(SensorType::Iat).Valid;
 
 #if HAS_SERVO_THROTTLE_CAN
 	HcuEngineCommand command;
