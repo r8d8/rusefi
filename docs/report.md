@@ -1812,3 +1812,29 @@ Validation: coverage - ServoGovernor 25 / 25 on the old code; fix - all unit tes
 8 jobs). Firmware (local GCC 14.2, clean build): uaefi 4188 B free (the ramp costs 176 B there).
 
 Open: the gains and the ramp are untested on the engine; a bench run-up on the HITL rig.
+
+## 2026-10-27 - DLE-60 preset: cranking RPM 1700, above the stage 1.0 starter
+
+Clearwater stage 1.0's starter (design 2026-10-27, user's choice): a T-Motor AT4120 KV250 on 12S
+through 12T/97T (8.083:1) with centrifugal pawls, driven by a FOC VESC in PPM current mode. It turns
+the DLE-60 at ~1050 rpm under load, each compression costing ~25 %, and at most ~1560 rpm free on a
+full pack (250 x 50.4 V / 8.083). `RpmCalculator::setRpmValue()` moves CRANKING -> RUNNING the first
+time RPM reaches `cranking.rpm` and keeps RUNNING while the engine turns (the cranking hysteresis), so
+at the preset's 1000 the starter alone put rusEFI on running fuel and timing before the engine had
+fired. `cranking.rpm` is now 1700: 9 % above the starter's no-load limit (a +-5 % KV tolerance still
+clears) and under the hybrid controller's 1800 rpm start confirm. Once the engine has fired and run
+past 1700, an idle below it stays RUNNING. Condition (the same one the hybrid controller's start
+confirm relies on): after firing, at the start throttle, the engine must pass ~1800 rpm before it
+settles; the first engine run measures its speed at the 12 % start throttle, warm and cold.
+
+| Change | Content |
+|---|---|
+| coverage | `DleTwin.dle60StarterSpeedStaysCranking`: at 1000 the starter's 1050 rpm puts rusEFI in RUNNING, and a compression's 800 rpm stays RUNNING |
+| fix | DLE-60 `cranking.rpm` 1700; the test expects CRANKING at 1050 / 800 / 1500 / 1560, RUNNING at 1800 and still RUNNING at a 1500 idle |
+
+Validation: unit tests 1470 / 1470 (GCC, WSL; make -j8). The coverage test passed against the old preset
+first (DleTwin 15 / 15), then with the fix. No firmware build: the change is one constant in a
+preset the uaEFI build already compiles.
+
+Open: the engine's speed at the 12 % start throttle (first engine run); the DLE-120 keeps 900 until
+stage 1.1's starter is known.
