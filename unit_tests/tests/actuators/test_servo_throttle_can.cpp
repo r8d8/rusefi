@@ -12,6 +12,9 @@
 #include "servo_throttle.h"
 #include "servo_throttle_can.h"
 
+#include <algorithm>
+#include <string_view>
+
 namespace {
 
 ServoThrottle& servo() {
@@ -484,6 +487,64 @@ TEST_F(ServoThrottleCan, stopHoldsWhileRunStaysZero) {
 	send(stop);
 	EXPECT_EQ((uint8_t)StopRequestedReason::CanCommand, engine->outputChannels.stopEngineCode);
 	EXPECT_TRUE(isEngineStopRequested());
+}
+
+// Counts the console lines that announce an engine stop (doScheduleStopEngine)
+class StopMessages : public priv::LoggingTestSink {
+public:
+	StopMessages() : m_previous(priv::setLoggingTestSink(this)) {
+	}
+
+	~StopMessages() override {
+		priv::setLoggingTestSink(m_previous);
+	}
+
+	LogLineBuffer* acquire() override {
+		return &m_line;
+	}
+
+	void publish(LogLineBuffer* submitted) override {
+		// The line buffer is reused: read only up to its terminator
+		const char* end = std::find(submitted->buffer, submitted->buffer + sizeof(submitted->buffer), '\0');
+		if (std::string_view(submitted->buffer, end - submitted->buffer).find("Let's stop this engine!") != std::string_view::npos) {
+			count++;
+		}
+	}
+
+	int count = 0;
+
+private:
+	LogLineBuffer m_line{};
+	priv::LoggingTestSink* m_previous;
+};
+
+// Every RUN = 0 frame after the stop renews its window (stopHoldsWhileRunStaysZero) through
+// doScheduleStopEngine(), which prints: at the command's 100 Hz the console fills with the message
+TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
+	StopMessages messages;
+	const HcuCmd stop = stopCmd(1200);
+	const HcuCmd run = runCmd(1200);
+
+	send(stop);
+	send(stop);
+	EXPECT_EQ(0, messages.count);
+	send(stop);
+	EXPECT_EQ(1, messages.count);
+
+	// RUN stays 0 for 1 s
+	for (int i = 0; i < 100; i++) {
+		eth.moveTimeForwardMs(10);
+		send(stop);
+	}
+	EXPECT_TRUE(isEngineStopRequested());
+	EXPECT_EQ(101, messages.count);
+
+	// RUN = 1, then a new stop
+	send(run);
+	send(stop);
+	send(stop);
+	send(stop);
+	EXPECT_EQ(102, messages.count);
 }
 
 // RUN = 1 after a CAN stop ends the stop window, so a new start is not fuel- and spark-cut for
