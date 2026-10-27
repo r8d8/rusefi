@@ -90,9 +90,19 @@ TEST(DleTwin, dle60Configuration) {
 	EXPECT_NEAR(0.061, engineConfiguration->displacement, EPS4D);
 	EXPECT_EQ(9000, engineConfiguration->rpmHardLimit);
 
-	// One coil output; the trailing output unused
-	EXPECT_FALSE(engineConfiguration->enableTrailingSparks);
-	EXPECT_EQ(100, engineConfiguration->injector.flow);
+	// Stage 1.0: coil 2 on the trailing output, fired with coil 1; dwell 4 ms running, 6 ms cranking
+	EXPECT_TRUE(engineConfiguration->enableTrailingSparks);
+	for (auto& row : config->trailingSparkTable) {
+		for (auto angle : row) {
+			EXPECT_NEAR(0, angle, EPS4D);
+		}
+	}
+	for (auto dwell : config->sparkDwellValues) {
+		EXPECT_NEAR(4, dwell, EPS4D);
+	}
+	EXPECT_NEAR(6, engineConfiguration->ignitionDwellForCrankingMs, EPS4D);
+	// The Grom 125's Keihin injector
+	EXPECT_EQ(80, engineConfiguration->injector.flow);
 
 	// Stage 1.0 head temperatures: 47 kOhm B3950 on CLT and AuxTemp1, the B-equation's curve
 	for (ThermistorConf* sensor : { &engineConfiguration->clt, &engineConfiguration->auxTempSensor1 }) {
@@ -251,10 +261,17 @@ static float injectorDutyAtWot(engine_type_e type, float rpm) {
 	return engine->engineState.injectionDuration / revolutionMs;
 }
 
+// The DLE-60's injector is stage 1.0's, the Grom 125's ~80 cc/min: below ~85 % at the governed
+// 7500 rpm, but above at the rated 8500 - on the preset's starting VE and lambda, with the unit
+// tests' 1.3 ms dead time (0 V battery). Design's estimate from the rated fuel flow is higher still: a
+// larger injector for full power (clearwater HZ-28, see setDle60Twin)
 TEST(DleTwin, dle60InjectorDutyAtRatedPower) {
-	float duty = injectorDutyAtWot(engine_type_e::DLE_60_TWIN, 8500);
-	EXPECT_LT(duty, 0.85);
-	EXPECT_GT(duty, 0.40);
+	float governed = injectorDutyAtWot(engine_type_e::DLE_60_TWIN, 7500);
+	EXPECT_LT(governed, 0.85);
+	EXPECT_GT(governed, 0.40);
+	float rated = injectorDutyAtWot(engine_type_e::DLE_60_TWIN, 8500);
+	EXPECT_GT(rated, 0.85);
+	EXPECT_LT(rated, 1.0);
 }
 
 TEST(DleTwin, dle120InjectorDutyAtRatedPower) {
@@ -672,12 +689,6 @@ struct Dle60Bench {
 	}
 };
 
-// rusEFI's trailing spark at 0 degrees, the way stage 1.0 uses it
-static void setTrailingSparkAtZero() {
-	engineConfiguration->enableTrailingSparks = true;
-	setTable(config->trailingSparkTable, 0);
-}
-
 static void expectDwellUs(const CoilEdges::Output& output, float dwellUs, float rpm) {
 	for (size_t i = 0; i + 1 < output.edges.size(); i++) {
 		if (output.edges[i].high) {
@@ -697,8 +708,12 @@ TEST(DleTwin, dle60SecondCoil) {
 		// Coil 1: a spark a revolution, 6 ms of dwell cranking and 4 ms running
 		EXPECT_NEAR(20, edges.coil.rises(), 1) << rpm;
 		expectDwellUs(edges.coil, rpm < 1700 ? 6000 : 4000, rpm);
-		// The preset drives one coil: the trailing output stays idle
-		EXPECT_TRUE(edges.trailing.edges.empty()) << rpm;
+		// Coil 2 on the trailing output: charged and fired with coil 1, edge for edge
+		ASSERT_EQ(edges.coil.edges.size(), edges.trailing.edges.size()) << rpm;
+		for (size_t i = 0; i < edges.coil.edges.size(); i++) {
+			EXPECT_EQ(edges.coil.edges[i].high, edges.trailing.edges[i].high) << rpm << " edge " << i;
+			EXPECT_EQ(edges.coil.edges[i].us, edges.trailing.edges[i].us) << rpm << " edge " << i;
+		}
 	}
 }
 
@@ -713,7 +728,6 @@ TEST(DleTwin, everySparkCutCutsBothCoils) {
 	};
 	for (auto [name, cut] : cuts) {
 		Dle60Bench bench;
-		setTrailingSparkAtZero();
 		bench.runUpTo(3000);
 		CoilEdges before;
 		bench.record(before, 3000, 5);
@@ -737,7 +751,6 @@ TEST(DleTwin, everySparkCutCutsBothCoils) {
 // trailing spark is scheduled from that firing, so coil 2 is released with it
 TEST(DleTwin, trailingCoilReleasedWhenTheTriggerStopsInDwell) {
 	Dle60Bench bench;
-	setTrailingSparkAtZero();
 	bench.runUpTo(3000);
 
 	CoilEdges edges;

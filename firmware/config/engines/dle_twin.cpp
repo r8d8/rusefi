@@ -7,9 +7,10 @@
  *
  * Engine model: both pistons of the boxer reach TDC together and the stock DLE "TWIN" ignition
  * fires both plugs at once from one hub magnet. For fueling and spark scheduling that is one
- * two-stroke cylinder of the full displacement: cylindersCount = 1, and one ignition output drives
- * a two-tower (wasted-spark style) coil that fires both plugs in series. Confirm simultaneous
- * firing on the actual engine with a timing light on both plugs.
+ * two-stroke cylinder of the full displacement: cylindersCount = 1, one spark a revolution. The
+ * DLE-120 drives a two-tower (wasted-spark style) coil that fires both plugs in series from one
+ * output; the DLE-60 a passive coil per plug, the second on rusEFI's trailing output at 0 degrees
+ * (setDle60Twin). Confirm simultaneous firing on the actual engine with a timing light on both plugs.
  *
  * Trigger: a 36-1 crank wheel fitted to the engine, read by a Hall gear-tooth sensor
  * (TT_TOOTHED_WHEEL_36_1, two-stroke cycle = 360 degrees). 36-1 rather than 60-2: both decode
@@ -36,7 +37,8 @@
  *   passes the sensor 90 degrees BTDC. MEASURE IT with a timing light (cranking timing is fixed)
  *   before the first start - an error here goes straight into ignition timing.
  * - VE and timing tables are generic shapes; tune VE with a wideband sensor.
- * - Injector flow is for the injector size suggested for each engine; set the real one.
+ * - Injector flow: the DLE-60's is clearwater stage 1.0's part (to be measured), the DLE-120's a
+ *   suggested size; set the real one.
  *
  * Engine data (DLE manuals / dealer listings):
  *   DLE-60:  61 cc, bore 36 mm, stroke 30 mm, 7.0 hp @ 8500 rpm, 1400-8500 rpm, CR 7.6:1, oil 30:1
@@ -121,7 +123,8 @@ static void setDleTwinCommon(float maxRpm) {
 	engineConfiguration->trigger.type = trigger_type_e::TT_TOOTHED_WHEEL_36_1;
 	engineConfiguration->globalTriggerAngleOffset = DLE_TRIGGER_ANGLE_BTDC;
 
-	// One output, two-tower coil firing both plugs
+	// One spark a revolution: a two-tower coil firing both plugs from one output (the DLE-60 adds a
+	// second coil, see setDle60Twin)
 	engineConfiguration->ignitionMode = IM_ONE_COIL;
 	engineConfiguration->crankingTimingAngle = 5;
 
@@ -256,7 +259,7 @@ static void setDle47kHeadThermistor(ThermistorConf& sensor) {
 
 /**
  * DLE-60 Twin: 61 cc, 7.0 hp @ 8500 rpm, 1400-8500 rpm.
- * Fuel at rated power ~5.2 kW x 540 g/kWh ~ 47 g/min: a ~100 cc/min injector stays below ~85% duty.
+ * Fuel at rated power ~5.2 kW x 540 g/kWh ~ 47 g/min, ~65 cc/min.
  */
 void setDle60Twin() {
 	setDleTwinCommon(/*maxRpm*/ 8500);
@@ -265,7 +268,33 @@ void setDle60Twin() {
 	engineConfiguration->displacement = 0.061;
 	engineConfiguration->cylinderBore = 36;
 
-	engineConfiguration->injector.flow = 100;
+	// Stage 1.0's fuel system (clearwater, user decision 2026-10-27): the Honda Grom 125 pump unit and
+	// its Keihin injector, ~80 cc/min (unverified for this part; the bench measures its flow and dead
+	// time at 12 and 14 V). Short of full power: design's estimate from the rated fuel flow (~65 cc/min)
+	// is ~81 % of each revolution at the governed 7500 rpm and full throttle before the dead time, ~91 -
+	// 94 % with 0.8 - 1.0 ms of it, ~7 % margin. The starting VE and lambda below ask for less (~80 % at
+	// 7500 and ~89 % at 8500 with 1.3 ms, test_dle_twin.cpp); the tune decides. A 110 - 120 cc/min
+	// injector of the same fit (Keihin CJR-1780, Koso DB016120) for full power (clearwater HZ-28)
+	engineConfiguration->injector.flow = 80;
+
+	// Stage 1.0 ignition (clearwater, user decision 2026-10-27): a passive single-fire coil per plug
+	// on uaEFI's optional IGBTs (Q7 / Q8 fitted, R20 / R21 removed - check on the delivered board's
+	// revision). Coil 1 on the main output, coil 2 on rusEFI's trailing output at 0 degrees: it
+	// charges from coil 1's dwell start and fires from coil 1's spark, so both plugs fire together as
+	// from the stock ignition, and every spark cut and the over-dwell protection cover both
+	// (test_dle_twin.cpp)
+	engineConfiguration->enableTrailingSparks = true;
+	setTable(config->trailingSparkTable, 0);
+#ifdef HW_HELLEN_UAEFI
+	// B15 Coil 1, B14 Coil 2
+	engineConfiguration->ignitionPins[0] = Gpio::MM100_IGN1;
+	engineConfiguration->trailingCoilPins[0] = Gpio::MM100_IGN2;
+#endif // HW_HELLEN_UAEFI
+	// Provisional dwell, rusEFI's defaults: on the coil's listing (3 ohm, 16 mH, ~4 A at 12 V) 4 ms
+	// running charges ~2.1 A / ~36 mJ and 6 ms cranking ~2.7 A / ~58 mJ. The bench measures the coil
+	// current and the spark
+	setConstantDwell(4);
+	engineConfiguration->ignitionDwellForCrankingMs = 6;
 
 	// rusEFI leaves cranking for running the first time RPM reaches this and stays running while the
 	// engine turns. Stage 1.0's starter (T-Motor AT4120 KV250 on 12S through 12T/97T, 8.083:1) turns the

@@ -68,6 +68,9 @@ static void nucleoHitlDefaultConfiguration() {
 	engineConfiguration->tachOutputPin = Gpio::E13;
 	// D9 -> plant spark input: the engine only makes torque while this fires
 	engineConfiguration->ignitionPins[0] = Gpio::D15;
+	// D2 -> plant's second spark input (G474 PA1): the DLE-60 preset's coil 2, on the trailing output
+	// at 0 degrees; idle under the DLE-120 preset
+	engineConfiguration->trailingCoilPins[0] = Gpio::F15;
 	// D10, not wired; assigned so injection is scheduled as on the engine
 	engineConfiguration->injectionPins[0] = Gpio::D14;
 	// D4 <- HCU ecu-stop output (active high pulse)
