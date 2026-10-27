@@ -1779,3 +1779,36 @@ governor model): with 1000 and the raised throttle-curve low end every one of ni
 
 Open: the overshoot after engagement - a setpoint ramp from the engagement speed is proposed (simulation
 models it first, the user decides); the gains were swept with the 600 window and are untested on the engine.
+
+## 2026-10-26 - Servo governor: the reference ramps from the engagement RPM
+
+With the 1000 rpm engage window the governor engages ~1000 rpm under its target in the run-up.
+The PID starts from zero (bumpless), but its P term alone (0.04 %/rpm in the DLE presets) saturates
+the +20 % trim at once, and that carries the engine through the target: in clearwater simulation's
+stage 1.0 runs (2026-10-26, SITL) the rotor overshot by +3.6 to +5.3 % (1032 rpm on the 91 % engine),
+past ArduPilot's 104 % overspeed limiter threshold. User decision (2026-10-26): a setpoint ramp.
+
+New `servoGovernorEngageRampRpmPerS` (rpm/s, 0 = off). On each engagement (Following -> Governing)
+the governor's reference starts at the engine RPM and becomes min(target, max(reference + rate x dt,
+RPM)) each step until it reaches the target; from then on it is the target (later target changes are
+not ramped). The `max(.., RPM)` keeps the reference from falling behind an engine the feed-forward
+alone accelerates, so a power recovery is never throttled back. The field takes the two padding
+bytes after `servoThrottleCanId` (before the bit word), so every existing offset holds and a stored
+tune reads 0 = off; `ServoGovernor.configLayout` checks it. The DLE presets set 500 rpm/s.
+`ServoThrottle::getReference()` exposes the reference.
+
+Simulation's sweep with this rule (powertrain.EcuGovernor, nine run-ups at 68 / 78 / 91 % engine,
+calm and 8 m/s crosswinds): R 300 +0.1 to +1.5 %, R 500 +1.1 to +1.5 % with the 97 % run-up gate at
+most 1.4 s later, R 1000 +2.2 to +2.8 %; a power recovery after a practice autorotation had the same
+timing with every R and the rotor never under 97 %. Model limits: the engine's spool-up and the
+clutch are assumed, the bail-out collective is a fixed 1 s pull, one wind seed.
+
+| Change | Content |
+|---|---|
+| coverage | `ServoGovernor.engagingFarUnderTheTargetSaturatesTheTrimAtOnce`: engaged at 6500 against 7489 with the DLE gains, the trim is +20 % on the first step |
+| fix | `servoGovernorEngageRampRpmPerS` (config, TS dialog), the reference in `governorStep()`; the test becomes `engagingFarUnderTheTargetRampsTheReference` (first step 6502.5, trim 0.10 %), plus `engageRampOffSaturatesTheTrimAtOnce`, `engageRampNeverFallsBelowTheEngine`, `engageRampEndsAtTheTarget`, `engageRampRestartsOnReEngagement` and the layout check; DLE presets 500 (`dle60Configuration`) |
+
+Validation: coverage - ServoGovernor 25 / 25 on the old code; fix - all unit tests 1469 / 1469 (GCC 13,
+8 jobs). Firmware (local GCC 14.2, clean build): uaefi 4188 B free (the ramp costs 176 B there).
+
+Open: the gains and the ramp are untested on the engine; a bench run-up on the HITL rig.
