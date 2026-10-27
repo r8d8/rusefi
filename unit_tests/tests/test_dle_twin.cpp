@@ -531,3 +531,22 @@ TEST(DleTwin, governorEngagesFromTheOpenLoopRunUp) {
 	EXPECT_EQ(ServoGovernorState::Governing, engine->module<ServoThrottle>()->getState());
 	EXPECT_GT(engine->module<ServoThrottle>()->getCommandPercent(), 51 + 10);
 }
+
+/**
+ * Clearwater stage 1.0 starter (design 2026-10-27): a T-Motor AT4120 KV250 on 12S through 12T/97T, 8.083:1,
+ * turns the DLE-60 at ~1050 rpm under load and up to ~1560 rpm free. rusEFI leaves cranking for running the first
+ * time RPM reaches cranking.rpm and stays running while the engine turns, so at 1000 the starter alone
+ * puts it on running fuel and timing before the engine has fired.
+ */
+TEST(DleTwin, dle60StarterSpeedStaysCranking) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+
+	engine->rpmCalculator.setRpmValue(0);
+	engine->rpmCalculator.setRpmValue(1050);
+	EXPECT_TRUE(engine->rpmCalculator.isRunning());
+	EXPECT_FALSE(engine->rpmCalculator.isCranking());
+	// a compression slows it, still "running"
+	engine->rpmCalculator.setRpmValue(800);
+	EXPECT_TRUE(engine->rpmCalculator.isRunning());
+}
