@@ -469,6 +469,29 @@ TEST(DleTwin, verboseCanHeadTemperatures) {
 }
 
 /**
+ * The intake air temperature (clearwater fcs, HITL bench 2026-10-27, no intake sensor fitted):
+ * Sensors1 carries it as a uint8 + 40, and an absent or failed sensor as 0 C, which nothing else
+ * marks. The hybrid controller passes 0 C on to the autopilot (273.25 K in DroneCAN's float16).
+ */
+TEST(DleTwin, verboseCanIntakeTemperature) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setDle60Twin();
+	engine->module<ServoThrottle>()->reset();
+
+	Sensor::setMockValue(SensorType::Iat, 23);
+	captureVerboseBroadcast();
+	EXPECT_EQ(63, verboseFrames.at(0x203)[3]);
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[5]);
+
+	Sensor::resetMockValue(SensorType::Iat);
+	ASSERT_FALSE(Sensor::get(SensorType::Iat).Valid);
+	captureVerboseBroadcast();
+	EXPECT_EQ(40, verboseFrames.at(0x203)[3]);
+	// 0x20C byte 5 is the governor state alone
+	EXPECT_EQ(0, verboseFrames.at(0x20C)[5]);
+}
+
+/**
  * 0x20C byte 4: the HCU_ENGINE_CMD state, FF_HELD, the feed-forward live, the run-up done, the
  * ignition state and the overspeed entries modulo 4; byte 5 the governor state; bytes 6 / 7 the fuel
  * and spark cut reasons.
