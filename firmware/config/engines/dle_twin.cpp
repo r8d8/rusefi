@@ -267,7 +267,12 @@ void setDle60Twin() {
 
 	engineConfiguration->injector.flow = 100;
 
-	engineConfiguration->cranking.rpm = 1000;
+	// rusEFI leaves cranking for running the first time RPM reaches this and stays running while the
+	// engine turns. Stage 1.0's starter (T-Motor AT4120 KV250 on 12S through 12T/97T, 8.083:1) turns the
+	// engine at ~1050 rpm loaded and at most ~1560 free, so 1700 keeps the cranking fuel and timing
+	// until the engine has fired and run past the starter; idle below it then stays running. The hybrid
+	// controller counts the engine as started at 1800 (clearwater design 2026-10-27, user decision)
+	engineConfiguration->cranking.rpm = 1700;
 	engineConfiguration->rpmHardLimit = 9000;
 	engineConfiguration->servoThrottleOverspeedRpm = 8700;
 	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated, as for the DLE-120

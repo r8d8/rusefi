@@ -535,18 +535,24 @@ TEST(DleTwin, governorEngagesFromTheOpenLoopRunUp) {
 /**
  * Clearwater stage 1.0 starter (design 2026-10-27): a T-Motor AT4120 KV250 on 12S through 12T/97T, 8.083:1,
  * turns the DLE-60 at ~1050 rpm under load and up to ~1560 rpm free. rusEFI leaves cranking for running the first
- * time RPM reaches cranking.rpm and stays running while the engine turns, so at 1000 the starter alone
- * puts it on running fuel and timing before the engine has fired.
+ * time RPM reaches cranking.rpm and stays running while the engine turns: at 1000 the starter alone put
+ * it on running fuel and timing before the engine had fired. The DLE-60 preset cranks up to 1700.
  */
 TEST(DleTwin, dle60StarterSpeedStaysCranking) {
 	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
 	setDle60Twin();
 
+	EXPECT_EQ(1700, engineConfiguration->cranking.rpm);
 	engine->rpmCalculator.setRpmValue(0);
-	engine->rpmCalculator.setRpmValue(1050);
+	// The starter under load, a compression slowing it, and its no-load limit: cranking throughout
+	for (float rpm : { 1050.0f, 800.0f, 1500.0f, 1560.0f }) {
+		engine->rpmCalculator.setRpmValue(rpm);
+		EXPECT_TRUE(engine->rpmCalculator.isCranking()) << rpm;
+		EXPECT_FALSE(engine->rpmCalculator.isRunning()) << rpm;
+	}
+	// Fired and past the starter: running, and an idle below 1700 stays running
+	engine->rpmCalculator.setRpmValue(1800);
 	EXPECT_TRUE(engine->rpmCalculator.isRunning());
-	EXPECT_FALSE(engine->rpmCalculator.isCranking());
-	// a compression slows it, still "running"
-	engine->rpmCalculator.setRpmValue(800);
+	engine->rpmCalculator.setRpmValue(1500);
 	EXPECT_TRUE(engine->rpmCalculator.isRunning());
 }
