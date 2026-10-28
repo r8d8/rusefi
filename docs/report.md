@@ -1935,3 +1935,20 @@ Validation: a build default only, no unit-test reach; HITL image K is built from
 Open: the plant (clearwater simulation) and the HCU's HITL builds still assume stage 1.1's drive
 (6.75, 19:1, 15-pulse hall); whether they move to stage 1.0's (7.668, 9.000, 14.927) is simulation's
 and the HCU's next step.
+
+## 2026-10-28 - Correction: the engine-type command; preset changes do not reach a configured board
+
+The console / TunerStudio command is `set engine_type 106` (`CMD_SET` + `CMD_ENGINE_TYPE` "engine_type"),
+not `set_engine_type 106` as the HITL entry above and commit 33fac9ad990 say: `set_engine_type` is no
+command and does nothing (clearwater simulation, 2026-10-28).
+
+Simulation also found that the HITL bench's stored settings still had `servoGovernorEngageWindow` 600
+and `servoGovernorEngageRampRpmPerS` 0 after images I and J, whose DLE presets set 1000 / 500. A preset
+runs only when the engine type is set or the configuration is reset, and a reflash with the same
+layout signature keeps the stored settings, so a changed preset default never reached the board. The
+same holds for the aircraft's uaEFI after a firmware update. Simulation set the bench to DLE_60_TWIN
+(`simulation/hitl/rusefi_preset.py`: page 0 saved first, then the engine type, a reboot and a read
+back), so it now runs 1000 / 500 and the DLE-60 preset.
+
+Open: how a preset change reaches boards in service (each tune changed by hand, or a migration) - the
+user's decision.
