@@ -52,7 +52,7 @@ static void nucleoHardwareCiConfigOverrides() {
 #if HW_NUCLEO_F429_HITL
 /**
  * Hybrid controller (HCU) hardware-in-the-loop bench, see r8d8/hybrid_ctrl docs/hitl.md: this
- * Nucleo stands in for uaEFI running the DLE-120 preset, between a plant emulator (G474: crank
+ * Nucleo stands in for uaEFI running the DLE-60 preset, between a plant emulator (G474: crank
  * wheel, engine and rotor model) and the HCU (H755). Pins on the Zio (Arduino) header, at the
  * same positions as the HCU's Nucleo-144 signals.
  */
@@ -69,7 +69,7 @@ static void nucleoHitlDefaultConfiguration() {
 	// D9 -> plant spark input: the engine only makes torque while this fires
 	engineConfiguration->ignitionPins[0] = Gpio::D15;
 	// D2 -> plant's second spark input (G474 PA1): the DLE-60 preset's coil 2, on the trailing output
-	// at 0 degrees; idle under the DLE-120 preset
+	// at 0 degrees; idle under the DLE-120 preset (one two-tower coil)
 	engineConfiguration->trailingCoilPins[0] = Gpio::F15;
 	// D10, not wired; assigned so injection is scheduled as on the engine
 	engineConfiguration->injectionPins[0] = Gpio::D14;
