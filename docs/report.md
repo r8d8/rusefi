@@ -1913,3 +1913,25 @@ Firmware (local GCC 14.2, clean build): uaEFI F4 4052 B free with all three chan
 stop renewal 72 B.
 
 Open: HITL image J (both fixes and coil 2) on the bench.
+
+## 2026-10-28 - HITL Nucleo: the DLE-60 preset by default
+
+The HITL bench moves to clearwater stage 1.0's engine (user decision 2026-10-28): the
+stm32f429_nucleo_hitl build's `DEFAULT_ENGINE_TYPE` is now `DLE_60_TWIN` (was `DLE_120_TWIN`, the stage
+1.1 baseline; it stays selectable). The default applies only to a blank or reset configuration: a
+bench that already holds a DLE-120 tune keeps it across a reflash with the same signature, and
+switches with `set_engine_type 106` (console or TunerStudio), which resets the configuration to the
+board defaults (the HITL pins, coil 2 on PF15) plus the DLE-60 preset. With the DLE-60 the bench gets
+coil 2 on the trailing output, cranking up to 1700 rpm, the 80 cc/min injector, the 9000 rpm hard
+limit, overspeed at 8700 and the 7650 rpm fallback governor target (the HCU's TARGET_RPM still
+governs).
+
+| Change | Content |
+|---|---|
+| board | `nucleo_f429/board.mk` HITL `DEFAULT_ENGINE_TYPE` DLE_60_TWIN; the comments there and in `board_configuration.cpp` |
+
+Validation: a build default only, no unit-test reach; HITL image K is built from this commit.
+
+Open: the plant (clearwater simulation) and the HCU's HITL builds still assume stage 1.1's drive
+(6.75, 19:1, 15-pulse hall); whether they move to stage 1.0's (7.668, 9.000, 14.927) is simulation's
+and the HCU's next step.
