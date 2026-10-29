@@ -1952,3 +1952,19 @@ back), so it now runs 1000 / 500 and the DLE-60 preset.
 
 Open: how a preset change reaches boards in service (each tune changed by hand, or a migration) - the
 user's decision.
+
+## 2026-10-28 - Decision: DLE preset changes reach boards in service by procedure
+
+User decision on the open item above: by procedure, no firmware migration (clearwater `hcu/README.md`
+4.7, clearwater 0a6c282).
+
+- A commit that changes a DLE preset value names each changed field and its new value in its report
+  entry (and clearwater's hcu change log names the same).
+- The aircraft uaEFI keeps its own calibration (sensors, throttle servo, trims), so each named field is
+  set by hand in TunerStudio with the engine stopped, burnt and read back; `set engine_type 106` would
+  re-apply the whole preset and drop that calibration.
+- The HITL bench re-applies the preset with simulation's `rusefi_preset.py` after each image that
+  changes a preset value.
+
+Validation: a procedure only, no code change. Images J -> K change no preset value (K only makes
+DLE_60_TWIN the HITL default), so the bench, already set to DLE_60_TWIN by simulation, needs nothing.
