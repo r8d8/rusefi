@@ -52,6 +52,7 @@
 #if defined(HW_HELLEN_UAEFI) || EFI_UNIT_TEST
 // uaEFI's MM100_* pins (setDleTwinUaefiPins)
 #include "hellen_meta.h"
+#include "defaults.h"
 #endif
 
 #if EFI_SERVO_THROTTLE
@@ -236,8 +237,8 @@ static void setDleTwinCommon(float maxRpm) {
  * Stage 1.0 head temperatures (user decision 2026-10-21): a 47 kOhm NTC, B 3950, on each head - CHT 1
  * on CLT, CHT 2 on AuxTemp1 (its 4.7 kOhm pull-up is in the harness; CLT has the board's). Provisional
  * points from the B-equation at 0 / 100 / 200 C (the range TunerStudio takes); the final three come
- * from the bought part's R-T table. The pull-up value and the AuxTemp1 input pin stay the board's and
- * the harness's. On a 4.7 kOhm pull-up the part reads as open below about -7 C (above 0.98 x 5 V),
+ * from the bought part's R-T table. The pull-up value stays the board's and the harness's; on uaEFI
+ * AuxTemp1 is D1 (setDle60TwinUaefiPins). On a 4.7 kOhm pull-up the part reads as open below about -7 C (above 0.98 x 5 V),
  * and rusEFI rejects a reading above CLT_UPPER_VALIDATION_LIMIT (250 C).
  */
 static void setDle47kHeadThermistor(ThermistorConf& sensor) {
@@ -325,10 +326,36 @@ void setDle120Twin() {
 
 #if defined(HW_HELLEN_UAEFI) || EFI_UNIT_TEST
 /**
- * uaEFI's connector pins for both presets. The rest stays the board's (board_configuration.cpp):
- * injector 1 B6, fuel pump B16, main relay B9, fan B8.
+ * uaEFI's connector pins for both presets (clearwater's harness). The rest stays the board's
+ * (board_configuration.cpp): injector 1 B6, fuel pump B16, main relay B9, fan B8.
  */
 void setDleTwinUaefiPins() {
+	// The crank's Hall sensor on C5 (HALL1): the board's trigger input is C17, VR2 through U771
+	// (MAX9924), which clearwater's boards leave off. A two-stroke has no cam: the board's cam inputs on
+	// C5 and C6 go
+	engineConfiguration->triggerInputPins[0] = Gpio::MM100_IN_D1;
+	engineConfiguration->camInputs[0] = Gpio::Unassigned;
+	engineConfiguration->camInputs[1] = Gpio::Unassigned;
+
+	// The throttle servo on B10 (OUT_IGN6, PB8 TIM4_CH3, through U103's 5 V buffer): the only free
+	// push-pull output with a hardware timer. The board gives its VR2 threshold on the same timer channel
+	// (PD14) up for it (uaefi_boardConfigOverrides). Without a servo TPS1 is the unwired analog D13, and
+	// alpha-N takes the failed TPS as full load
+	engineConfiguration->servoThrottlePin = Gpio::MM100_IGN6;
+
+	// The hybrid controller's hardwired stop, an active-high press (clearwater HZ-27), on C9 (BUTTON3,
+	// 10k pull-down on the board)
+	engineConfiguration->startStopButtonPin = Gpio::MM100_IN_D4;
+	engineConfiguration->startStopButtonMode = PI_DEFAULT;
+
+	// No electronic throttle (the TLE9201s are not fitted), MAP or pedal: the servo command is TPS1 and
+	// the driver's intent. The board's defaults would drive the H-bridges against the servo, and its
+	// unwired MAP and pedal inputs would read as sensor faults
+	engineConfiguration->etbFunctions[0] = DC_None;
+	engineConfiguration->etbFunctions[1] = DC_None;
+	engineConfiguration->map.sensor.hwChannel = EFI_ADC_NONE;
+	setPPSInputs(EFI_ADC_NONE, EFI_ADC_NONE);
+
 	// Clearwater HZ-44: rusEFI cuts fuel and spark (ClearReason::IgnitionOff) once its ignition input
 	// has read 6 V or less for 0.2 s. Without a key input that is the board's own supply, so a supply
 	// dip stops the engine in flight, and so does a failed battery-voltage reading (0 V). A key input
@@ -347,6 +374,9 @@ void setDle60TwinUaefiPins() {
 	// B15 Coil 1, B14 Coil 2
 	engineConfiguration->ignitionPins[0] = Gpio::MM100_IGN1;
 	engineConfiguration->trailingCoilPins[0] = Gpio::MM100_IGN2;
+
+	// CHT 2 on D1 (AUX1, a 500k pull-down on the board; the harness adds the 4.7k pull-up to 5 V)
+	engineConfiguration->auxTempSensor1.adcChannel = MM100_IN_O2S_ANALOG;
 }
 #endif // HW_HELLEN_UAEFI || EFI_UNIT_TEST
 

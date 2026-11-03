@@ -159,23 +159,23 @@ TEST(DleTwin, dle60UaefiPins) {
 	EXPECT_EQ(Gpio::MM100_IGN1, engineConfiguration->ignitionPins[0]);
 	EXPECT_EQ(Gpio::MM100_IGN2, engineConfiguration->trailingCoilPins[0]);
 
-	// The trigger stays on C17, whose conditioner is not fitted: no RPM. C5 is cam 1
-	EXPECT_EQ(Gpio::MM100_UART8_TX, engineConfiguration->triggerInputPins[0]);
-	EXPECT_EQ(Gpio::MM100_IN_D1, engineConfiguration->camInputs[0]);
-	EXPECT_EQ(Gpio::MM100_IN_D2, engineConfiguration->camInputs[1]);
-	// No servo output: TPS1 stays the unwired analog D13, which reads failed, and alpha-N takes a failed
-	// TPS as full load
-	EXPECT_FALSE(isBrainPinValid(engineConfiguration->servoThrottlePin));
-	// The hardwired stop is not read
-	EXPECT_FALSE(isBrainPinValid(engineConfiguration->startStopButtonPin));
-	// CHT 2 has its curve but no input
-	EXPECT_EQ(EFI_ADC_NONE, engineConfiguration->auxTempSensor1.adcChannel);
-	// The H-bridges' electronic throttle, the unwired MAP and pedal stay configured
-	EXPECT_EQ(DC_Throttle1, engineConfiguration->etbFunctions[0]);
-	EXPECT_EQ(DC_Throttle2, engineConfiguration->etbFunctions[1]);
-	EXPECT_EQ(MM100_IN_MAP1_ANALOG, engineConfiguration->map.sensor.hwChannel);
-	EXPECT_EQ(MM100_IN_PPS_ANALOG, engineConfiguration->throttlePedalPositionAdcChannel);
-	EXPECT_EQ(MM100_IN_AUX2_ANALOG, engineConfiguration->throttlePedalPositionSecondAdcChannel);
+	// The trigger on the crank hall, C5; no cam inputs
+	EXPECT_EQ(Gpio::MM100_IN_D1, engineConfiguration->triggerInputPins[0]);
+	EXPECT_FALSE(isBrainPinValid(engineConfiguration->camInputs[0]));
+	EXPECT_FALSE(isBrainPinValid(engineConfiguration->camInputs[1]));
+	// The servo on B10: TPS1 is its command
+	EXPECT_EQ(Gpio::MM100_IGN6, engineConfiguration->servoThrottlePin);
+	// The hardwired stop on C9, active high
+	EXPECT_EQ(Gpio::MM100_IN_D4, engineConfiguration->startStopButtonPin);
+	EXPECT_EQ(PI_DEFAULT, engineConfiguration->startStopButtonMode);
+	// CHT 2 on D1
+	EXPECT_EQ(MM100_IN_O2S_ANALOG, engineConfiguration->auxTempSensor1.adcChannel);
+	// No electronic throttle, MAP or pedal
+	EXPECT_EQ(DC_None, engineConfiguration->etbFunctions[0]);
+	EXPECT_EQ(DC_None, engineConfiguration->etbFunctions[1]);
+	EXPECT_EQ(EFI_ADC_NONE, engineConfiguration->map.sensor.hwChannel);
+	EXPECT_EQ(EFI_ADC_NONE, engineConfiguration->throttlePedalPositionAdcChannel);
+	EXPECT_EQ(EFI_ADC_NONE, engineConfiguration->throttlePedalPositionSecondAdcChannel);
 }
 
 // The presets leave pins to the board; give the test an injector and a coil

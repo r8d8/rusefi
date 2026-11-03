@@ -42,7 +42,10 @@ static void uaefi_boardConfigOverrides() {
 	hellenMegaSdWithAccelerometer();
 	engineConfiguration->injectionPinMode = OM_DEFAULT;
 
-  engineConfiguration->vrThreshold[0].pin = Gpio::MM100_OUT_PWM6;
+	// VR2 threshold (U771, MAX9924) on PD14 = TIM4_CH3, the timer channel of B10 (OUT_IGN6, PB8). A servo
+	// throttle on B10 keeps it: the threshold starts after the servo and would retime it to 10 kHz
+	engineConfiguration->vrThreshold[0].pin = engineConfiguration->servoThrottlePin == Gpio::MM100_IGN6
+		? Gpio::Unassigned : Gpio::MM100_OUT_PWM6;
 
 	setHellenCan();
 
