@@ -1968,3 +1968,68 @@ User decision on the open item above: by procedure, no firmware migration (clear
 
 Validation: a procedure only, no code change. Images J -> K change no preset value (K only makes
 DLE_60_TWIN the HITL default), so the bench, already set to DLE_60_TWIN by simulation, needs nothing.
+
+## 2026-11-03 - Start/stop input stops a cranking engine; DLE presets set uaEFI's pins; uaEFI yields PD14 to a servo on B10
+
+Clearwater's first EFI test (the DLE-60 on a stand, uaEFI alone, cranked by a hand drill; user decision
+2026-11-03) and HZ-27. User go-ahead in the HCU session, 2026-11-03.
+
+Start/stop: `startStopButtonToggle()` started cranking at rest and stopped the engine only when
+`isRunning()`, i.e. once RPM had reached cranking.rpm since the start. Cranking, or firing slowly below
+it, a press did nothing. The hybrid controller's hardwired stop is a 300 ms press of this input
+(repeated every 3 s while the engine turns, clearwater `stop_pulse.c`), and the DLE-60 cranks up to
+1700 rpm, so the hardwired kill could not abort a start, nor stop an engine idling below 1700 that had
+never passed it. Now any press while the engine turns stops it (the `StartButton` stop window) and
+releases a starter rusEFI is driving. A press at rest still starts cranking and cancels a remaining
+stop window (`buttonStartCancelsStopRequest`, unchanged).
+
+DLE presets on uaEFI (`HW_HELLEN_UAEFI`): the presets set only the HZ-44 key input and the DLE-60's two
+coils, so the rest stayed the board's defaults. The trigger was C17 (VR2 through U771, MAX9924), which
+clearwater's boards leave off: no RPM. No servo output meant TPS1 stayed the unwired analog D13, failed,
+which alpha-N reads as full load. The TLE9201s' electronic throttle, the MAP on D9 and the pedal on
+D6 / C4 stayed configured, unwired. The pins now live in `setDleTwinUaefiPins()` /
+`setDle60TwinUaefiPins()`, which the presets call on uaEFI builds and the unit tests call directly.
+
+uaEFI board: `uaefi_boardConfigOverrides()` forces `vrThreshold[0].pin` = PD14 (MM100_OUT_PWM6) on every
+boot and burn. PD14 is TIM4_CH3, the timer channel of B10 (OUT_IGN6, PB8), and the STM32 hardware PWM
+has no conflict check: `initVrThresholdPwm()` runs after `initServoThrottleOutput()` and restarts TIM4 at
+10 kHz, and the VR curve writes the same compare register 20 times a second. A servo on B10 got a 10 kHz
+signal. Setting the servo pin in TunerStudio could not avoid it (the override puts PD14 back at the next
+boot, and the servo output starts only at boot). The override now leaves PD14 unassigned when
+`servoThrottlePin` is B10.
+
+Preset values changed (procedure of 2026-10-28; both DLE presets on uaEFI builds only, the HITL Nucleo
+and the unit tests' presets unchanged):
+
+| Field | New value | Was (board default) |
+|---|---|---|
+| `triggerInputPins[0]` | MM100_IN_D1 (C5, HALL1) | MM100_UART8_TX (C17) |
+| `camInputs[0]` | none | MM100_IN_D1 (C5) |
+| `camInputs[1]` | none | MM100_IN_D2 (C6) |
+| `servoThrottlePin` | MM100_IGN6 (B10) | none |
+| `startStopButtonPin` | MM100_IN_D4 (C9, BUTTON3) | none |
+| `startStopButtonMode` | PI_DEFAULT (active high; 10k pull-down on the board) | PI_DEFAULT |
+| `etbFunctions[0]`, `[1]` | DC_None, DC_None | DC_Throttle1, DC_Throttle2 |
+| `map.sensor.hwChannel` | none | MM100_IN_MAP1_ANALOG (D9) |
+| `throttlePedalPositionAdcChannel`, `...SecondAdcChannel` | none, none | D6, C4 |
+| `auxTempSensor1.adcChannel` (DLE-60) | MM100_IN_O2S_ANALOG (D1, AUX1) | none |
+
+For the drill test the hand throttle stays a TunerStudio setting on top: request source PWM input,
+`pwmInputTpsPin` C6, governor off, cranking.rpm about 1000 (clearwater design's sheet).
+
+| Change | Content |
+|---|---|
+| coverage | the uaEFI pins moved into `setDleTwinUaefiPins()` / `setDle60TwinUaefiPins()` (no behaviour change); `DleTwin.dle60UaefiPins` (uaEFI's board defaults mirrored, then the preset): the trigger on C17 and C5 a cam, no servo, start/stop or CHT 2 input, ETB / MAP / pedal configured; `StartStopTest.buttonPressWhileCranking`: at 1200 rpm with cranking.rpm 1700 a press leaves fuel, spark and the starter on |
+| fix | the presets' uaEFI pins (table above); `startStopButtonToggle()` stops a turning engine and releases the starter; uaEFI's override yields PD14 to a servo on B10; the two tests expect the new values, the stop window and the starter off |
+
+Validation: coverage - DleTwin, StartStopTest and start 29 / 29 on the old code; fix - all unit tests
+1477 / 1477 (GCC, WSL, 8 jobs). Firmware (local GCC 14.2, clean build of the worktree): uaEFI F4 builds
+without new warnings, flash0 749728 B, 3936 B free (4052 on 2026-10-27).
+
+Not covered by a unit test: the uaEFI board override (board code is not in the unit-test build). Check on
+the first board with the new image: after a reboot B10 carries a 333 Hz servo pulse (scope or the servo
+following the hand throttle), PD14 none.
+
+Open: the drill test's TunerStudio list shrinks to the hand throttle, governor, cranking.rpm, IAT curve
+and injector flow (design's sheet); clearwater HZ-27 and hcu/README.md 2.3 can state that the hardwired
+stop works at any engine speed once this is in the aircraft's image.
