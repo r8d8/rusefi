@@ -160,6 +160,35 @@ TEST_F(StartStopTest, buttonStartCancelsStopRequest) {
 	EXPECT_FALSE(getLimpManager()->shutdownController.isEngineStop(getTimeNowNt()));
 }
 
+// A press while the engine turns below cranking.rpm, not yet run since the start: the starter
+// cranking, or an engine firing slowly. The hybrid controller's hardwired stop is a 300 ms press of
+// this input (clearwater HZ-27), and the DLE-60 cranks up to 1700 rpm
+TEST_F(StartStopTest, buttonPressWhileCranking) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	engineConfiguration->engineShutDownPeriod = 3;
+	engineConfiguration->cranking.rpm = 1700;
+	setCrankOperationMode();
+	eth.setTriggerType(trigger_type_e::TT_HALF_MOON);
+	auto* limp = getLimpManager();
+
+	doStartCranking();
+	ASSERT_TRUE(enginePins.starterControl.getLogicValue());
+	eth.fireTriggerEvents2(/* count */ 4, /* ms */ 25);
+	ASSERT_EQ(1200, Sensor::getOrZero(SensorType::Rpm));
+	ASSERT_EQ(CRANKING, engine->rpmCalculator.getState());
+	limp->updateState(1200, getTimeNowNt());
+	ASSERT_TRUE(limp->allowInjection());
+	ASSERT_TRUE(limp->allowIgnition());
+
+	startStopButtonToggle();
+	limp->updateState(1200, getTimeNowNt());
+	// Ignored: fuel and spark go on, the starter keeps cranking
+	EXPECT_FALSE(limp->shutdownController.isEngineStop(getTimeNowNt()));
+	EXPECT_TRUE(limp->allowInjection());
+	EXPECT_TRUE(limp->allowIgnition());
+	EXPECT_TRUE(enginePins.starterControl.getLogicValue());
+}
+
 TEST_F(StartStopTest, luaStartPreservesOtherFuelCuts) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 	engineConfiguration->rpmHardLimit = 2500;
