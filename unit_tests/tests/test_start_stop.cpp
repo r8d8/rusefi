@@ -182,11 +182,11 @@ TEST_F(StartStopTest, buttonPressWhileCranking) {
 
 	startStopButtonToggle();
 	limp->updateState(1200, getTimeNowNt());
-	// Ignored: fuel and spark go on, the starter keeps cranking
-	EXPECT_FALSE(limp->shutdownController.isEngineStop(getTimeNowNt()));
-	EXPECT_TRUE(limp->allowInjection());
-	EXPECT_TRUE(limp->allowIgnition());
-	EXPECT_TRUE(enginePins.starterControl.getLogicValue());
+	// The engine stops: fuel and spark cut for the stop window, the starter off
+	EXPECT_TRUE(limp->shutdownController.isEngineStop(getTimeNowNt()));
+	EXPECT_EQ(ClearReason::StopRequested, limp->allowInjection().reason);
+	EXPECT_EQ(ClearReason::StopRequested, limp->allowIgnition().reason);
+	EXPECT_FALSE(enginePins.starterControl.getLogicValue());
 }
 
 TEST_F(StartStopTest, luaStartPreservesOtherFuelCuts) {

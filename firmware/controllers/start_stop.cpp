@@ -3,7 +3,7 @@
  * @brief Start/Stop button engine control.
  *
  * Implements the push-button start/stop behavior: on a button press it engages the
- * starter to crank the engine (and can stop a running engine), honoring the relevant
+ * starter to crank a stopped engine, or stops a turning one, honoring the relevant
  * safety conditions.
  *
  * See test_start_stop.cpp
@@ -41,7 +41,12 @@ void startStopButtonToggle() {
 
 	if (engine->rpmCalculator.isStopped()) {
 	  doStartCranking();
-	} else if (engine->rpmCalculator.isRunning()) {
+	} else {
+		// Running, or still cranking below cranking.rpm: a press stops the engine and aborts a start in
+		// progress. Clearwater's hybrid controller wires its engine stop to this input (HZ-27)
+		if (enginePins.starterControl.getAndSet(0)) {
+			efiPrintf("Start aborted: starter off");
+		}
 		doScheduleStopEngine(StopRequestedReason::StartButton);
 	}
 }
