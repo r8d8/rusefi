@@ -2,6 +2,8 @@
 
 #include "dle_twin.h"
 #include "thermistor_func.h"
+#include "defaults.h"
+#include "hellen_meta.h"
 
 #include "can_msg_tx.h"
 #include "trip_odometer.h"
@@ -124,6 +126,56 @@ TEST(DleTwin, dle120Configuration) {
 	EXPECT_EQ(8500, engineConfiguration->rpmHardLimit);
 	// The two-tower coil on one output
 	EXPECT_FALSE(engineConfiguration->enableTrailingSparks);
+}
+
+// uaEFI's own defaults for the pins the DLE presets depend on (uaefi board_configuration.cpp,
+// setupDefaultSensorInputs() and uaefi_boardDefaultConfiguration()): the unit tests are no uaEFI
+static void setUaefiBoardPinDefaults() {
+	engineConfiguration->triggerInputPins[0] = Gpio::MM100_UART8_TX; // C17, VR2 through U771 (MAX9924)
+	engineConfiguration->camInputs[0] = Gpio::MM100_IN_D1; // C5 HALL1
+	engineConfiguration->camInputs[1] = Gpio::MM100_IN_D2; // C6 HALL2
+	engineConfiguration->map.sensor.hwChannel = MM100_IN_MAP1_ANALOG; // D9
+	setPPSInputs(MM100_IN_PPS_ANALOG, MM100_IN_AUX2_ANALOG); // D6, C4
+	// the TLE9201 H-bridges (the second as rusEFI's default)
+	engineConfiguration->etbFunctions[0] = DC_Throttle1;
+	engineConfiguration->etbFunctions[1] = DC_Throttle2;
+}
+
+/**
+ * Clearwater stage 1.0 on uaEFI: the crank hall on C5 (HALL1), the throttle servo on B10, the hybrid
+ * controller's hardwired stop on C9 (BUTTON3), CHT 2 on D1 (AUX1). The user's boards leave U771
+ * (MAX9924) and the TLE9201s off; the harness wires no MAP, pedal or analog TPS.
+ */
+TEST(DleTwin, dle60UaefiPins) {
+	EngineTestHelper eth(engine_type_e::DLE_60_TWIN);
+	setUaefiBoardPinDefaults();
+	setDle60Twin();
+	setDleTwinUaefiPins();
+	setDle60TwinUaefiPins();
+
+	// HZ-44's held key input, coil 1 and coil 2
+	EXPECT_EQ(Gpio::MM100_IN_VSS, engineConfiguration->ignitionKeyDigitalPin);
+	EXPECT_EQ(PI_PULLUP, engineConfiguration->ignitionKeyDigitalPinMode);
+	EXPECT_EQ(Gpio::MM100_IGN1, engineConfiguration->ignitionPins[0]);
+	EXPECT_EQ(Gpio::MM100_IGN2, engineConfiguration->trailingCoilPins[0]);
+
+	// The trigger stays on C17, whose conditioner is not fitted: no RPM. C5 is cam 1
+	EXPECT_EQ(Gpio::MM100_UART8_TX, engineConfiguration->triggerInputPins[0]);
+	EXPECT_EQ(Gpio::MM100_IN_D1, engineConfiguration->camInputs[0]);
+	EXPECT_EQ(Gpio::MM100_IN_D2, engineConfiguration->camInputs[1]);
+	// No servo output: TPS1 stays the unwired analog D13, which reads failed, and alpha-N takes a failed
+	// TPS as full load
+	EXPECT_FALSE(isBrainPinValid(engineConfiguration->servoThrottlePin));
+	// The hardwired stop is not read
+	EXPECT_FALSE(isBrainPinValid(engineConfiguration->startStopButtonPin));
+	// CHT 2 has its curve but no input
+	EXPECT_EQ(EFI_ADC_NONE, engineConfiguration->auxTempSensor1.adcChannel);
+	// The H-bridges' electronic throttle, the unwired MAP and pedal stay configured
+	EXPECT_EQ(DC_Throttle1, engineConfiguration->etbFunctions[0]);
+	EXPECT_EQ(DC_Throttle2, engineConfiguration->etbFunctions[1]);
+	EXPECT_EQ(MM100_IN_MAP1_ANALOG, engineConfiguration->map.sensor.hwChannel);
+	EXPECT_EQ(MM100_IN_PPS_ANALOG, engineConfiguration->throttlePedalPositionAdcChannel);
+	EXPECT_EQ(MM100_IN_AUX2_ANALOG, engineConfiguration->throttlePedalPositionSecondAdcChannel);
 }
 
 // The presets leave pins to the board; give the test an injector and a coil

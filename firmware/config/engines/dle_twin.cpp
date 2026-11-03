@@ -49,10 +49,10 @@
 
 #include "dle_twin.h"
 
-#ifdef HW_HELLEN_UAEFI
-// MM100_IN_VSS, the held ignition key input (HZ-44)
+#if defined(HW_HELLEN_UAEFI) || EFI_UNIT_TEST
+// uaEFI's MM100_* pins (setDleTwinUaefiPins)
 #include "hellen_meta.h"
-#endif // HW_HELLEN_UAEFI
+#endif
 
 #if EFI_SERVO_THROTTLE
 #include "servo_throttle_can.h"
@@ -146,16 +146,8 @@ static void setDleTwinCommon(float maxRpm) {
 	engineConfiguration->rusefiVerbose29b = false;
 	engineConfiguration->canSleepPeriodMs = 50;
 
-	// Clearwater HZ-44: rusEFI cuts fuel and spark (ClearReason::IgnitionOff) once its ignition input
-	// has read 6 V or less for 0.2 s. Without a key input that is the board's own supply, so a supply
-	// dip stops the engine in flight, and so does a failed battery-voltage reading (0 V). A key input
-	// decides alone: uaEFI's FLEX input (D5) has a 10k pull-up on the board and stays unwired, so it
-	// always reads "on" and only the hardware's own supply limits remain. The engine stop does not use
-	// the ignition state (CAN RUN = 0; the start/stop input, which rusEFI ignores without ignition,
-	// then always works). The HITL Nucleo holds its own key input (its board_configuration.cpp).
 #ifdef HW_HELLEN_UAEFI
-	engineConfiguration->ignitionKeyDigitalPin = Gpio::MM100_IN_VSS;
-	engineConfiguration->ignitionKeyDigitalPinMode = PI_PULLUP;
+	setDleTwinUaefiPins();
 #endif // HW_HELLEN_UAEFI
 
 	// Tables
@@ -286,9 +278,7 @@ void setDle60Twin() {
 	engineConfiguration->enableTrailingSparks = true;
 	setTable(config->trailingSparkTable, 0);
 #ifdef HW_HELLEN_UAEFI
-	// B15 Coil 1, B14 Coil 2
-	engineConfiguration->ignitionPins[0] = Gpio::MM100_IGN1;
-	engineConfiguration->trailingCoilPins[0] = Gpio::MM100_IGN2;
+	setDle60TwinUaefiPins();
 #endif // HW_HELLEN_UAEFI
 	// Provisional dwell, rusEFI's defaults: on the coil's listing (3 ohm, 16 mH, ~4 A at 12 V) 4 ms
 	// running charges ~2.1 A / ~36 mJ and 6 ms cranking ~2.7 A / ~58 mJ. The bench measures the coil
@@ -332,5 +322,32 @@ void setDle120Twin() {
 	// speed at the governed 1000 rpm rotor with the working 6.75:1 drive (clearwater hcu/README.md)
 	engineConfiguration->servoGovernorTargetRpm = 6750;
 }
+
+#if defined(HW_HELLEN_UAEFI) || EFI_UNIT_TEST
+/**
+ * uaEFI's connector pins for both presets. The rest stays the board's (board_configuration.cpp):
+ * injector 1 B6, fuel pump B16, main relay B9, fan B8.
+ */
+void setDleTwinUaefiPins() {
+	// Clearwater HZ-44: rusEFI cuts fuel and spark (ClearReason::IgnitionOff) once its ignition input
+	// has read 6 V or less for 0.2 s. Without a key input that is the board's own supply, so a supply
+	// dip stops the engine in flight, and so does a failed battery-voltage reading (0 V). A key input
+	// decides alone: uaEFI's FLEX input (D5) has a 10k pull-up on the board and stays unwired, so it
+	// always reads "on" and only the hardware's own supply limits remain. The engine stop does not use
+	// the ignition state (CAN RUN = 0; the start/stop input, which rusEFI ignores without ignition,
+	// then always works). The HITL Nucleo holds its own key input (its board_configuration.cpp).
+	engineConfiguration->ignitionKeyDigitalPin = Gpio::MM100_IN_VSS;
+	engineConfiguration->ignitionKeyDigitalPinMode = PI_PULLUP;
+}
+
+/**
+ * The DLE-60's own uaEFI pins (clearwater stage 1.0).
+ */
+void setDle60TwinUaefiPins() {
+	// B15 Coil 1, B14 Coil 2
+	engineConfiguration->ignitionPins[0] = Gpio::MM100_IGN1;
+	engineConfiguration->trailingCoilPins[0] = Gpio::MM100_IGN2;
+}
+#endif // HW_HELLEN_UAEFI || EFI_UNIT_TEST
 
 #endif // EFI_SERVO_THROTTLE
