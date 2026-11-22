@@ -741,6 +741,57 @@ TEST(DleTwin, dle60StarterSpeedStaysCranking) {
 	EXPECT_TRUE(engine->rpmCalculator.isRunning());
 }
 
+// ---- Cranking fuel ----
+
+struct CrankingFuel {
+	float baseMg;
+	float fuelMg;
+	float pulseMs;
+};
+
+// Cranking on the preset's 36-1 wheel with the head sensor (CLT) failed, as on the HITL bench: cranking
+// fuel takes 20 C for a failed sensor
+static CrankingFuel crankingFuelWithHeadSensorFailed(engine_type_e type, float rpm) {
+	EngineTestHelper eth(type, assignTestPins);
+	engineConfiguration->fuelAlgorithm = engine_load_mode_e::LM_ALPHA_N;
+	Sensor::setMockValue(SensorType::Tps1, 12);
+	Sensor::setInvalidMockValue(SensorType::Clt);
+
+	WheelSpinner spinner{eth, 36, 1};
+	spinner.spin(rpm, rpm, 20);
+	EXPECT_TRUE(engine->rpmCalculator.isCranking()) << rpm;
+	EXPECT_NEAR(1.55, engine->engineState.crankingFuel.coolantTemperatureCoefficient, 0.01) << "20 C";
+	return { engine->engineState.crankingFuel.baseFuel, engine->engineState.crankingFuel.fuel,
+		engine->engineState.injectionDuration };
+}
+
+// Stoichiometric fuel for a full charge of the displacement: air at 1.2 mg/cc over 14.7
+static float stoichFuelMg(float displacementCc) {
+	return displacementCc * 1.2f / 14.7f;
+}
+
+/**
+ * Clearwater HITL bench, 2026-11-18: the DLE presets leave rusEFI's default cranking base,
+ * crankingCycleBaseFuel 27 mg, sized for a far larger cylinder. With the head sensor failed (20 C, x1.55)
+ * the DLE-60 asks ~42 mg a revolution, over 8x stoichiometric for its 61 cc, and on the 80 cc/min injector
+ * the pulse outlasts a revolution at the bench's 1356 rpm cranking speed. The injector output stays high
+ * while pulses overlap, so the bench saw an injection only every ~3.6 revolutions.
+ */
+TEST(DleTwin, dle60CrankingFuel) {
+	auto fuel = crankingFuelWithHeadSensorFailed(engine_type_e::DLE_60_TWIN, 1356);
+	EXPECT_NEAR(27, fuel.baseMg, 0.01) << "rusEFI's default";
+	EXPECT_NEAR(27 * 1.55, fuel.fuelMg, 0.1);
+	EXPECT_GT(fuel.fuelMg / stoichFuelMg(61), 8);
+	EXPECT_GT(fuel.pulseMs, 60000 / 1356.0f) << "longer than a revolution";
+}
+
+// The DLE-120 the same: rusEFI's default base, over 4x stoichiometric for its 120 cc
+TEST(DleTwin, dle120CrankingFuel) {
+	auto fuel = crankingFuelWithHeadSensorFailed(engine_type_e::DLE_120_TWIN, 800);
+	EXPECT_NEAR(27, fuel.baseMg, 0.01) << "rusEFI's default";
+	EXPECT_GT(fuel.fuelMg / stoichFuelMg(120), 4);
+}
+
 // ---- Stage 1.0 ignition: a passive coil per cylinder (clearwater, user decision 2026-10-27) ----
 
 /**
