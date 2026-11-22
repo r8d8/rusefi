@@ -433,14 +433,14 @@ TEST(DleTwin, verboseCanLayoutForHybridController) {
 	Sensor::setMockValue(SensorType::Map, 85.5);
 	Sensor::setMockValue(SensorType::Clt, 152);
 	Sensor::setMockValue(SensorType::Iat, 23);
-	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
-	Sensor::setMockValue(SensorType::Lambda1, 0.87);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4f);
+	Sensor::setMockValue(SensorType::Lambda1, 0.87f);
 	Sensor::setMockValue(SensorType::EGT1, 610);
 	Sensor::setMockValue(SensorType::EGT2, 640);
 	engine->engineState.warnings.warningCounter = 3;
 	engine->engineState.warnings.lastErrorCode = ObdCode::OBD_Map_Timeout;
 	engine->engineState.timingAdvance[0] = 24.5;
-	engine->outputChannels.actualLastInjection = 2.4;
+	engine->outputChannels.actualLastInjection = 2.4f;
 #ifdef MODULE_ODOMETER
 	engine->module<TripOdometer>()->consumeFuel(37.5, getTimeNowNt());
 #endif
@@ -496,13 +496,13 @@ TEST(DleTwin, verboseCanHeadTemperatures) {
 	EXPECT_EQ(1800, s16At(0x20C, 2));
 
 	// Above it Sensors1 stays at the top of the byte; 0x20C has the temperature
-	Sensor::setMockValue(SensorType::Clt, 230.04);
+	Sensor::setMockValue(SensorType::Clt, 230.04f);
 	captureVerboseBroadcast();
 	EXPECT_EQ(255, verboseFrames.at(0x203)[2]);
 	EXPECT_EQ(2300, s16At(0x20C, 0));
 
 	// and below -40 C at the bottom
-	Sensor::setMockValue(SensorType::Clt, -50.06);
+	Sensor::setMockValue(SensorType::Clt, -50.06f);
 	captureVerboseBroadcast();
 	EXPECT_EQ(0, verboseFrames.at(0x203)[2]);
 	EXPECT_EQ(-501, s16At(0x20C, 0));
@@ -585,7 +585,7 @@ TEST(DleTwin, hybridStatusFrame) {
 	getHcuEngineCommandListener().processFrame(/*busIndex*/0, frame, getTimeNowNt());
 	engine->module<ServoThrottle>()->update(47, 7650, 0.005f, 7650, true, /*feedForwardHeld*/ true);
 	ASSERT_EQ(ServoGovernorState::Governing, engine->module<ServoThrottle>()->getState());
-	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4f);
 	engine->module<IgnitionController>()->onSlowCallback();
 	ASSERT_TRUE(engine->module<IgnitionController>()->getIgnState());
 	captureVerboseBroadcast();
@@ -648,7 +648,7 @@ TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
 		engine->module<IgnitionController>()->onSlowCallback();
 	};
 
-	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 12.4f);
 	slowCallbackAfterMs(50);
 	ASSERT_TRUE(ignitionOn());
 
@@ -658,12 +658,12 @@ TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
 	slowCallbackAfterMs(50);
 	slowCallbackAfterMs(50);
 	EXPECT_TRUE(ignitionOn());
-	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1f);
 	slowCallbackAfterMs(50);
 	EXPECT_TRUE(ignitionOn());
 
 	// 5.9 V: off once 0.2 s have passed since the last callback above 6 V
-	Sensor::setMockValue(SensorType::BatteryVoltage, 5.9);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 5.9f);
 	slowCallbackAfterMs(50);
 	slowCallbackAfterMs(50);
 	slowCallbackAfterMs(50);
@@ -672,7 +672,7 @@ TEST(DleTwin, ignitionFollowsBatteryVoltageWithoutAKeyInput) {
 	EXPECT_FALSE(ignitionOn());
 
 	// back above 6 V: on at the next callback
-	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1);
+	Sensor::setMockValue(SensorType::BatteryVoltage, 6.1f);
 	slowCallbackAfterMs(50);
 	EXPECT_TRUE(ignitionOn());
 

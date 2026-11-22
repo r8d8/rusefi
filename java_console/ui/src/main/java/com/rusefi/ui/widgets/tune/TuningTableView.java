@@ -6,75 +6,261 @@ import com.opensr5.ini.IniFileModel;
 import com.opensr5.ini.TableModel;
 import com.opensr5.ini.field.ArrayIniField;
 import com.opensr5.ini.field.IniField;
+import com.opensr5.ini.field.PcVariableArrayIniField;
 import com.rusefi.config.StringFormatter;
+import com.rusefi.core.preferences.storage.Node;
 import com.rusefi.maintenance.CalibrationsInfo;
+import com.rusefi.ui.util.WrapLayout;
+import com.rusefi.ui.widgets.SegmentedControl;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellRenderer;
+import javax.swing.table.JTableHeader;
+import javax.swing.text.DefaultEditorKit;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.HierarchyBoundsAdapter;
+import java.awt.event.HierarchyEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
+import java.awt.geom.Ellipse2D;
+import java.awt.geom.Point2D;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 public class TuningTableView {
     private static final int TOOLBAR_GAP = 6;
     private static final double SMOOTHING_FACTOR = 0.25;
-    private final JTable table = new JTable();
+    private static final int MIN_PREVIEW_HEIGHT = 240;
+    private final boolean viewMode;
+    private final Node orientationConfig;
+    private final JTable table = new JTable() {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return getSelectedRowCount() <= 1 && getSelectedColumnCount() <= 1
+                && super.isCellEditable(row, column);
+        }
+
+        @Override
+        protected boolean processKeyBinding(KeyStroke stroke, KeyEvent event, int condition, boolean pressed) {
+            if (pressed && !Character.isDigit(event.getKeyChar())
+                && event.getKeyCode() != KeyEvent.VK_PERIOD && event.getKeyCode() != KeyEvent.VK_DECIMAL
+                && event.getKeyCode() != KeyEvent.VK_BACK_SPACE) {
+                selectionInput = "";
+            }
+            return super.processKeyBinding(stroke, event, condition, pressed);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            paintLiveMarker(g);
+        }
+
+        @Override
+        public boolean getScrollableTracksViewportWidth() {
+            // Columns stretch to fill a wide window, but never below their minimum widths
+            // (fitColumnWidths): a narrower window scrolls the grid sideways instead of
+            // squeezing every value to "...".
+            return getAutoResizeMode() != AUTO_RESIZE_OFF
+                && (!(getParent() instanceof JViewport) || getParent().getWidth() >= minimumGridWidth());
+        }
+
+        @Override
+        public Dimension getPreferredScrollableViewportSize() {
+            // [tag:table_window_fit] As tall as the rows: JTable asks for 400 px whatever its row
+            // count, which left an empty band inside the grid's frame once windows fit their content.
+            return new Dimension(super.getPreferredScrollableViewportSize().width, getRowCount() * getRowHeight());
+        }
+    };
+    /** Space around a cell's text, so values do not touch the grid lines. */
+    private static final int CELL_TEXT_PADDING = 8;
+    /** A column never needs more room than this to stay readable. */
+    private static final int MAX_COLUMN_MIN_WIDTH = 90;
+    private static final int LIVE_DOT_RADIUS = 5;
+    private static final int TRAIL_DOT_RADIUS = 3;
+    /** How long earlier operating points stay on the trail, fading out. */
+    static final long TRAIL_MILLIS = 2000;
+    static final int TRAIL_MAX_POINTS = 40;
+    /** Raw {x value, y value, time} of recent live points, oldest first. */
+    private final java.util.ArrayDeque<double[]> trail = new java.util.ArrayDeque<>();
+    /** Live values of the displayed X and Y axis channels, after the flip option. */
+    private final LiveChannelFeed live = new LiveChannelFeed(table, this::onLiveChange);
     private final Surface3DView surface3DView = new Surface3DView();
+    private final Surface3DView mini3DView = new Surface3DView();
+    private final JPanel gridPanel = new JPanel(new BorderLayout());
+    private final JScrollPane tableScrollPane = new JScrollPane(table);
+    private boolean full3D;
+    private boolean previewEligible;
     private final CardLayout cardLayout = new CardLayout();
-    private final JPanel tableContainer = new JPanel(cardLayout);
+    private final JPanel tableContainer = new JPanel(cardLayout) {
+        @Override
+        public Dimension getPreferredSize() {
+            // [tag:table_window_fit] The size of the view shown: CardLayout asks for the largest
+            // card, so the grid would get the full 3D view's height.
+            if (isPreferredSizeSet()) {
+                return super.getPreferredSize();
+            }
+            for (Component card : getComponents()) {
+                if (card.isVisible()) {
+                    Dimension size = card.getPreferredSize();
+                    Insets insets = getInsets();
+                    return new Dimension(size.width + insets.left + insets.right, size.height + insets.top + insets.bottom);
+                }
+            }
+            return super.getPreferredSize();
+        }
+    };
     private final JPanel content = new JPanel();
     private final String title;
     private double minValue = Double.MAX_VALUE;
     private double maxValue = -Double.MAX_VALUE;
     private ConfigurationImage imageTarget;
     private ArrayIniField zBinsField;
+    private ConfigurationImage axisImageTarget;
+    private ArrayIniField xBinsField;
+    private ArrayIniField yBinsField;
+    private final JTextField xAxisEditor = new JTextField();
+    private int xAxisEditingColumn = -1;
     private Runnable onEdit;
+    private Runnable onOrientationChange = () -> { };
+    private String selectionInput = "";
+    /** Whether the wheel edits the grid rather than scrolling the page; see {@link TableMouse}. */
+    private boolean wheelEditing;
+    private boolean applyingSelectionInput;
+    private IniFileModel currentIni;
+    private String currentTableName;
+    private Node orientationNode;
+    private boolean flipAxes;
+    private boolean invertX;
+    private boolean invertY;
+    /** [tag:unburned_marks] The last burned tune; null marks nothing. */
+    private Supplier<ConfigurationImage> burnedImage = () -> null;
+    private Supplier<UnburnedWording> unburnedWording = () -> UnburnedWording.BURNED;
+    private final JLabel unburnedCountLabel = UnburnedCellMark.createCountLabel();
+    private final JToggleButton tableSegment = SegmentedControl.segment("Table");
+    private final JToggleButton surfaceSegment = SegmentedControl.segment("3D");
+    /**
+     * The grid with a small 3D preview below it. Tables open on "Table": the preview made table
+     * windows tall enough to hide the gauges. Choosing "Table" or "Both" is one choice for every
+     * table, kept with the orientation settings; "3D" is a look and is not remembered.
+     * [tag:table_window_fit] Detached windows fit their height to the content without the preview.
+     */
+    private final JToggleButton bothSegment = SegmentedControl.segment("Both");
+    static final String PREVIEW_PROPERTY = "mini_3d_preview";
+    private boolean previewOn;
+    /** Grid editing buttons; disabled while the 3D view replaces the grid. */
+    private final java.util.List<Component> editControls = new java.util.ArrayList<>();
 
     public TuningTableView(String title) {
         this(title, false);
     }
 
     public TuningTableView(String title, boolean viewMode) {
+        this(title, viewMode, new Node());
+    }
+
+    public TuningTableView(String title, boolean viewMode, Node orientationConfig) {
         this.title = title;
+        this.viewMode = viewMode;
+        this.orientationConfig = orientationConfig;
+        table.setTableHeader(new JTableHeader(table.getColumnModel()) {
+            @Override
+            public void doLayout() {
+                super.doLayout();
+                positionXAxisEditor();
+            }
+        });
         table.getTableHeader().setReorderingAllowed(false);
-        table.setSelectionBackground(Color.ORANGE);
+        table.setSelectionBackground(Color.ORANGE); // [tag:fixed_color] selected cells, with black text, in every theme
         table.setDefaultRenderer(Object.class, new GradientRenderer());
         table.setCellSelectionEnabled(true);
         table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        table.setToolTipText("Arrow keys to move; Shift+arrows to select; Ctrl+A to select all; see Shortcuts for more");
-
-        table.addMouseListener(new MouseAdapter() {
+        table.setToolTipText(viewMode
+            ? "Arrows or Ctrl+mouse wheel to move; Shift+arrows to select; Ctrl+A to select all"
+            : "Type digits to replace; F2 to edit text; Enter to accept; Esc to cancel; Tab to accept and move; "
+                + "+/- to adjust by 1; wheel to adjust; Shift+wheel for 3 steps; Ctrl+wheel to move");
+        installAxisHighlighting();
+        installKeyboardEditing();
+        installXAxisEditing();
+        table.getTableHeader().setToolTipText(viewMode ? null : "Double-click an axis value to edit");
+        table.getTableHeader().addMouseListener(new MouseAdapter() {
             @Override
-            public void mousePressed(MouseEvent e) {
-                int row = table.rowAtPoint(e.getPoint());
-                int col = table.columnAtPoint(e.getPoint());
-                if (row != -1 && col != -1) {
-                    if (table.isCellSelected(row, col)) {
-                        // If cell is already selected, we want to keep selection as is
-                        // Standard JTable would clear other selections on click.
-                        // However, we must be careful not to break standard selection (Shift/Ctrl)
-                        if (!e.isControlDown() && !e.isShiftDown()) {
-                            // If we click an already selected cell without modifiers,
-                            // we usually expect it to become the ONLY selected cell in standard JTable.
-                            // But the user said "keep selection selected until click on a cell outside of selection"
-                            e.consume();
-                        }
+            public void mouseClicked(MouseEvent e) {
+                if (e.getButton() != MouseEvent.BUTTON1 || e.getClickCount() != 2) {
+                    return;
+                }
+                int column = table.getTableHeader().columnAtPoint(e.getPoint());
+                startXAxisEdit(column);
+            }
+        });
+        table.getTableHeader().addMouseListener(new MouseAdapter() {
+            private void showOrientationMenu(MouseEvent event) {
+                if (event.isPopupTrigger()) {
+                    JPopupMenu menu = orientationMenuFor(table.getTableHeader().columnAtPoint(event.getPoint()));
+                    if (menu != null) {
+                        menu.show(table.getTableHeader(), event.getX(), event.getY());
                     }
+                }
+            }
+
+            @Override
+            public void mousePressed(MouseEvent event) {
+                showOrientationMenu(event);
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                showOrientationMenu(event);
+            }
+        });
+        table.addMouseWheelListener(this::handleTableWheel);
+        table.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                // The cell editor is part of the table; focus anywhere else ends wheel editing.
+                Component opposite = e.getOppositeComponent();
+                if (!e.isTemporary() && (opposite == null || !SwingUtilities.isDescendingFrom(opposite, table))) {
+                    wheelEditing = false;
                 }
             }
         });
 
-        tableContainer.add(new JScrollPane(table), "table");
+        table.addMouseListener(new TableMouse());
+
+        mini3DView.setPreferredSize(new Dimension(320, 160));
+        mini3DView.setToolTipText("3D preview - drag to rotate; click 3D above for a larger view");
+        mini3DView.setVisible(false);
+        gridPanel.add(tableScrollPane, BorderLayout.CENTER);
+        gridPanel.add(mini3DView, BorderLayout.SOUTH);
+        tableContainer.add(gridPanel, "table");
         tableContainer.add(surface3DView, "3d");
 
-        JCheckBox view3d = new JCheckBox("3D view");
-        view3d.addActionListener(e -> {
-            cardLayout.show(tableContainer, view3d.isSelected() ? "3d" : "table");
-        });
+        // One switch for the three views rather than a checkbox per view
+        tableSegment.setToolTipText("Edit the values in a grid");
+        bothSegment.setToolTipText("Edit the values in a grid, with a small 3D preview below it");
+        surfaceSegment.setToolTipText("Show the table as a large 3D surface - drag to rotate");
+        ButtonGroup viewGroup = new ButtonGroup();
+        viewGroup.add(tableSegment);
+        viewGroup.add(bothSegment);
+        viewGroup.add(surfaceSegment);
+        previewOn = orientationConfig.getBoolProperty(PREVIEW_PROPERTY);
+        (previewOn ? bothSegment : tableSegment).setSelected(true);
+        tableSegment.addActionListener(e -> showGrid(false));
+        bothSegment.addActionListener(e -> showGrid(true));
+        surfaceSegment.addActionListener(e -> show3D(true));
+        SegmentedControl viewSwitch = new SegmentedControl(tableSegment, bothSegment, surfaceSegment);
+        viewSwitch.setMaximumSize(viewSwitch.getPreferredSize());
 
         JTextField deltaField = new JTextField("0.5", 5);
         deltaField.setToolTipText("Amount added or subtracted by the Up and Down buttons");
@@ -122,8 +308,8 @@ public class TuningTableView {
         interpolateButton.setToolTipText("Interpolate selected cells - Key: /");
         smoothButton.setToolTipText("Smooth selected cells - Key: S");
 
-        JPanel editControls = new JPanel(new FlowLayout(FlowLayout.LEFT, TOOLBAR_GAP, 0));
-        editControls.add(new JLabel("delta:"));
+        JLabel deltaLabel = new JLabel("delta:");
+        editControls.add(deltaLabel);
         editControls.add(deltaField);
         editControls.add(upButton);
         editControls.add(downButton);
@@ -133,32 +319,955 @@ public class TuningTableView {
         editControls.add(interpolateButton);
         editControls.add(smoothButton);
 
-        JPanel topPanel = new JPanel();
-        topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.X_AXIS));
+        // Wraps onto further lines in a narrow window rather than squeezing or cutting off controls.
+        JPanel topPanel = new JPanel(new WrapLayout(FlowLayout.LEFT, TOOLBAR_GAP, 4));
         topPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        topPanel.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
+        topPanel.setBorder(BorderFactory.createEmptyBorder(0, 2, 0, 2));
         topPanel.add(new JLabel(title));
-        topPanel.add(Box.createHorizontalStrut(10));
-        topPanel.add(view3d);
+        topPanel.add(viewSwitch);
+        topPanel.add(unburnedCountLabel);
 
         if (!viewMode) {
-            topPanel.add(Box.createHorizontalStrut(10));
-            topPanel.add(editControls);
+            // The label and its field wrap together.
+            JPanel delta = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+            delta.add(deltaLabel);
+            delta.add(deltaField);
+            topPanel.add(delta);
+            for (Component control : editControls.subList(2, editControls.size())) {
+                topPanel.add(control);
+            }
 
             InputMap inputMap = content.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
             inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_H, 0), "interpolateHorizontal");
             inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_V, 0), "interpolateVertical");
             inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_SLASH, 0), "interpolateSelection");
             inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_S, 0), "smoothSelection");
-            content.getActionMap().put("interpolateHorizontal", horizontalAction);
-            content.getActionMap().put("interpolateVertical", verticalAction);
-            content.getActionMap().put("interpolateSelection", interpolateAction);
-            content.getActionMap().put("smoothSelection", smoothAction);
+            content.getActionMap().put("interpolateHorizontal", tableShortcut(horizontalAction));
+            content.getActionMap().put("interpolateVertical", tableShortcut(verticalAction));
+            content.getActionMap().put("interpolateSelection", tableShortcut(interpolateAction));
+            content.getActionMap().put("smoothSelection", tableShortcut(smoothAction));
         }
 
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.add(topPanel);
         content.add(tableContainer);
+        tableContainer.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                updatePreviewVisibility();
+            }
+        });
+        tableContainer.addHierarchyBoundsListener(new HierarchyBoundsAdapter() {
+            @Override
+            public void ancestorResized(HierarchyEvent e) {
+                // Ancestor layout may not yet have updated the viewport's extent.
+                SwingUtilities.invokeLater(() -> updatePreviewVisibility());
+            }
+        });
+        tableContainer.addHierarchyListener(e -> {
+            if ((e.getChangeFlags() & (HierarchyEvent.PARENT_CHANGED | HierarchyEvent.SHOWING_CHANGED)) != 0) {
+                SwingUtilities.invokeLater(() -> updatePreviewVisibility());
+            }
+        });
+    }
+
+    LiveChannelFeed liveFeedForUnitTest() {
+        return live;
+    }
+
+    /**
+     * Records the live values for the trail: a point that moves adds one, a point that stays only
+     * refreshes its time, and points older than {@link #TRAIL_MILLIS} drop off. Values are kept
+     * raw, so the trail follows axis edits; no data, or a new orientation, clears it.
+     */
+    private void onLiveChange() {
+        double x = live.value(0);
+        double y = live.value(1);
+        if (Double.isNaN(x) || Double.isNaN(y)) {
+            trail.clear();
+        } else {
+            long now = live.nowMillis();
+            double[] last = trail.peekLast();
+            if (last != null && last[0] == x && last[1] == y) {
+                last[2] = now;
+            } else {
+                trail.addLast(new double[]{x, y, now});
+            }
+            while (!trail.isEmpty() && (trail.size() > TRAIL_MAX_POINTS || now - trail.peekFirst()[2] > TRAIL_MILLIS)) {
+                trail.pollFirst();
+            }
+        }
+        table.repaint();
+        updateSurfaceLive();
+    }
+
+    /**
+     * The trail, oldest first and ending at the current point, as {x index, y index, opacity}:
+     * fractional data-cell indexes into the displayed axes and an opacity fading with age.
+     */
+    java.util.List<double[]> liveTrail() {
+        java.util.List<double[]> points = new java.util.ArrayList<>();
+        if (!(table.getModel() instanceof TuningTableModel)) {
+            return points;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        if (model.data.length == 0 || model.data[0].length == 0) {
+            return points;
+        }
+        long now = live.nowMillis();
+        for (double[] entry : trail) {
+            Double x = LiveOperatingPoint.axisPosition(model.xBins, model.data[0].length, entry[0]);
+            Double y = LiveOperatingPoint.axisPosition(model.yBins, model.data.length, entry[1]);
+            if (x != null && y != null) {
+                points.add(new double[]{x, y, Math.max(0, 1 - (now - entry[2]) / (double) TRAIL_MILLIS)});
+            }
+        }
+        return points;
+    }
+
+    private void updateSurfaceLive() {
+        java.util.List<double[]> points = liveTrail();
+        double[][] surfaceTrail = points.isEmpty() ? null : points.toArray(new double[0][]);
+        surface3DView.setLiveTrail(surfaceTrail);
+        mini3DView.setLiveTrail(surfaceTrail);
+    }
+
+    /** Pixel centre of fractional data-cell indexes; rows show the Y bins bottom-up. */
+    private Point2D.Double cellPixel(double xIndex, double yIndex) {
+        int rows = ((TuningTableModel) table.getModel()).data.length;
+        return new Point2D.Double(
+            interpolateCentre(xIndex, index -> table.getCellRect(0, index + 1, true).getCenterX()),
+            interpolateCentre(yIndex, index -> table.getCellRect(rows - 1 - index, 1, true).getCenterY()));
+    }
+
+    /** Earlier live points as fading dots joined by lines, under the current marker. */
+    private void paintTrail(Graphics2D g2) {
+        java.util.List<double[]> points = liveTrail();
+        Point2D.Double previous = null;
+        for (int i = 0; i < points.size(); i++) {
+            double[] point = points.get(i);
+            Point2D.Double pixel = cellPixel(point[0], point[1]);
+            int alpha = (int) Math.round(255 * point[2]);
+            if (previous != null && alpha > 0) {
+                g2.setStroke(new BasicStroke(3f));
+                g2.setColor(new Color(0, 0, 0, alpha)); // [tag:fixed_color] trail edge over the value gradient
+                g2.drawLine((int) previous.x, (int) previous.y, (int) pixel.x, (int) pixel.y);
+                g2.setStroke(new BasicStroke(1f));
+                g2.setColor(new Color(255, 255, 255, alpha)); // [tag:fixed_color] trail core over the value gradient
+                g2.drawLine((int) previous.x, (int) previous.y, (int) pixel.x, (int) pixel.y);
+            }
+            if (i < points.size() - 1 && alpha > 0) {
+                Ellipse2D dot = new Ellipse2D.Double(pixel.x - TRAIL_DOT_RADIUS, pixel.y - TRAIL_DOT_RADIUS,
+                    2 * TRAIL_DOT_RADIUS, 2 * TRAIL_DOT_RADIUS);
+                g2.setColor(new Color(255, 255, 255, alpha)); // [tag:fixed_color] trail dot over the value gradient
+                g2.fill(dot);
+                g2.setColor(new Color(0, 0, 0, alpha)); // [tag:fixed_color] trail dot edge over the value gradient
+                g2.draw(dot);
+            }
+            previous = pixel;
+        }
+        g2.setStroke(new BasicStroke(1f));
+    }
+
+    /**
+     * The live operating point as fractional data-cell indexes into the displayed axes
+     * (x along xBins, y along yBins), or null when there is nothing to show.
+     */
+    private Point2D.Double livePosition() {
+        if (!(table.getModel() instanceof TuningTableModel)) {
+            return null;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        if (model.data.length == 0 || model.data[0].length == 0) {
+            return null;
+        }
+        Double x = LiveOperatingPoint.axisPosition(model.xBins, model.data[0].length, live.value(0));
+        Double y = LiveOperatingPoint.axisPosition(model.yBins, model.data.length, live.value(1));
+        return x == null || y == null ? null : new Point2D.Double(x, y);
+    }
+
+    /** The table cell (row, column) nearest the live operating point, or null when none is shown. */
+    Point liveCell() {
+        Point2D.Double position = livePosition();
+        if (position == null) {
+            return null;
+        }
+        int rows = ((TuningTableModel) table.getModel()).data.length;
+        return new Point(rows - 1 - (int) Math.round(position.y), (int) Math.round(position.x) + 1);
+    }
+
+    /**
+     * Outlines the cell nearest the live operating point and puts a dot where the firmware
+     * interpolates between the surrounding cells. Rows show the Y bins bottom-up.
+     */
+    private void paintLiveMarker(Graphics g) {
+        Point cell = liveCell();
+        if (cell == null) {
+            return;
+        }
+        Point2D.Double position = livePosition();
+        Point2D.Double centre = cellPixel(position.x, position.y);
+        double x = centre.x;
+        double y = centre.y;
+        Rectangle bounds = table.getCellRect(cell.x, cell.y, true);
+        Graphics2D g2 = (Graphics2D) g.create();
+        try {
+            Graphics2D trailGraphics = (Graphics2D) g2.create();
+            trailGraphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            paintTrail(trailGraphics);
+            trailGraphics.dispose();
+            // The marker sits on the value gradient, which looks the same in every theme, so it does too.
+            // Black-white-black rings stay visible on light and dark cells alike.
+            g2.setColor(Color.BLACK); // [tag:fixed_color] live cell outline over the value gradient
+            g2.drawRect(bounds.x, bounds.y, bounds.width - 1, bounds.height - 1);
+            g2.drawRect(bounds.x + 2, bounds.y + 2, bounds.width - 5, bounds.height - 5);
+            g2.setColor(Color.WHITE); // [tag:fixed_color] middle ring and dot fill of the live marker
+            g2.drawRect(bounds.x + 1, bounds.y + 1, bounds.width - 3, bounds.height - 3);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Ellipse2D dot = new Ellipse2D.Double(x - LIVE_DOT_RADIUS, y - LIVE_DOT_RADIUS,
+                2 * LIVE_DOT_RADIUS, 2 * LIVE_DOT_RADIUS);
+            g2.fill(dot);
+            g2.setStroke(new BasicStroke(2f));
+            g2.setColor(Color.BLACK); // [tag:fixed_color] live point dot outline over the value gradient
+            g2.draw(dot);
+        } finally {
+            g2.dispose();
+        }
+    }
+
+    private static double interpolateCentre(double position, java.util.function.IntToDoubleFunction centre) {
+        int from = (int) Math.floor(position);
+        double fraction = position - from;
+        double start = centre.applyAsDouble(from);
+        return fraction == 0 ? start : start + fraction * (centre.applyAsDouble(from + 1) - start);
+    }
+
+    JPopupMenu orientationMenuFor(int column) {
+        if (column != 0 || orientationNode == null) {
+            return null;
+        }
+        JPopupMenu menu = new JPopupMenu();
+        addOrientationOption(menu, "Flip X/Y axes", "flip_xy", flipAxes);
+        addOrientationOption(menu, "Invert X axis", "invert_x", invertX);
+        addOrientationOption(menu, "Invert Y axis", "invert_y", invertY);
+        return menu;
+    }
+
+    private void addOrientationOption(JPopupMenu menu, String label, String key, boolean selected) {
+        JCheckBoxMenuItem option = new JCheckBoxMenuItem(label, selected);
+        option.addActionListener(event -> {
+            if (!finishXAxisEdit(true) || (table.isEditing() && !table.getCellEditor().stopCellEditing())) {
+                option.setSelected(!option.isSelected());
+                return;
+            }
+            orientationNode.setBoolProperty(key, option.isSelected());
+            displayTable(currentIni, currentTableName, imageTarget, axisImageTarget);
+            onOrientationChange.run();
+        });
+        menu.add(option);
+    }
+
+    private void updatePreviewVisibility() {
+        // Keep the grid usable in small dialogs. Large tables can scroll above the preview.
+        Insets border = tableScrollPane.getInsets();
+        int gridHeight = Math.min(320, table.getRowCount() * table.getRowHeight())
+            + table.getTableHeader().getPreferredSize().height + border.top + border.bottom
+            + (table.getScrollableTracksViewportWidth() ? 0
+                : tableScrollPane.getHorizontalScrollBar().getPreferredSize().height);
+        int availableHeight = tableContainer.getHeight();
+        JViewport viewport = (JViewport) SwingUtilities.getAncestorOfClass(JViewport.class, tableContainer);
+        if (viewport != null) {
+            // Scrollable dialogs retain preferred height instead of filling a tall viewport.
+            // Measure from the table's top in the dialog, independent of scrolling position.
+            Point top = SwingUtilities.convertPoint(tableContainer, 0, 0, viewport.getView());
+            availableHeight = viewport.getExtentSize().height - Math.max(0, top.y);
+        }
+        // A scrollable dialog keeps a short preview and scrolls to it; elsewhere it hides when it
+        // does not fit below the table.
+        boolean fits = viewport != null || availableHeight >= gridHeight + MIN_PREVIEW_HEIGHT;
+        boolean visible = previewOn && previewEligible && !full3D
+            && tableContainer.getWidth() >= 320 && fits;
+        boolean sizeChanged = false;
+        if (visible) {
+            int previewHeight = Math.max(MIN_PREVIEW_HEIGHT, availableHeight - gridHeight);
+            if (mini3DView.getPreferredSize().height != previewHeight
+                || tableScrollPane.getPreferredSize().height != gridHeight) {
+                mini3DView.setPreferredSize(new Dimension(320, previewHeight));
+                tableScrollPane.setPreferredSize(new Dimension(
+                    tableScrollPane.getPreferredSize().width, gridHeight));
+                sizeChanged = true;
+            }
+        } else if (tableScrollPane.isPreferredSizeSet()) {
+            tableScrollPane.setPreferredSize(null);
+            sizeChanged = true;
+        }
+        if (mini3DView.isVisible() != visible) {
+            mini3DView.setVisible(visible);
+            sizeChanged = true;
+        }
+        if (sizeChanged) {
+            gridPanel.revalidate();
+            gridPanel.repaint();
+        }
+    }
+
+    private void updateSurfaces(Double[][] data, Double[] xBins, Double[] yBins) {
+        surface3DView.setData(data, xBins, yBins, minValue, maxValue);
+        mini3DView.setData(data, xBins, yBins, minValue, maxValue);
+        updateSurfaceLive();
+        previewEligible = data.length >= 2 && data[0].length >= 2
+            && Surface3DView.hasUsableAxis(xBins, data[0].length)
+            && Surface3DView.hasUsableAxis(yBins, data.length);
+        updatePreviewVisibility();
+    }
+
+    private void installAxisHighlighting() {
+        TableCellRenderer headerRenderer = table.getTableHeader().getDefaultRenderer();
+        table.getTableHeader().setDefaultRenderer((source, value, selected, focused, row, column) -> {
+            Component renderer = headerRenderer.getTableCellRendererComponent(source, value, selected, focused, row, column);
+            Color background = table.getTableHeader().getBackground();
+            renderer.setBackground(isActiveValueCell() && column == activeColumn()
+                ? axisHighlight(background) : background);
+            UnburnedCellMark.apply(renderer, String.valueOf(value), burnedXAxisText(column), unburnedWording.get());
+            return renderer;
+        });
+        table.getSelectionModel().addListSelectionListener(e -> repaintAxes());
+        table.getColumnModel().getSelectionModel().addListSelectionListener(e -> repaintAxes());
+    }
+
+    private void repaintAxes() {
+        table.repaint();
+        table.getTableHeader().repaint();
+        updateSurfaceSelection();
+    }
+
+    /** Shows the grid's selected cells on both 3D views; table rows are shown top-down. */
+    private void updateSurfaceSelection() {
+        if (!(table.getModel() instanceof TuningTableModel)) {
+            return;
+        }
+        Double[][] data = ((TuningTableModel) table.getModel()).data;
+        boolean[][] selection = null;
+        for (int row : table.getSelectedRows()) {
+            for (int column : table.getSelectedColumns()) {
+                if (column > 0 && row < data.length && column - 1 < data[0].length
+                    && table.isCellSelected(row, column)) {
+                    if (selection == null) {
+                        selection = new boolean[data.length][data[0].length];
+                    }
+                    selection[data.length - 1 - row][column - 1] = true;
+                }
+            }
+        }
+        surface3DView.setSelection(selection);
+        mini3DView.setSelection(selection);
+    }
+
+    /** INI axis labels and units can be expressions; only plain text is shown. */
+    private static String plainLabel(String label) {
+        if (label == null) {
+            return null;
+        }
+        String text = label.trim();
+        if (text.length() >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
+            text = text.substring(1, text.length() - 1).trim();
+        }
+        return text.isEmpty() || text.contains("{") || text.contains("@") ? null : text;
+    }
+
+    private int activeRow() {
+        return table.getSelectionModel().getLeadSelectionIndex();
+    }
+
+    private int activeColumn() {
+        return table.getColumnModel().getSelectionModel().getLeadSelectionIndex();
+    }
+
+    private boolean isActiveValueCell() {
+        return activeRow() >= 0 && activeRow() < table.getRowCount()
+            && activeColumn() > 0 && activeColumn() < table.getColumnCount()
+            && table.isCellSelected(activeRow(), activeColumn());
+    }
+
+    private Color axisHighlight(Color background) {
+        Color selection = table.getSelectionBackground();
+        return new Color((3 * background.getRed() + selection.getRed()) / 4,
+            (3 * background.getGreen() + selection.getGreen()) / 4,
+            (3 * background.getBlue() + selection.getBlue()) / 4);
+    }
+
+    private void installKeyboardEditing() {
+        // Only numeric entry starts replacement editing; letter shortcuts keep their actions.
+        table.putClientProperty("JTable.autoStartsEdit", false);
+        table.setFocusTraversalKeysEnabled(false);
+        JTextField field = new JTextField();
+        field.setHorizontalAlignment(SwingConstants.CENTER);
+        DefaultCellEditor editor = new DefaultCellEditor(field) {
+            @Override
+            public boolean stopCellEditing() {
+                if (!validateNumericEditor(field)) {
+                    return false;
+                }
+                return super.stopCellEditing();
+            }
+
+            @Override
+            public Component getTableCellEditorComponent(JTable source, Object value, boolean selected, int row, int column) {
+                Component component = super.getTableCellEditorComponent(source, value, selected, row, column);
+                field.setBorder(UIManager.getBorder("TextField.border"));
+                field.setToolTipText("Enter to accept; Esc to cancel; Tab/Shift+Tab to accept and move; "
+                    + "F2 for text-cursor navigation");
+                field.selectAll();
+                return component;
+            }
+        };
+        table.setDefaultEditor(Object.class, editor);
+        Action accept = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                selectionInput = "";
+                if (finishCellEdit(false)) {
+                    table.requestFocusInWindow();
+                }
+            }
+        };
+        for (String key : new String[]{"ENTER", "shift ENTER"}) {
+            bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, key, "acceptValue", accept);
+            bindKey(field, JComponent.WHEN_FOCUSED, key, "acceptValue", accept);
+        }
+        bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, "F2", "editValue", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                selectionInput = "";
+                startCellEdit(true);
+            }
+        });
+        Action cancel = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                selectionInput = "";
+                if (table.isEditing()) {
+                    table.getCellEditor().cancelCellEditing();
+                }
+                table.requestFocusInWindow();
+            }
+        };
+        bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, "ESCAPE", "cancelValue", cancel);
+        bindKey(field, JComponent.WHEN_FOCUSED, "ESCAPE", "cancelValue", cancel);
+        for (char digit = '0'; digit <= '9'; digit++) {
+            bindNumericEntry(digit);
+        }
+        bindNumericEntry('.');
+        bindValueAdjustment('+', 1);
+        bindValueAdjustment('-', -1);
+        for (boolean backwards : new boolean[]{false, true}) {
+            String key = backwards ? "BACK_SPACE" : "DELETE";
+            bindKey(table, JComponent.WHEN_FOCUSED, key, key, new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    deleteFromCell(backwards);
+                }
+            });
+        }
+        FocusAdapter finishOnFocusLost = new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                // Replacement entry keeps focus on the grid; F2 transfers it into the editor.
+                if (e.getOppositeComponent() != table.getEditorComponent()) {
+                    finishCellEdit(true);
+                    selectionInput = "";
+                }
+            }
+        };
+        table.addFocusListener(finishOnFocusLost);
+        field.addFocusListener(finishOnFocusLost);
+        table.getSelectionModel().addListSelectionListener(e -> resetSelectionInput());
+        table.getColumnModel().getSelectionModel().addListSelectionListener(e -> resetSelectionInput());
+        field.setFocusTraversalKeysEnabled(false);
+        for (boolean backwards : new boolean[]{false, true}) {
+            String key = backwards ? "shift TAB" : "TAB";
+            Action move = new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    moveValueCell(backwards);
+                }
+            };
+            bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, key, key, move);
+            bindKey(field, JComponent.WHEN_FOCUSED, key, key, move);
+            String focusKey = backwards ? "ctrl shift TAB" : "ctrl TAB";
+            Action leave = new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    finishCellEdit(true);
+                    selectionInput = "";
+                    if (backwards) {
+                        table.transferFocusBackward();
+                    } else {
+                        table.transferFocus();
+                    }
+                }
+            };
+            bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, focusKey, focusKey, leave);
+            bindKey(field, JComponent.WHEN_FOCUSED, focusKey, focusKey, leave);
+        }
+        installCellNavigation(field);
+    }
+
+    private void resetSelectionInput() {
+        if (!applyingSelectionInput) {
+            selectionInput = "";
+        }
+    }
+
+    private boolean startCellEdit(boolean focusEditor) {
+        if (viewMode || !finishXAxisEdit(true)) {
+            return false;
+        }
+        if (table.getSelectedRow() < 0 && table.getRowCount() > 0 && table.getColumnCount() > 1) {
+            table.changeSelection(0, 1, false, false);
+        }
+        if (!table.isEditing() && (activeRow() < 0 || activeColumn() < 0
+            || !table.isCellSelected(activeRow(), activeColumn())
+            || !table.editCellAt(activeRow(), activeColumn()))) {
+            return false;
+        }
+        if (focusEditor) {
+            table.getEditorComponent().requestFocusInWindow();
+        }
+        return true;
+    }
+
+    private boolean finishCellEdit(boolean cancelInvalid) {
+        if (table.isEditing() && !table.getCellEditor().stopCellEditing()) {
+            if (!cancelInvalid) {
+                return false;
+            }
+            table.getCellEditor().cancelCellEditing();
+        }
+        return true;
+    }
+
+    private void bindNumericEntry(char character) {
+        String name = "typeValue" + character;
+        table.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke(character), name);
+        table.getActionMap().put(name, new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (viewMode || !(table.getModel() instanceof TuningTableModel)) {
+                    return;
+                }
+                if (table.isEditing()) {
+                    ((JTextField) table.getEditorComponent()).replaceSelection(Character.toString(character));
+                } else if (character == '.' && selectionInput.isEmpty()) {
+                    adjustSelectedValuesByPrecision(1);
+                } else if (table.getSelectedRowCount() * table.getSelectedColumnCount() > 1) {
+                    if (character == '.' && (selectionInput.contains(".")
+                        || ((TuningTableModel) table.getModel()).precision == 0)) {
+                        return;
+                    }
+                    applySelectionInput(selectionInput + character);
+                } else if (startCellEdit(false)) {
+                    ((JTextField) table.getEditorComponent()).setText(Character.toString(character));
+                }
+            }
+        });
+    }
+
+    private void bindValueAdjustment(char character, double delta) {
+        Action action = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (viewMode || xAxisEditingColumn >= 0) {
+                    return;
+                }
+                if (table.isEditing()) {
+                    ((JTextField) table.getEditorComponent()).replaceSelection(Character.toString(character));
+                } else {
+                    selectionInput = "";
+                    adjustSelectedValues(delta);
+                }
+            }
+        };
+        // Character bindings cover the main keyboard and numpad without handling a key twice.
+        for (String modifier : new String[]{"", "shift "}) {
+            bindKey(table, JComponent.WHEN_FOCUSED, modifier + "typed " + character,
+                "adjustValue" + character, action);
+        }
+    }
+
+    private void applySelectionInput(String text) {
+        if (viewMode || getSelectedDataColumns().length == 0) {
+            return;
+        }
+        double value;
+        try {
+            value = text.isEmpty() ? 0 : Double.parseDouble(text);
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (!Double.isFinite(value)) {
+            return;
+        }
+        selectionInput = text;
+        applyingSelectionInput = true;
+        try {
+            setValue(value, table.getSelectedRows(), table.getSelectedColumns());
+        } finally {
+            applyingSelectionInput = false;
+        }
+    }
+
+    private void deleteFromCell(boolean backwards) {
+        if (viewMode) {
+            return;
+        }
+        if (table.isEditing()) {
+            JTextField field = (JTextField) table.getEditorComponent();
+            String action = backwards ? DefaultEditorKit.deletePrevCharAction : DefaultEditorKit.deleteNextCharAction;
+            field.getActionMap().get(action).actionPerformed(new ActionEvent(field, ActionEvent.ACTION_PERFORMED, action));
+        } else if (backwards && !selectionInput.isEmpty()) {
+            applySelectionInput(selectionInput.substring(0, selectionInput.length() - 1));
+        } else if (startCellEdit(false)) {
+            ((JTextField) table.getEditorComponent()).setText("");
+        }
+    }
+
+    private void installCellNavigation(JTextField field) {
+        for (String key : new String[]{"LEFT", "RIGHT", "UP", "DOWN", "HOME", "END", "ctrl HOME", "ctrl END"}) {
+            for (boolean extend : new boolean[]{false, true}) {
+                String stroke = (extend ? "shift " : "") + key;
+                Action move = new AbstractAction() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        navigateCell(key, extend);
+                    }
+                };
+                bindKey(table, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT, stroke, stroke, move);
+                if (key.equals("UP") || key.equals("DOWN")) {
+                    bindKey(field, JComponent.WHEN_FOCUSED, stroke, stroke, move);
+                }
+            }
+        }
+    }
+
+    private void navigateCell(String key, boolean extend) {
+        selectionInput = "";
+        if (!finishCellEdit(false) || table.getRowCount() == 0 || table.getColumnCount() <= 1) {
+            return;
+        }
+        int row = Math.max(0, activeRow());
+        int column = activeColumn() < 0 ? 1 : activeColumn();
+        int firstColumn = column == 0 ? 0 : 1;
+        switch (key) {
+            case "LEFT": column = Math.max(firstColumn, column - 1); break;
+            case "RIGHT": column = Math.min(table.getColumnCount() - 1, column + 1); break;
+            case "UP": row = Math.max(0, row - 1); break;
+            case "DOWN": row = Math.min(table.getRowCount() - 1, row + 1); break;
+            case "HOME": column = 1; break;
+            case "END": column = table.getColumnCount() - 1; break;
+            case "ctrl HOME": row = 0; break;
+            case "ctrl END": row = table.getRowCount() - 1; break;
+        }
+        table.changeSelection(row, column, false, extend);
+        table.requestFocusInWindow();
+    }
+
+    private boolean validateNumericEditor(JTextField field) {
+        try {
+            if (Double.isFinite(Double.parseDouble(field.getText().trim()))) {
+                return true;
+            }
+        } catch (NumberFormatException ignored) {
+        }
+        field.setBorder(BorderFactory.createLineBorder(TuningStyle.color("Console.ErrorText.foreground", Color.RED)));
+        field.setToolTipText("Enter a finite number, or press Esc to cancel");
+        return false;
+    }
+
+    private void installXAxisEditing() {
+        xAxisEditor.setHorizontalAlignment(SwingConstants.CENTER);
+        xAxisEditor.setVisible(false);
+        xAxisEditor.setFocusTraversalKeysEnabled(false);
+        table.getTableHeader().add(xAxisEditor);
+        xAxisEditor.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusLost(FocusEvent e) {
+                finishXAxisEdit(true);
+            }
+        });
+        bindKey(xAxisEditor, JComponent.WHEN_FOCUSED, "ENTER", "acceptAxis", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (finishXAxisEdit(true)) {
+                    table.requestFocusInWindow();
+                }
+            }
+        });
+        bindKey(xAxisEditor, JComponent.WHEN_FOCUSED, "ESCAPE", "cancelAxis", new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                finishXAxisEdit(false);
+                table.requestFocusInWindow();
+            }
+        });
+        for (boolean backwards : new boolean[]{false, true}) {
+            String key = backwards ? "shift TAB" : "TAB";
+            bindKey(xAxisEditor, JComponent.WHEN_FOCUSED, key, key, new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    int column = xAxisEditingColumn;
+                    if (column > 0 && finishXAxisEdit(true, true)) {
+                        int count = Math.min(table.getColumnCount() - 1, xBinsField.getRows() * xBinsField.getCols());
+                        startXAxisEdit(1 + Math.floorMod(column - 1 + (backwards ? -1 : 1), count));
+                    }
+                }
+            });
+        }
+    }
+
+    private void positionXAxisEditor() {
+        if (xAxisEditingColumn > 0 && xAxisEditingColumn < table.getColumnCount()) {
+            xAxisEditor.setBounds(table.getTableHeader().getHeaderRect(xAxisEditingColumn));
+        }
+    }
+
+    private void startXAxisEdit(int column) {
+        if (viewMode || xBinsField == null || axisImageTarget == null || column <= 0
+            || column >= table.getColumnCount() || !(table.getModel() instanceof TuningTableModel)) {
+            return;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        if (model.xBins == null || column - 1 >= model.xBins.length || !finishXAxisEdit(true, true)
+            || (table.isEditing() && !table.getCellEditor().stopCellEditing())) {
+            return;
+        }
+        xAxisEditingColumn = column;
+        xAxisEditor.setText(table.getColumnName(column));
+        xAxisEditor.setFont(table.getFont());
+        xAxisEditor.setBorder(UIManager.getBorder("TextField.border"));
+        xAxisEditor.setToolTipText("Enter to accept; Esc to cancel; Tab/Shift+Tab to edit the next axis value");
+        positionXAxisEditor();
+        xAxisEditor.setVisible(true);
+        xAxisEditor.selectAll();
+        xAxisEditor.requestFocusInWindow();
+        table.getTableHeader().repaint();
+    }
+
+    private boolean finishXAxisEdit(boolean commit) {
+        return finishXAxisEdit(commit, false);
+    }
+
+    private boolean finishXAxisEdit(boolean commit, boolean keepEditorVisible) {
+        if (xAxisEditingColumn < 0) {
+            return true;
+        }
+        if (commit && !validateNumericEditor(xAxisEditor)) {
+            return false;
+        }
+        int column = xAxisEditingColumn;
+        xAxisEditingColumn = -1;
+        // Moving between headers must not generate focus-loss events for the reused editor.
+        if (!keepEditorVisible) {
+            xAxisEditor.setVisible(false);
+        }
+        if (commit) {
+            setAxisValue(true, column - 1, xAxisEditor.getText());
+        }
+        table.getTableHeader().repaint();
+        return true;
+    }
+
+    private void bindKey(JComponent component, int condition, String key, String name, Action action) {
+        component.getInputMap(condition).put(KeyStroke.getKeyStroke(key), name);
+        component.getActionMap().put(name, action);
+    }
+
+    /**
+     * Shows the large 3D surface in place of the grid, or the grid again. The grid's editing
+     * buttons and shortcuts are off while the grid is hidden.
+     */
+    public void show3D(boolean show) {
+        full3D = show;
+        (show ? surfaceSegment : previewOn ? bothSegment : tableSegment).setSelected(true);
+        cardLayout.show(tableContainer, show ? "3d" : "table");
+        for (Component control : editControls) {
+            control.setEnabled(!show);
+        }
+        updatePreviewVisibility();
+    }
+
+    /** "Table" or "Both": the grid, without or with the preview; the choice is remembered. */
+    private void showGrid(boolean preview) {
+        boolean changed = preview != previewOn;
+        previewOn = preview;
+        show3D(false);
+        if (changed) {
+            orientationConfig.setBoolProperty(PREVIEW_PROPERTY, preview);
+            // Other open tables follow, and the window fits the new height.
+            onOrientationChange.run();
+        }
+    }
+
+    boolean is3DShown() {
+        return full3D;
+    }
+
+    private Action tableShortcut(Action action) {
+        return new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!full3D && !table.isEditing() && xAxisEditingColumn < 0) {
+                    selectionInput = "";
+                    action.actionPerformed(e);
+                }
+            }
+        };
+    }
+
+    private void moveValueCell(boolean backwards) {
+        selectionInput = "";
+        int row = activeRow();
+        int column = activeColumn();
+        if (table.isEditing() && !table.getCellEditor().stopCellEditing()) {
+            return;
+        }
+        int columns = table.getColumnCount() - 1;
+        int cells = table.getRowCount() * columns;
+        if (cells <= 0) {
+            return;
+        }
+        int index = row >= 0 && column > 0 ? row * columns + column - 1 : (backwards ? 0 : -1);
+        index = Math.floorMod(index + (backwards ? -1 : 1), cells);
+        table.changeSelection(index / columns, index % columns + 1, false, false);
+        table.requestFocusInWindow();
+    }
+
+    /**
+     * Mouse handling on the grid. A click also turns on wheel editing, which lasts until the
+     * pointer leaves the table or focus moves elsewhere, so scrolling the page across the table
+     * doesn't change values.
+     */
+    class TableMouse extends MouseAdapter {
+        @Override
+        public void mouseExited(MouseEvent e) {
+            // Moving onto the cell editor also exits the table, but stays inside its bounds.
+            if (!table.contains(e.getPoint())) {
+                wheelEditing = false;
+            }
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            wheelEditing = true;
+            selectionInput = "";
+            int row = table.rowAtPoint(e.getPoint());
+            int col = table.columnAtPoint(e.getPoint());
+            if (row != -1 && col != -1) {
+                if (table.isCellSelected(row, col)) {
+                    // If cell is already selected, we want to keep selection as is
+                    // Standard JTable would clear other selections on click.
+                    // However, we must be careful not to break standard selection (Shift/Ctrl)
+                    if (!e.isControlDown() && !e.isShiftDown()) {
+                        // If we click an already selected cell without modifiers,
+                        // we usually expect it to become the ONLY selected cell in standard JTable.
+                        // But the user said "keep selection selected until click on a cell outside of selection"
+                        e.consume();
+                    }
+                }
+            }
+        }
+    }
+
+    private void handleTableWheel(MouseWheelEvent event) {
+        if (!wheelEditing) {
+            scrollEnclosingPane(event);
+            return;
+        }
+        // Handle the wheel here so the scroll pane doesn't also scroll independently.
+        event.consume();
+        if (table.isEditing() || xAxisEditingColumn >= 0 || event.getWheelRotation() == 0) {
+            return;
+        }
+        selectionInput = "";
+        if (!event.isControlDown()) {
+            adjustValuesWithWheel(event);
+            return;
+        }
+        if (!isActiveValueCell()) {
+            return;
+        }
+        int row = Math.max(0, Math.min(table.getRowCount() - 1, activeRow() + event.getWheelRotation()));
+        if (row != activeRow()) {
+            // changeSelection also scrolls the selected cell into view.
+            table.changeSelection(row, activeColumn(), false, false);
+        }
+    }
+
+    /**
+     * Hands the wheel to the nearest enclosing scroll pane that scrolls in the wheel's direction
+     * (vertical, or horizontal with Shift): the table's own when the grid is clipped, otherwise the
+     * page around it. AWT does not pass a wheel event on from a scroll pane that ignores it, and a
+     * grid that only scrolls sideways would take a plain wheel turn meant for the page, so this
+     * picks the pane itself.
+     */
+    private void scrollEnclosingPane(MouseWheelEvent event) {
+        Component source = event.getComponent();
+        for (Container parent = source.getParent(); parent != null; parent = parent.getParent()) {
+            if (!(parent instanceof JScrollPane)) {
+                continue;
+            }
+            JScrollPane pane = (JScrollPane) parent;
+            JScrollBar bar = event.isShiftDown() ? pane.getHorizontalScrollBar() : pane.getVerticalScrollBar();
+            if (pane.isWheelScrollingEnabled() && bar != null && bar.isVisible()) {
+                MouseWheelEvent converted = (MouseWheelEvent) SwingUtilities.convertMouseEvent(source, event, parent);
+                parent.dispatchEvent(converted);
+                if (converted.isConsumed()) {
+                    event.consume();
+                    return;
+                }
+            }
+        }
+    }
+
+    private void adjustValuesWithWheel(MouseWheelEvent event) {
+        // One adjustment per event, regardless of rotation magnitude or pointer position.
+        int direction = event.getWheelRotation() > 0 ? -1 : 1;
+        adjustSelectedValuesByPrecision(direction * (event.isShiftDown() ? 3 : 1));
+    }
+
+    private void adjustSelectedValuesByPrecision(int steps) {
+        if (table.getModel() instanceof TuningTableModel) {
+            TuningTableModel model = (TuningTableModel) table.getModel();
+            adjustSelectedValues(steps * Math.pow(10, -model.precision));
+        }
+    }
+
+    private void adjustSelectedValues(double delta) {
+        if (viewMode || !(table.getModel() instanceof TuningTableModel)) {
+            return;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        int[] selectedRows = table.getSelectedRows();
+        int[] selectedColumns = getSelectedDataColumns();
+        boolean changed = false;
+        for (int selectedRow : selectedRows) {
+            int row = model.data.length - 1 - selectedRow;
+            for (int selectedColumn : selectedColumns) {
+                int column = selectedColumn - 1;
+                Double old = model.data[row][column];
+                if (old == null || !Double.isFinite(old)) {
+                    continue;
+                }
+                double value = old + delta;
+                if (Double.isFinite(value) && Double.compare(old, value) != 0) {
+                    model.data[row][column] = value;
+                    changed = true;
+                }
+            }
+        }
+        if (changed) {
+            commitEdit(model, selectedRows, table.getSelectedColumns());
+        }
     }
 
     protected int showConfirmDialog(JPanel panel) {
@@ -207,12 +1316,77 @@ public class TuningTableView {
         this.onEdit = onEdit;
     }
 
+    public void setOnOrientationChange(Runnable onOrientationChange) {
+        this.onOrientationChange = onOrientationChange;
+    }
+
+    private ArrayIniField editableAxisField(IniFileModel ini, String name) {
+        Optional<IniField> field = ini.findIniField(name);
+        // PC variable bins are fixed by the INI and have no tune storage
+        if (field.isPresent() && field.get() instanceof ArrayIniField
+            && !(field.get() instanceof PcVariableArrayIniField)) {
+            ArrayIniField array = (ArrayIniField) field.get();
+            if (array.getRows() == 1 || array.getCols() == 1) {
+                return array;
+            }
+        }
+        return null;
+    }
+
+    private void setAxisValue(boolean xAxis, int index, Object value) {
+        ArrayIniField field = xAxis ? xBinsField : yBinsField;
+        if (viewMode || field == null || axisImageTarget == null || value == null
+            || !(table.getModel() instanceof TuningTableModel)) {
+            return;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        Double[] bins = xAxis ? model.xBins : model.yBins;
+        if (bins == null || index < 0 || index >= bins.length) {
+            return;
+        }
+        double number;
+        try {
+            number = Double.parseDouble(value.toString().trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+        if (!Double.isFinite(number)) {
+            return;
+        }
+        int storedIndex = (xAxis ? invertX : invertY) ? bins.length - 1 - index : index;
+        int row = field.getRows() == 1 ? 0 : storedIndex;
+        int column = field.getRows() == 1 ? storedIndex : 0;
+        // Encode only the edited element, then display the actual stored precision.
+        int offset = field.getOffset(row, column);
+        ConfigurationImage candidate = axisImageTarget.clone();
+        ConfigurationImage.setScalarValue(candidate.getByteBuffer(offset, field.getType().getStorageSize()),
+            field.getType(), Double.toString(number), com.rusefi.config.Field.NO_BIT_OFFSET, field.getMultiplier(), 0);
+        double encoded = ConfigurationImageGetterSetter.getArrayValues(field, candidate)[row][column];
+        if (!Double.isFinite(encoded) || Double.compare(bins[index], encoded) == 0) {
+            return;
+        }
+        System.arraycopy(candidate.getContent(), offset, axisImageTarget.getContent(), offset,
+            field.getType().getStorageSize());
+        bins[index] = encoded;
+        if (xAxis) {
+            table.getColumnModel().getColumn(index + 1).setHeaderValue(model.getColumnName(index + 1));
+            fitColumnWidths();
+            table.getTableHeader().repaint();
+        } else {
+            model.fireTableCellUpdated(model.data.length - 1 - index, 0);
+        }
+        updateSurfaces(model.data, model.xBins, model.yBins);
+        if (onEdit != null) {
+            onEdit.run();
+        }
+    }
+
     private boolean writeBackZBins(TuningTableModel model) {
         if (imageTarget == null || zBinsField == null) {
             return false;
         }
-        ConfigurationImageGetterSetter.setArrayValues(zBinsField, imageTarget, model.data);
-        Double[][] encodedValues = ConfigurationImageGetterSetter.getArrayValues(zBinsField, imageTarget);
+        ConfigurationImageGetterSetter.setArrayValues(zBinsField, imageTarget, toStoredData(model.data));
+        Double[][] encodedValues = orientData(ConfigurationImageGetterSetter.getArrayValues(zBinsField, imageTarget));
         for (int row = 0; row < model.data.length; row++) {
             System.arraycopy(encodedValues[row], 0, model.data[row], 0, model.data[row].length);
         }
@@ -220,6 +1394,8 @@ public class TuningTableView {
     }
 
     private void commitEdit(TuningTableModel model, int[] selectedRows, int[] selectedCols) {
+        int leadRow = activeRow();
+        int leadColumn = activeColumn();
         boolean wroteImage = writeBackZBins(model);
         calculateMinMax(model.data);
         model.fireTableDataChanged();
@@ -231,8 +1407,10 @@ public class TuningTableView {
         for (int col : selectedCols) {
             table.addColumnSelectionInterval(col, col);
         }
+        ((DefaultListSelectionModel) table.getSelectionModel()).moveLeadSelectionIndex(leadRow);
+        ((DefaultListSelectionModel) table.getColumnModel().getSelectionModel()).moveLeadSelectionIndex(leadColumn);
 
-        surface3DView.setData(model.data, model.xBins, model.yBins, minValue, maxValue);
+        updateSurfaces(model.data, model.xBins, model.yBins);
         if (wroteImage && onEdit != null) {
             onEdit.run();
         }
@@ -469,6 +1647,11 @@ public class TuningTableView {
     }
 
     public void displayTable(IniFileModel iniFile, String tableName, ConfigurationImage zImage, ConfigurationImage axisImage) {
+        finishXAxisEdit(false);
+        if (table.isEditing()) {
+            table.getCellEditor().cancelCellEditing();
+        }
+        selectionInput = "";
         TableModel iniTable = iniFile.getTable(tableName);
         if (iniTable == null) {
             return;
@@ -483,29 +1666,241 @@ public class TuningTableView {
         int precision = IniField.parseDigits(ltft.getDigits());
 
         // Extract data from outputs buffer using the field's offset
-        Double[][] dataValues = ConfigurationImageGetterSetter.getArrayValues(ltft, zImage);
+        Double[][] storedValues = ConfigurationImageGetterSetter.getArrayValues(ltft, zImage);
 
         // X and Y bins (RPM and load) are on page 1
-        Double[] xBins = extractAxisBins(iniFile, iniTable.getXBinsConstant(), axisImage);
-        Double[] yBins = extractAxisBins(iniFile, iniTable.getYBinsConstant(), axisImage);
+        Double[] storedX = extractAxisBins(iniFile, iniTable.getXBinsConstant(), axisImage);
+        Double[] storedY = extractAxisBins(iniFile, iniTable.getYBinsConstant(), axisImage);
+
+        currentIni = iniFile;
+        currentTableName = tableName;
+        orientationNode = orientationConfig.getChild(tableName);
+        flipAxes = orientationNode.getBoolProperty("flip_xy");
+        invertX = orientationNode.getBoolProperty("invert_x");
+        invertY = orientationNode.getBoolProperty("invert_y");
+        live.setChannels(flipAxes ? iniTable.getYBinsChannel() : iniTable.getXBinsChannel(),
+            flipAxes ? iniTable.getXBinsChannel() : iniTable.getYBinsChannel());
+        Double[][] dataValues = orientData(storedValues);
+        Double[] xBins = orientAxis(flipAxes ? storedY : storedX, invertX);
+        Double[] yBins = orientAxis(flipAxes ? storedX : storedY, invertY);
 
         calculateMinMax(dataValues);
 
         this.imageTarget = zImage;
         this.zBinsField = ltft;
+        this.axisImageTarget = axisImage;
+        this.xBinsField = editableAxisField(iniFile,
+            flipAxes ? iniTable.getYBinsConstant() : iniTable.getXBinsConstant());
+        this.yBinsField = editableAxisField(iniFile,
+            flipAxes ? iniTable.getXBinsConstant() : iniTable.getYBinsConstant());
 
-        table.setModel(new TuningTableModel(dataValues, xBins, yBins, precision));
+        TuningTableModel model = new TuningTableModel(dataValues, xBins, yBins, precision, !viewMode,
+            edited -> commitEdit(edited, table.getSelectedRows(), table.getSelectedColumns()),
+            flipAxes ? "RPM \\ Load" : "Load \\ RPM");
+        if (!viewMode && axisImage != null && yBinsField != null) {
+            model.onYAxisEdit = (index, value) -> setAxisValue(false, index, value);
+        }
+        model.xPrecision = xBinsField == null ? precision : IniField.parseDigits(xBinsField.getDigits());
+        model.yPrecision = yBinsField == null ? precision : IniField.parseDigits(yBinsField.getDigits());
+        String xLabel = plainLabel(flipAxes ? iniTable.getYLabel() : iniTable.getXLabel());
+        String yLabel = plainLabel(flipAxes ? iniTable.getXLabel() : iniTable.getYLabel());
+        String zLabel = plainLabel(ltft.getUnits());
+        surface3DView.setAxisTitles(xLabel, yLabel, zLabel);
+        mini3DView.setAxisTitles(xLabel, yLabel, zLabel);
+        table.setModel(model);
+        model.addTableModelListener(e -> fitColumnWidths());
+        fitColumnWidths();
         table.clearSelection();
-        surface3DView.setData(dataValues, xBins, yBins, minValue, maxValue);
+        updateSurfaceSelection();
+        updateSurfaces(dataValues, xBins, yBins);
+        refreshUnburnedMarks();
+    }
+
+    /** [tag:unburned_marks] Supplies the last burned tune, so changed cells and axis values are marked. */
+    public void setBurnedImage(Supplier<ConfigurationImage> burnedImage) {
+        this.burnedImage = burnedImage == null ? () -> null : burnedImage;
+        refreshUnburnedMarks();
+    }
+
+    /** Names the reference tune in the cell tooltips: burned, or loaded while offline. */
+    public void setUnburnedWording(Supplier<UnburnedWording> wording) {
+        unburnedWording = wording == null ? () -> UnburnedWording.BURNED : wording;
+    }
+
+    /** Re-marks the cells and recounts them, after an edit or when the burned tune changes. */
+    public void refreshUnburnedMarks() {
+        UnburnedCellMark.updateCountLabel(unburnedCountLabel, unburnedCellCount());
+        table.repaint();
+        table.getTableHeader().repaint();
+    }
+
+    /** Changed values cells plus changed axis values. */
+    int unburnedCellCount() {
+        ConfigurationImage burned = burnedImage.get();
+        UnburnedChanges values = UnburnedChanges.of(imageTarget, burned);
+        UnburnedChanges axes = UnburnedChanges.of(axisImageTarget, burned);
+        return values.countChangedCells(zBinsField) + axes.countChangedCells(xBinsField)
+            + axes.countChangedCells(yBinsField);
+    }
+
+    /**
+     * Gives every column the width of its widest value or axis label as a minimum. The grid
+     * stretches beyond that in wide windows and scrolls sideways in narrow ones.
+     */
+    private void fitColumnWidths() {
+        FontMetrics values = table.getFontMetrics(table.getFont());
+        JTableHeader header = table.getTableHeader();
+        FontMetrics labels = header.getFontMetrics(header.getFont());
+        javax.swing.table.TableColumnModel columns = table.getColumnModel();
+        for (int column = 0; column < columns.getColumnCount(); column++) {
+            javax.swing.table.TableColumn tableColumn = columns.getColumn(column);
+            int textWidth = labels.stringWidth(String.valueOf(tableColumn.getHeaderValue()));
+            for (int row = 0; row < table.getRowCount(); row++) {
+                textWidth = Math.max(textWidth, values.stringWidth(String.valueOf(table.getValueAt(row, column))));
+            }
+            int width = Math.min(MAX_COLUMN_MIN_WIDTH, textWidth + CELL_TEXT_PADDING);
+            if (tableColumn.getMinWidth() != width || tableColumn.getPreferredWidth() != width) {
+                tableColumn.setMinWidth(width);
+                // Without stretching, the grid is exactly as wide as its minimum.
+                tableColumn.setPreferredWidth(width);
+            }
+        }
+        table.revalidate();
+    }
+
+    private int minimumGridWidth() {
+        int width = 0;
+        javax.swing.table.TableColumnModel columns = table.getColumnModel();
+        for (int column = 0; column < columns.getColumnCount(); column++) {
+            width += columns.getColumn(column).getMinWidth();
+        }
+        return width;
+    }
+
+    JTable getTableForTests() {
+        return table;
+    }
+
+    JLabel getUnburnedCountLabelForTests() {
+        return unburnedCountLabel;
+    }
+
+    /**
+     * The stored [row, column] of {@link #zBinsField} shown in table cell ({@code row}, {@code column} >= 1):
+     * rows are shown bottom-up, then {@link #orientData} applies the invert and flip options.
+     */
+    int[] storedValuesCell(int row, int column) {
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        int rows = model.data.length;
+        int columns = model.data[0].length;
+        int dataRow = rows - 1 - row;
+        int dataColumn = column - 1;
+        int y = invertY ? rows - 1 - dataRow : dataRow;
+        int x = invertX ? columns - 1 - dataColumn : dataColumn;
+        return flipAxes ? new int[]{x, y} : new int[]{y, x};
+    }
+
+    /** The stored [row, column] of a one-dimensional axis field for shown bin {@code index}. */
+    private static int[] storedAxisCell(ArrayIniField field, int binCount, boolean inverted, int index) {
+        int storedIndex = inverted ? binCount - 1 - index : index;
+        return field.getRows() == 1 ? new int[]{0, storedIndex} : new int[]{storedIndex, 0};
+    }
+
+    /** The burned value of table cell ({@code row}, {@code column}) when it differs, else null. */
+    String burnedCellText(int row, int column) {
+        ConfigurationImage burned = burnedImage.get();
+        if (burned == null || !(table.getModel() instanceof TuningTableModel)) {
+            return null;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        if (column == 0) {
+            int index = model.data.length - 1 - row;
+            if (yBinsField == null || model.yBins == null || index < 0 || index >= model.yBins.length) {
+                return null;
+            }
+            int[] cell = storedAxisCell(yBinsField, model.yBins.length, invertY, index);
+            if (!UnburnedChanges.of(axisImageTarget, burned).isCellChanged(yBinsField, cell[0], cell[1])) {
+                return null;
+            }
+            return model.formatNumber(UnburnedCellMark.burnedValue(yBinsField, cell[0], cell[1], burned), model.yPrecision);
+        }
+        if (zBinsField == null || row < 0 || row >= model.data.length || column > model.data[0].length) {
+            return null;
+        }
+        int[] cell = storedValuesCell(row, column);
+        if (!UnburnedChanges.of(imageTarget, burned).isCellChanged(zBinsField, cell[0], cell[1])) {
+            return null;
+        }
+        return model.formatNumber(UnburnedCellMark.burnedValue(zBinsField, cell[0], cell[1], burned));
+    }
+
+    /** The burned value of X axis header {@code column} when it differs, else null. */
+    String burnedXAxisText(int column) {
+        ConfigurationImage burned = burnedImage.get();
+        if (burned == null || column < 1 || xBinsField == null || !(table.getModel() instanceof TuningTableModel)) {
+            return null;
+        }
+        TuningTableModel model = (TuningTableModel) table.getModel();
+        int index = column - 1;
+        if (model.xBins == null || index >= model.xBins.length) {
+            return null;
+        }
+        int[] cell = storedAxisCell(xBinsField, model.xBins.length, invertX, index);
+        if (!UnburnedChanges.of(axisImageTarget, burned).isCellChanged(xBinsField, cell[0], cell[1])) {
+            return null;
+        }
+        return model.formatNumber(UnburnedCellMark.burnedValue(xBinsField, cell[0], cell[1], burned), model.xPrecision);
     }
 
     public void displayTable(IniFileModel iniFile, String tableName, ConfigurationImage image) {
         displayTable(iniFile, tableName, image, image);
     }
 
+    private Double[] orientAxis(Double[] bins, boolean inverse) {
+        if (bins == null) {
+            return null;
+        }
+        Double[] oriented = bins.clone();
+        if (inverse) {
+            for (int i = 0; i < bins.length; i++) {
+                oriented[i] = bins[bins.length - 1 - i];
+            }
+        }
+        return oriented;
+    }
+
+    private Double[][] orientData(Double[][] stored) {
+        int rows = flipAxes ? stored[0].length : stored.length;
+        int columns = flipAxes ? stored.length : stored[0].length;
+        Double[][] oriented = new Double[rows][columns];
+        for (int row = 0; row < rows; row++) {
+            for (int column = 0; column < columns; column++) {
+                int y = invertY ? rows - 1 - row : row;
+                int x = invertX ? columns - 1 - column : column;
+                oriented[row][column] = flipAxes ? stored[x][y] : stored[y][x];
+            }
+        }
+        return oriented;
+    }
+
+    private Double[][] toStoredData(Double[][] oriented) {
+        int rows = flipAxes ? oriented[0].length : oriented.length;
+        int columns = flipAxes ? oriented.length : oriented[0].length;
+        Double[][] stored = new Double[rows][columns];
+        for (int row = 0; row < oriented.length; row++) {
+            for (int column = 0; column < oriented[row].length; column++) {
+                int y = invertY ? oriented.length - 1 - row : row;
+                int x = invertX ? oriented[row].length - 1 - column : column;
+                stored[flipAxes ? x : y][flipAxes ? y : x] = oriented[row][column];
+            }
+        }
+        return stored;
+    }
+
     @Deprecated
     public void displayTable(CalibrationsInfo info, byte[] zBinsBuffer, ConfigurationImage image, String tableName) {
-        displayTable(info.getIniFile(), tableName, new ConfigurationImage(zBinsBuffer), image);
+        displayTable(info.getIniFile(), tableName,
+            new ConfigurationImage(zBinsBuffer, info.getIniFile().getByteOrder()), image);
     }
 
     private void calculateMinMax(Double[][] dataValues) {
@@ -560,12 +1955,61 @@ public class TuningTableView {
         final Double[] xBins;
         final Double[] yBins;
         private final int precision;
+        private final boolean editable;
+        private final Consumer<TuningTableModel> onCellEdit;
+        private final String axisTitle;
+        private BiConsumer<Integer, Object> onYAxisEdit;
+        private int xPrecision;
+        private int yPrecision;
 
         public TuningTableModel(Double[][] data, Double[] xBins, Double[] yBins, int precision) {
+            this(data, xBins, yBins, precision, true, null, "Load \\ RPM");
+        }
+
+        private TuningTableModel(Double[][] data, Double[] xBins, Double[] yBins, int precision,
+                                 boolean editable, Consumer<TuningTableModel> onCellEdit, String axisTitle) {
             this.data = data;
             this.xBins = xBins;
             this.yBins = yBins;
             this.precision = precision;
+            this.xPrecision = precision;
+            this.yPrecision = precision;
+            this.editable = editable;
+            this.onCellEdit = onCellEdit;
+            this.axisTitle = axisTitle;
+        }
+
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return editable && (column > 0 || (onYAxisEdit != null && yBins != null
+                && data.length - 1 - row < yBins.length));
+        }
+
+        @Override
+        public void setValueAt(Object value, int row, int column) {
+            if (!isCellEditable(row, column)) {
+                return;
+            }
+            if (column == 0) {
+                onYAxisEdit.accept(data.length - 1 - row, value);
+                return;
+            }
+            double number;
+            try {
+                number = Double.parseDouble(value.toString().trim());
+            } catch (NumberFormatException e) {
+                return;
+            }
+            int dataRow = data.length - 1 - row;
+            if (!Double.isFinite(number) || Double.compare(data[dataRow][column - 1], number) == 0) {
+                return;
+            }
+            data[dataRow][column - 1] = number;
+            if (onCellEdit != null) {
+                onCellEdit.accept(this);
+            } else {
+                fireTableCellUpdated(row, column);
+            }
         }
 
         @Override
@@ -580,9 +2024,9 @@ public class TuningTableView {
 
         @Override
         public String getColumnName(int column) {
-            if (column == 0) return "Load \\ RPM";
+            if (column == 0) return axisTitle;
             if (xBins != null && column - 1 < xBins.length) {
-                return formatNumber(xBins[column - 1]);
+                return formatNumber(xBins[column - 1], xPrecision);
             }
             return "Col " + column;
         }
@@ -593,7 +2037,7 @@ public class TuningTableView {
             int reversedRowIndex = data.length - 1 - rowIndex;
             if (columnIndex == 0) {
                 if (yBins != null && reversedRowIndex < yBins.length) {
-                    return formatNumber(yBins[reversedRowIndex]);
+                    return formatNumber(yBins[reversedRowIndex], yPrecision);
                 }
                 return "Row " + rowIndex;
             }
@@ -601,8 +2045,12 @@ public class TuningTableView {
         }
 
         private String formatNumber(Object value) {
+            return formatNumber(value, precision);
+        }
+
+        private String formatNumber(Object value, int digits) {
             if (value instanceof Number) {
-                return String.format("%." + precision + "f", ((Number) value).doubleValue())
+                return String.format("%." + digits + "f", ((Number) value).doubleValue())
                     .replace(',', '.').replaceFirst("\\.0+$", "");
             }
             return String.valueOf(value);
@@ -616,14 +2064,23 @@ public class TuningTableView {
 
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c = renderCell(table, value, isSelected, hasFocus, row, column);
+            // [tag:unburned_marks] after the renderer set its own border for this cell
+            UnburnedCellMark.apply(c, String.valueOf(value), burnedCellText(row, column), unburnedWording.get());
+            return c;
+        }
+
+        private Component renderCell(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-            if (isSelected) {
-                c.setBackground(Color.ORANGE);
-                c.setForeground(Color.BLACK);
+            if (column == 0) {
+                c.setBackground(isActiveValueCell() && row == activeRow()
+                    ? axisHighlight(table.getBackground()) : table.getBackground());
+                c.setForeground(table.getForeground());
                 return c;
             }
-            if (column == 0) {
-                c.setBackground(table.getBackground());
+            if (isSelected) {
+                c.setBackground(Color.ORANGE); // [tag:fixed_color] selected cell
+                c.setForeground(Color.BLACK); // [tag:fixed_color] text on the selected cell
                 return c;
             }
 
@@ -641,26 +2098,9 @@ public class TuningTableView {
         }
 
         private void applyGradient(Component c, double value) {
-            if (maxValue <= minValue) {
-                c.setBackground(Color.WHITE);
-                c.setForeground(Color.BLACK);
-                return;
-            }
-            double ratio = (value - minValue) / (maxValue - minValue);
-            ratio = Math.max(0, Math.min(1, ratio));
-
-            // Pastel Blue (173, 216, 230) to Pastel Red (255, 182, 193)
-            int r1 = 173, g1 = 216, b1 = 230; // Min value color
-            int r2 = 255, g2 = 182, b2 = 193; // Max value color
-
-            int red = (int) (r1 + ratio * (r2 - r1));
-            int green = (int) (g1 + ratio * (g2 - g1));
-            int blue = (int) (b1 + ratio * (b2 - b1));
-            Color background = new Color(red, green, blue);
+            Color background = CalibrationColorPalette.background(value, minValue, maxValue);
             c.setBackground(background);
-            // Ensure text is readable - pastel colors are generally light, so black text should be fine
-            double brightness = (red * 0.299 + green * 0.587 + blue * 0.114) / 255.0;
-            c.setForeground(brightness < 0.5 ? Color.WHITE : Color.BLACK);
+            c.setForeground(CalibrationColorPalette.foreground(background));
         }
     }
 }

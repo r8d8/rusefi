@@ -1,0 +1,10 @@
+! [tag:vvt_advanced_control] Curves replace fixed Hold Duty and P only; I/D remain in auxPid.
+#define VVT_ADV_DISTANCE_SIZE 9
+#define VVT_ADV_OILP_SIZE 6
+
+bit vvtAdvancedModeEnabled,"enabled","disabled";VVT Advanced Mode: master enable. Replaces the fixed PID offset (Hold Duty) with an oil-pressure-based base duty curve, and the fixed PID P factor with a distance-from-target P factor curve.
+
+int16_t vvtIntake_iTermMin;Intake VVT integral minimum. Both integral limits zero restore defaults of -1000 and 1000.;"%", 1, 0, -30000, 30000, 0
+int16_t vvtIntake_iTermMax;Intake VVT integral maximum. Applies in both basic and advanced modes.;"%", 1, 0, -30000, 30000, 0
+int16_t vvtExhaust_iTermMin;Exhaust VVT integral minimum. Both integral limits zero restore defaults of -1000 and 1000.;"%", 1, 0, -30000, 30000, 0
+int16_t vvtExhaust_iTermMax;Exhaust VVT integral maximum. Applies in both basic and advanced modes.;"%", 1, 0, -30000, 30000, 0

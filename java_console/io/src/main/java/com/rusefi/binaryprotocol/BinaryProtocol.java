@@ -20,7 +20,6 @@ import com.rusefi.core.OutputChannelSnapshot;
 import com.rusefi.core.RusEfiSignature;
 import com.rusefi.core.SensorCentral;
 import com.rusefi.core.SignatureHelper;
-import com.rusefi.core.io.BoardCompatibility;
 import com.rusefi.core.io.BundleInfo;
 import com.rusefi.core.io.BundleUtil;
 import com.rusefi.core.io.UnsupportedEcuInfo;
@@ -42,6 +41,7 @@ import java.util.BitSet;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
 import static com.devexperts.logging.Logging.getLogging;
@@ -65,8 +65,14 @@ public class BinaryProtocol {
     private static final ThreadFactory THREAD_FACTORY = new NamedThreadFactory("ECU text pull", true);
     // Intended for high-latency TCP links to firmware built with CUSTOM_TS_BUFFER_SIZE.
     private static final Integer BLOCKING_FACTOR_OVERRIDE = Integer.getInteger("blockingFactorOverride");
+    private static final AtomicLong NEXT_CONNECTION_GENERATION = new AtomicLong();
+
+    static long nextConnectionGeneration() {
+        return NEXT_CONNECTION_GENERATION.incrementAndGet();
+    }
 
     private final LinkManager linkManager;
+    private final long connectionGeneration = nextConnectionGeneration();
     private final IoStream stream;
     // Serialize response publication with disconnect cleanup. Never hold this during device I/O:
     // close must be able to clear the UI while a command is waiting for a response.
@@ -168,14 +174,14 @@ public class BinaryProtocol {
         // stale sensor data so a subsequent ECU doesn't inherit values from this one.
         // This is the only mechanism that fires NOT_CONNECTED on the splash screen — the
         // ConnectionWatchdog exists only inside ConsoleUI and is not created during splash.
-        // Skip the global status change for short-lived scanner probes (notifyGlobalStatusOnClose=false)
-        // so they don't disrupt the main console connection.
+        // Scanner probes (notifyGlobalStatusOnClose=false) own neither the global connection
+        // status nor its sensor readings. Closing one must leave the active console data intact.
         stream.addCloseListener(() -> {
             synchronized (publicationLock) {
                 if (linkManager.getNotifyGlobalStatusOnClose()) {
                     ConnectionStatusLogic.INSTANCE.setValue(ConnectionStatusValue.NOT_CONNECTED);
+                    SensorCentral.getInstance().reset();
                 }
-                SensorCentral.getInstance().reset();
             }
         });
     }
@@ -285,13 +291,20 @@ public class BinaryProtocol {
         }
 
         try {
-            iniFile = Objects.requireNonNull(iniFileProvider.provide(signature));
+            String port = linkManager.getLastTriedPort();
+            linkManager.onIniResolutionStarted(port);
+            iniFile = Objects.requireNonNull(
+                iniFileProvider.provide(signature, port, connectionGeneration,
+                    () -> !isClosed()
+                        && Objects.equals(port, linkManager.getLastTriedPort())));
+            linkManager.clearMissingIniFailure();
             // SensorLogger is in the UI module, we can't easily access it from the IO module if it's not on the classpath
             // However, BinaryProtocol is often used in the context where UI is also present.
             // Let's check if we can use reflection or if there is a better way.
             // For now, let's try to fix the import or use the full name if it's available.
         } catch (IniNotFoundException e) {
             log.info("INI not found for signature: " + signature);
+            linkManager.recordMissingIniFailure(signature);
             close();
             return "Failed to located .ini";
         }
@@ -316,6 +329,9 @@ public class BinaryProtocol {
         if (linkManager.getNeedPullData())
             startPullThread(listener);
         binaryProtocolLogger.start();
+        if (stream.isClosed()) {
+            return "Connection closed during startup";
+        }
         log.info("connectAndReadConfiguration: completed successfully");
         return null;
     }
@@ -377,7 +393,8 @@ public class BinaryProtocol {
 
     /**
      * Patches configuration inside ECU RAM by writing only regions with different content.
-     * Does not burn to flash or update the local configuration image.
+     * Does not burn to flash. Acknowledged writes update the local view of ECU RAM;
+     * the separately cached loaded image remains unchanged.
      */
     public void uploadChangesWithoutBurn(ConfigurationImage newVersion) {
         ConfigurationImage current = getControllerConfiguration();
@@ -491,7 +508,7 @@ public class BinaryProtocol {
     public ConfigurationImageWithMeta readFullImageFromController(final ConfigurationImageMeta meta) {
         log.info("Reading from controller " + meta.getEcuSignature());
 
-        final ConfigurationImageWithMeta imageWithMeta = new ConfigurationImageWithMeta(meta);
+        final ConfigurationImageWithMeta imageWithMeta = new ConfigurationImageWithMeta(meta, getWireByteOrder());
         final ConfigurationImage image = imageWithMeta.getConfigurationImage();
 
         int offset = 0;
@@ -613,25 +630,34 @@ public class BinaryProtocol {
     }
 
     public byte @NotNull [] smartPacketPrefix(int page, int offset, int requestSize) {
-        return smartPacketPrefix2(page, offset, requestSize, isSinglePageController());
+        return smartPacketPrefix2(page, offset, requestSize, isSinglePageController(), getWireByteOrder());
     }
 
-    static byte @NotNull [] smartPacketPrefix2(int offset, int requestSize, boolean isSinglePageController) {
-        return smartPacketPrefix2(0, offset, requestSize, isSinglePageController);
-    }
-
-    static byte @NotNull [] smartPacketPrefix2(int page, int offset, int requestSize, boolean isSinglePageController) {
+    static byte @NotNull [] smartPacketPrefix2(int page, int offset, int requestSize, boolean isSinglePageController, ByteOrder order) {
         byte[] packet;
         if (isSinglePageController) {
             // older controller, no page index in read command
             // PS: technically we can/shall actually use command syntax as specified by the .ini
             packet = new byte[4];
-            ByteRange.packOffsetAndSize(offset, requestSize, packet);
+            ByteRange.packOffsetAndSize(offset, requestSize, packet, order);
         } else {
             packet = new byte[6];
-            ByteRange.packPageOffsetAndSize(page, offset, requestSize, packet);
+            ByteRange.packPageOffsetAndSize(page, offset, requestSize, packet, order);
         }
         return packet;
+    }
+
+    /**
+     * Byte order for TS command arguments and page/output data, from the connected .ini's
+     * {@code endianness} declaration.  Little-endian (rusEFI) before the ini is loaded.
+     */
+    public @NotNull ByteOrder getWireByteOrder() {
+        if (iniFile == null || iniFile.getMetaInfo() == null) {
+            return ByteOrder.LITTLE_ENDIAN;
+        }
+        ByteOrder order = iniFile.getMetaInfo().getByteOrder();
+        // mocked meta info in tests can return null for the default method
+        return order == null ? ByteOrder.LITTLE_ENDIAN : order;
     }
 
     public boolean isSinglePageController() {
@@ -812,8 +838,6 @@ public class BinaryProtocol {
     }
 
     private void writeData(byte[] content, int contentOffset, int ecuOffset, int size, int page) {
-        isBurnPending = true;
-
         byte[] packet = WriteCommand.getWritePacket(this, content, contentOffset, ecuOffset, size, page);
 
         long start = System.currentTimeMillis();
@@ -828,14 +852,25 @@ public class BinaryProtocol {
                 } else {
                     log.error("writeData: Something is wrong, retrying... code = " + response[0]);
                 }
-                // huh?! when do we retry what here?!
                 continue;
             }
-            break;
+            if (page == 0) {
+                // Only an acknowledged main-page write advances our RAM comparison image.
+                // The separately cached loaded baseline remains unchanged.
+                state.recordPage0Write(content, contentOffset, ecuOffset, size);
+            }
+            isBurnPending = true;
+            return;
         }
+        stream.close();
+        throw new IllegalStateException("Configuration write failed at page " + page
+            + ", ECU offset " + ecuOffset + ", size " + size);
     }
 
     public void burn() {
+        if (stream.isClosed()) {
+            throw new IllegalStateException("ECU connection is closed; cannot burn configuration");
+        }
         if (!isBurnPending)
             return;
         log.info("Need to burn");
@@ -853,6 +888,7 @@ public class BinaryProtocol {
         // can trigger a reconnection rather than leaving the executor permanently blocked.
         log.error("Burn timed out or stream closed, giving up");
         stream.close();
+        throw new IllegalStateException("ECU burn failed");
     }
 
     public boolean burnPage(int pageIdentifier) {
@@ -984,7 +1020,7 @@ public class BinaryProtocol {
 
                 byte[] response = executeCommand(
                     Integration.TS_OUTPUT_COMMAND,
-                    GetOutputsCommand.createRequest(reassemblyIdx, chunkSize),
+                    GetOutputsCommand.createRequest(reassemblyIdx, chunkSize, getWireByteOrder()),
                     "output channels"
                 );
 

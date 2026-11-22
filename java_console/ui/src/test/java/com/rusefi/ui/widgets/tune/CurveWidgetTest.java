@@ -1,5 +1,6 @@
 package com.rusefi.ui.widgets.tune;
 
+import com.opensr5.ConfigurationImageTestHelper;
 import com.opensr5.ConfigurationImage;
 import com.opensr5.ConfigurationImageGetterSetter;
 import com.opensr5.ini.IniFileMetaInfo;
@@ -26,7 +27,7 @@ public class CurveWidgetTest {
         // Issue #9191: screenshot values are valid (0..1250 mg), but the INI plot ends at 150.
         // All loaded points must be visible, and edits must respect field limits, not plot bounds.
         IniFileModel ini = readPrimingIni();
-        ConfigurationImage image = new ConfigurationImage(24);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(24);
         ArrayIniField xField = (ArrayIniField) ini.findIniField("primeBins").get();
         ArrayIniField yField = (ArrayIniField) ini.findIniField("primeValues").get();
         Double[] temperatures = {-40.0, -20.0, 0.0, 20.0, 40.0, 60.0, 80.0, 100.0};
@@ -96,6 +97,65 @@ public class CurveWidgetTest {
     }
 
     @Test
+    public void pcVariableAxisBinsAreShownAndFixed() throws Throwable {
+        // Issue #10626: "Boost control open loop gear adder" takes its X bins from gearCountArray,
+        // a [PcVariables] array with a defaultValue. Such bins have no tune storage: the curve
+        // shows the INI values and only the Y values can be edited.
+        String text = "[Constants]\npage = 1\n"
+            + "gearBasedOpenLoopBoostAdder = array, S08, 0, [10], \"%\", 0.5, 0, -63, 63, 1\n"
+            + "[PcVariables]\n"
+            + "gearCountArray = array, S08, [10], \"Gear\", 1, 0, -1, { 10 - 2 }, 0, noMsqSave\n"
+            + "[ConstantsExtensions]\n"
+            + "defaultValue = gearCountArray, -1 0 1 2 3 4 5 6 7 8\n"
+            + "readOnly = gearCountArray\n"
+            + "[CurveEditor]\ncurve = boostOpenLoopGearAdderCurve, \"Boost Open Loop gear-based modifier\"\n"
+            + "columnLabel = \"Gear\", \"duty cycle\"\n"
+            + "xAxis = 0, 100, 11\nyAxis = 0, 100, 5\n"
+            + "xBins = gearCountArray, tcuCurrentGear\nyBins = gearBasedOpenLoopBoostAdder\n";
+        IniFileMetaInfo meta = mock(IniFileMetaInfo.class);
+        when(meta.getnPages()).thenReturn(1);
+        when(meta.getPageSize(0)).thenReturn(16);
+        when(meta.getSignature()).thenReturn("test");
+        IniFileModel ini = IniFileReaderUtil.readIniFile(IniFileReaderUtil.read(
+            new ByteArrayInputStream(text.getBytes(StandardCharsets.US_ASCII))), "test", meta);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(16);
+        ArrayIniField yField = (ArrayIniField) ini.findIniField("gearBasedOpenLoopBoostAdder").get();
+        ConfigurationImageGetterSetter.setArrayValues(yField, image,
+            new Double[]{0.0, 0.0, 5.0, 10.0, 15.0, 20.0, 20.0, 20.0, 20.0, 20.0});
+        byte[] original = image.getContent().clone();
+
+        SwingUtilities.invokeAndWait(() -> {
+            CurveWidget widget = new CurveWidget(ini.getCurves().get("boostOpenLoopGearAdderCurve"), ini, image);
+            JTable table = findTable(widget.getContentPane());
+            CurveWidget.CurveCanvas canvas = (CurveWidget.CurveCanvas) widget.getContentPane().getComponent(0);
+            canvas.setSize(470, 360);
+            assertEquals(10, table.getRowCount());
+            for (int row = 0; row < 10; row++) {
+                assertEquals(String.valueOf(row - 1), table.getValueAt(row, 0));
+                assertFalse(table.isCellEditable(row, 0), "gear numbers are fixed");
+                assertTrue(table.isCellEditable(row, 1));
+            }
+            assertEquals("5.0", table.getValueAt(2, 1));
+            assertFalse(hasCurveOutsidePlot(render(canvas)), "curve must stay inside the plot");
+            assertArrayEquals(original, image.getContent(), "opening and painting must not modify the tune");
+
+            // The gear bins share offset 0 with nothing: writing them must not touch the tune.
+            edit(table, 3, 0, "7");
+            assertEquals("2", table.getValueAt(3, 0));
+            assertArrayEquals(original, image.getContent());
+
+            Point start = canvas.worldToCanvas(2, 10);
+            Point end = canvas.worldToCanvas(5, 30);
+            canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_PRESSED, 0, 0, start.x, start.y, 1, false));
+            canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_DRAGGED, 0, 0, end.x, end.y, 0, false));
+            canvas.dispatchEvent(new MouseEvent(canvas, MouseEvent.MOUSE_RELEASED, 0, 0, end.x, end.y, 1, false));
+            assertEquals("2", table.getValueAt(3, 0), "dragging a point keeps its gear");
+            assertEquals(30.0, ConfigurationImageGetterSetter.getArrayValues(yField, image)[3][0]);
+            assertEquals(5.0, ConfigurationImageGetterSetter.getArrayValues(yField, image)[2][0]);
+        });
+    }
+
+    @Test
     public void fieldLimitsResolveExpressionsWithoutUsingPlotBounds() throws Throwable {
         String text = "[Constants]\npage = 1\n"
             + "xBins = array, S16, 0, [2], \"C\", 1, 0, -100, { fieldHigh }, 0\n"
@@ -113,7 +173,7 @@ public class CurveWidgetTest {
         for (int mode = 0; mode < 3; mode++) {
             // A missing image must not turn an unresolved bound into zero or a plot-axis limit.
             // readNumericValue currently requests four bytes even for the U08 flag at offset 12.
-            ConfigurationImage image = mode == 2 ? null : new ConfigurationImage(16);
+            ConfigurationImage image = mode == 2 ? null : ConfigurationImageTestHelper.newLittleEndian(16);
             if (image != null) {
                 image.getContent()[12] = (byte) mode;
                 ConfigurationImageGetterSetter.setArrayValues((ArrayIniField) ini.findIniField("xBins").get(),
@@ -159,7 +219,7 @@ public class CurveWidgetTest {
     @Test
     public void draggingUsesOneScaleUntilRelease() throws Throwable {
         IniFileModel ini = readPrimingIni();
-        ConfigurationImage image = new ConfigurationImage(24);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(24);
         ArrayIniField xField = (ArrayIniField) ini.findIniField("primeBins").get();
         ArrayIniField yField = (ArrayIniField) ini.findIniField("primeValues").get();
         ConfigurationImageGetterSetter.setArrayValues(xField, image,
@@ -232,7 +292,7 @@ public class CurveWidgetTest {
     @Test
     public void coolantLimitEdit() throws Throwable {
         IniFileModel ini = readIni();
-        ConfigurationImage image = new ConfigurationImage(20);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(20);
         image.getContent()[16] = 1; // Metric interface
         ArrayIniField xField = (ArrayIniField) ini.findIniField("cltRevLimitRpmBins").get();
         ArrayIniField yField = (ArrayIniField) ini.findIniField("cltRevLimitRpm").get();
@@ -291,7 +351,7 @@ public class CurveWidgetTest {
 
     private static void checkCoolantLimits(int metric, int maximum) throws Throwable {
         IniFileModel ini = readIni();
-        ConfigurationImage image = new ConfigurationImage(20);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(20);
         image.getContent()[16] = (byte) metric;
         ArrayIniField xField = (ArrayIniField) ini.findIniField("cltRevLimitRpmBins").get();
         ConfigurationImageGetterSetter.setArrayValues(xField, image, new Double[]{-20.0, 0.0, 11.0, 115.0});
@@ -313,7 +373,7 @@ public class CurveWidgetTest {
     @Test
     public void axisExpressionsUseEachTuneWithoutChangingIniMetadata() throws Throwable {
         IniFileModel ini = readIni();
-        ConfigurationImage image = new ConfigurationImage(20);
+        ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(20);
         image.getContent()[16] = 1;
         assertEquals(120, ini.getCurves().get("cltRevLimitCurve").getxAxis().resolve(ini, image).getMax());
         image.getContent()[16] = 0;

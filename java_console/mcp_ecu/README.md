@@ -12,6 +12,50 @@ updates firmware via OpenBLT while backing up and migrating the ECU configuratio
 `download_bundle` fetches fresh board or universal autoupdate bundles and returns
 the extracted firmware paths.
 
+## Embedded Console use
+
+The Console's **Troubleshooting** tab uses `ConsoleEcuSession` in process. This
+adapter exposes only `ecu_info`, `list_output_channels`, `read_output_channel`,
+`read_live_values`, `diagnostic_snapshot`, `read_tune_fields`, `get_lua`,
+`capture_live_log`, `capture_engine_sniffer` and `read_messages` through the
+Console-owned connection. It validates arguments
+and rejects changed connections; closing it releases its subscriptions without
+closing the port. There is no second stdio process or port discovery. See
+[Console troubleshooting assistant](../../docs/llm-troubleshooting.md).
+
+The embedded adapters bound results more tightly than the standalone catalog:
+`get_lua` returns paged fresh RAM source with line citations and a hash;
+`capture_live_log` returns an in-memory trend (up to 16 channels, 20 samples,
+10 seconds); and `capture_engine_sniffer` returns up to 128 events and 32 channel
+summaries from the next chart, without raw chart text. It uses an EngineState
+observer alongside existing UI actions. Cancellation and connection changes
+stop these operations without closing the borrowed port or replacing UI listeners.
+The assistant does not write/reset Lua, configure acquisition, record arbitrary
+paths, or enable the standalone server's write tools.
+
+`list_output_channels` includes INI gauge-title/datalog descriptions and units,
+with source and availability metadata. Output-channel units take precedence
+over gauge units. Missing, dynamic or conflicting units are explicit; discovery
+does not evaluate expressions or read the tune. Its filter also matches returned
+descriptions and known units, and results remain bounded to at most 100 entries.
+
+The Console-only batch tools read at most 32 requested channel names from one
+recent completed full poll. `diagnostic_snapshot` adds raw warning/error channels
+from that same poll. They return a shared sample ID, timestamp and age; missing
+channels are explicit. Last/recent codes and counters can be historical, and a
+host poll is not an atomic ECU measurement. These tools do not send commands,
+clear faults, or alter the standalone stdio tool catalog below.
+
+The Console-only `read_tune_fields` reads fresh selected calibration ranges on
+the existing communication thread. Supply 1-32 INI calibration names; scalars,
+enums/bitfields and arrays of up to 64 elements are supported, with at most 512
+values per request. String/Lua fields and larger arrays are excluded. Results
+identify pages, offsets, per-field failures and read timestamps. Reads are
+sequential ECU RAM observations, not an atomic snapshot or a flash-persistence
+check. Cancellation prevents remaining chunks and queued work without
+interrupting an in-flight wire transaction. It does not use the editable tune
+cache or download the entire tune.
+
 ## Architecture
 
 ```
@@ -35,6 +79,12 @@ LLM client  <-- stdio JSON-RPC (MCP) -->  EcuMcpServer
 `LuaService` (in `:ecu_io`) is the headless reusable core that `SetLuaTool` and
 `EcuMcpServer` both depend on. It owns connecting to the ECU, locating the `LUASCRIPT`
 ini field, writing/burning, and `luareset`.
+
+`:mcp_ecu` and `:ui` both depend on `:ecu_shared` for calibration backup/migration,
+firmware operations, hardware probes, binary logging, and Lua include expansion.
+MCP no longer depends on `:ui`, and UI does not yet depend on MCP. The shared
+module retains the existing `:autoupdate`/`:core_ui` helpers and optional maintenance
+dialogs; it does not include the console widgets, editors, or visualization modules.
 
 ## Prerequisite: a matching .ini file
 
@@ -71,6 +121,8 @@ Behavior common to all tools:
 | `stop_data_logging` | Stop recording and close the file. |
 | `data_logging_status` | Recording state, file path, sample count, and errors. |
 | `convert_log_to_csv` | Convert a host-side MLG/MSL log to CSV without connecting to an ECU. |
+| `extract_tune_from_log` | Extract the starting MSQ tune embedded in a host-side MLG log without connecting to an ECU. |
+| `import_ini_to_cache` | Import a host-side `.ini` into the console's local `.ini` cache keyed by the firmware signature hash. |
 | `read_messages` | Pull recent ECU messages (Lua `print` included). |
 | `wait_for_message` | Block until a message matches a regex. |
 | `read_tune` | Save the complete ECU tune as a `.msq` file. |
@@ -79,6 +131,29 @@ Behavior common to all tools:
 | `update_firmware` | Update via OpenBLT, back up and migrate the configuration, then reconnect. |
 | `reboot` | Reboot the ECU. |
 | `reboot_to_blt` | Reboot the ECU into the OpenBLT bootloader. |
+
+### `extract_tune_from_log`
+
+| Argument | Type | Required | Description |
+|---|---|---|---|
+| `inputPath` | string | yes | Existing TunerStudio or rusEFI MLVLG v2 `.mlg` file on the MCP server host. |
+| `outputPath` | string | no | New MSQ file; defaults to the input path with its extension replaced by `.msq`. Parent directory must exist. |
+
+Extracts `LogStart_MAIN_TUNE` from the log's information section, preserving the
+original XML bytes, encoding, comments and all tune pages. No ECU connection or
+INI file is needed. Relative paths resolve against the server's working directory.
+Returns `success`, absolute `path` and `byteCount`.
+
+```json
+{"name":"extract_tune_from_log","arguments":{"inputPath":"/tmp/engine-run.mlg"}}
+```
+
+Existing output files are never overwritten. Missing tunes, unsupported formats,
+invalid offsets/provider lengths and malformed MSQ XML return errors without
+publishing a partial file. Information sections are limited to 32 MiB; XML DTDs
+and external entities are not supported. This extracts the tune at logging start,
+not subsequent tune edits. Text MSL logs and logs without embedded tunes are not
+supported by this tool.
 
 ### `convert_log_to_csv`
 
@@ -117,6 +192,29 @@ java -cp /path/to/mcp_ecu-all.jar com.rusefi.mcp.MslToCsv input.mlg output.csv
 
 The output argument is optional. The existing C++ converter remains available
 for unit-test tooling.
+
+### `import_ini_to_cache`
+
+| Argument | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `path` | string | yes | — | Existing `.ini` file on the MCP server host (not the client). |
+| `signature` | string | no | read from file | Firmware signature override (e.g. `rusEFI master.2026.07.02.uaefi.2367417284`). By default the server extracts the signature from the file's `signature=` line. |
+
+Copies the file into the console's local `.ini` cache at
+`~/.rusEFI/ini_database/<hash>.ini`, where `<hash>` is the last token of the
+firmware signature. Subsequent connects for that signature resolve the `.ini`
+locally without any network download or user prompt — the same path the Swing
+manual-picker uses for custom boards or offline installs
+(`SignatureHelper.importIntoCache`). An existing cached entry for the same hash
+is overwritten. No ECU connection or network access is required.
+
+Returns `success`, absolute `path` (the cached file) and `signature`. Errors
+when the input is missing, unreadable, lacks a `signature=` line (and no
+override is supplied), or has an unparseable signature.
+
+```json
+{"name":"import_ini_to_cache","arguments":{"path":"/tmp/rusefi_my_board.ini"}}
+```
 
 ### `connect`
 
@@ -251,7 +349,7 @@ the host OS has mounted a drive letter.
 | Argument | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `path` | string | no | Temporary `rusefi_data_*.mlg` file | New file on the MCP server host; parent directory must exist. Relative paths resolve against the server's working directory. |
-| `saveTune` | boolean | no | `true` | Save a tune snapshot in the same folder as the data log. |
+| `saveTune` | boolean | no | `true` | Embed the starting tune in the log and save an MSQ snapshot in the same folder. |
 
 Connects if necessary, creates the file and writes its header before returning.
 Existing files are never overwritten. Starting while already recording fails and
@@ -270,7 +368,14 @@ Existing files are preserved, including invalid MSQ files. Comparison includes
 firmware signature and calibration constants on each page, ignoring comments and
 writer metadata. Unchanged numbered snapshots are reused too.
 
-Set `"saveTune": false` to record only data. If the required tune read/save fails,
+The saved MSQ is also embedded in the MLG information section using TunerStudio's
+`NEW_INFO_PROVIDER,LogStart_MAIN_TUNE,Type:msqVisible:falseLength:...` format.
+Sharing the log alone therefore includes its starting tune. Use
+`extract_tune_from_log` to recover it; `convert_log_to_csv` skips this metadata
+and continues to export the recorded samples.
+
+Set `"saveTune": false` to disable both embedded and separate tune snapshots and
+record only data. If the required tune read/save fails,
 start fails without activating recording; any newly created data log is removed.
 The snapshot describes the tune at logging start; edits during a recording do not
 create further tune snapshots.
@@ -293,6 +398,7 @@ fields as start:
 | `path` | Absolute file path, or null before the first successful start. |
 | `format` | `mlg`. |
 | `tunePath` | Absolute path of the saved/reused tune, or null when tune saving is disabled or no recording has started. |
+| `tuneEmbedded` | Whether the log includes that MSQ in its information section. |
 | `sampleCount` | Rows successfully written in this recording. |
 | `channelCount` | Fields in the log, including the frontend's MAP compatibility alias. |
 | `error` | Failure description, when present. |

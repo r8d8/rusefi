@@ -9,9 +9,10 @@ public enum UpdateMode {
     ST_LINK("ST-LINK Update"),
     DFU_SWITCH("Switch to DFU Mode"),
     OPENBLT_SWITCH("Switch to OpenBLT Mode"),
-    OPENBLT_CAN("OpenBLT via CAN"),
+    OPENBLT_CAN("Manual OpenBLT Update via CAN"),
     OPENBLT_MANUAL("Manual OpenBLT Update"),
     OPENBLT_AUTO("Auto OpenBLT Update"),
+    OPENBLT_NO_INI("Update firmware (no ini)"),
     OPENBLT_EMERGENCY_WIPE("EMERGENCY WIPE INTERNAL FLASH"),
     DFU_ERASE("Full DFU Erase");
 

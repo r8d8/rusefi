@@ -20,6 +20,10 @@ void initFlash();
 void writeToFlashNow();
 bool writeToFlashNowImpl();
 void setNeedToWriteConfiguration();
+#if EFI_UNIT_TEST
+void resetConfigurationWriteRequestCountForUnitTest();
+int getConfigurationWriteRequestCountForUnitTest();
+#endif
 void suspendLinearTimeWatcher();
 
 bool settingsLtftRequestWriteToFlash();
@@ -31,4 +35,5 @@ bool flashAllowWriteID(uint32_t id);
 void trackSettingsWriteResult(bool success);
 // Core config-error producer (see refreshConfigErrorState()): reports when settings
 // write attempts have been failing continuously for longer than the alert threshold.
+// About saving the tune only, not about what the tune contains.
 bool checkSettingsWriteFailure();

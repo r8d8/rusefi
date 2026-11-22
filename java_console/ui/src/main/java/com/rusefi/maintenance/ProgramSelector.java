@@ -3,25 +3,22 @@ package com.rusefi.maintenance;
 import com.rusefi.core.OsUtil;
 
 import com.devexperts.logging.Logging;
-import com.fazecast.jSerialComm.SerialPort;
 import com.rusefi.*;
-import com.rusefi.binaryprotocol.BinaryProtocol;
-import com.rusefi.config.generated.Integration;
 import com.rusefi.core.FindFileHelper;
-import com.rusefi.autodetect.PortDetector;
+import com.rusefi.core.io.BundleInfo;
+import com.rusefi.core.io.BundleUtil;
+import com.rusefi.core.io.ConnectedEcuTarget;
+import com.rusefi.core.SignatureHelper;
 import com.rusefi.io.LinkManager;
-import com.rusefi.io.UpdateOperationCallbacks;
 import com.rusefi.core.ui.AutoupdateUtil;
-import com.rusefi.io.IoStream;
-import com.rusefi.io.can.PCanRawPort;
-import com.rusefi.io.can.SocketCanRawPort;
-import com.rusefi.io.serial.BufferedSerialIoStream;
 import com.rusefi.maintenance.jobs.*;
 import com.rusefi.ui.basic.SingleAsyncJobExecutor;
 import com.rusefi.ui.util.URLLabel;
 import com.rusefi.ui.widgets.JSplitButton;
+import com.rusefi.ui.widgets.JoinedButtons;
 import com.rusefi.ui.wizard.EmergencyWipePanel;
-import com.rusefi.updater.OpenbltDetectorStrategy;
+import com.rusefi.ui.wizard.DfuRecoveryConfirmationPanel;
+import com.rusefi.ui.wizard.FirmwareProgrammingPanel;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,30 +31,31 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.io.EOFException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import static com.devexperts.logging.Logging.getLogging;
 import static com.rusefi.SerialPortType.OpenBlt;
-import static com.rusefi.maintenance.CalibrationsHelper.*;
-import static com.rusefi.maintenance.CallbacksWaitingUtil.TOTAL_WAIT_SECONDS;
-import static com.rusefi.maintenance.CallbacksWaitingUtil.waitForPredicate;
 import static com.rusefi.maintenance.UpdateMode.*;
 
 public class ProgramSelector {
-    interface CanFlashAction {
-        void flash(String fileName, OpenbltJni.OpenbltCallbacks callbacks) throws IOException;
-    }
-
     private static final Logging log = getLogging(ProgramSelector.class);
     private final JPanel content = new JPanel(new BorderLayout());
     private final JLabel noHardware = new JLabel("Nothing detected");
     private final JPanel updateModeAndButton = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 5));
-    private final JSplitButton splitButton = new JSplitButton("Update ECU Firmware", AutoupdateUtil.loadIcon("upload48.png"));
+    private final JPanel primaryActionRow = new ResponsiveActionRow();
+    private final JSplitButton splitButton = new JSplitButton("Update ECU firmware", AutoupdateUtil.loadIcon("upload48.png"));
+    private boolean recoveryDefault;
+    private String primaryActionBranch;
+    private boolean directJobInProgress;
+    private boolean prominentCardStyle;
+    private boolean confirmedUpToDate;
+    private boolean confirmedNewerBuild;
     private final List<JComponent> additionalFirmwareControls = new ArrayList<>();
     private final ConnectivityContext connectivityContext;
     private final JComboBox<PortResult> comboPorts;
@@ -67,15 +65,59 @@ public class ProgramSelector {
     private SingleAsyncJobExecutor jobExecutor;
     @Nullable
     private LinkManager linkManager;
-    private Function<JComponent, Boolean> firmwareUpdateInterceptor = source -> false;
+    private BiFunction<JComponent, PortResult, Boolean> firmwareUpdateInterceptor = (source, port) -> false;
     private BooleanSupplier externalBusy = () -> false;
+    private BooleanSupplier externalPrimaryActionBusy = () -> false;
+    @Nullable
+    private Predicate<String> confirmDfuRecoveryForTests;
+    private long modalGeneration;
+    @Nullable
+    private Predicate<String> confirmNormalUpdateForTests;
+    private Consumer<JComponent> showNoIniUpdatePanel;
+    private Runnable closeNoIniUpdatePanel;
+    private Runnable missingIniStateChanged = () -> {};
+    @Nullable
+    private PortResult pendingNoIniTarget;
+    @Nullable
+    private String pendingNoIniSignature;
+    // Rendering is only a hint: every invocation reads fresh capability inputs, including after modal confirmation.
+    private Supplier<ProgrammingCapabilities> capabilityProvider;
 
+    static final class ProgrammingCapabilities {
+        final boolean supportsDfu;
+        final boolean obfuscated;
+        final String bundleTarget;
+        final String effectiveTarget;
+        final boolean windows;
+
+        ProgrammingCapabilities(boolean supportsDfu, boolean obfuscated, String bundleTarget,
+                                String effectiveTarget, boolean windows) {
+            this.supportsDfu = supportsDfu;
+            this.obfuscated = obfuscated;
+            this.bundleTarget = bundleTarget;
+            this.effectiveTarget = effectiveTarget;
+            this.windows = windows;
+        }
+
+        boolean requiresBlt() {
+            return obfuscated || isForeignBoardOnUniversalBundle(bundleTarget, effectiveTarget);
+        }
+
+        boolean canUseDfu() {
+            return supportsDfu && !requiresBlt();
+        }
+    }
     public ProgramSelector(ConnectivityContext connectivityContext, JComboBox<PortResult> comboPorts,
                            Consumer<JComponent> showFullScreenPanel, Runnable closeFullScreenPanel) {
         this.connectivityContext = connectivityContext;
+        capabilityProvider = () -> new ProgrammingCapabilities(
+            DfuFlasher.isDfuProgrammingSupported(), FindFileHelper.isObfuscated(), BundleUtil.getBundleTarget(),
+            connectivityContext.getConnectedEcuTarget().effectiveTarget(), OsUtil.isWindows());
         this.comboPorts = comboPorts;
         this.showFullScreenPanel = Objects.requireNonNull(showFullScreenPanel);
         this.closeFullScreenPanel = Objects.requireNonNull(closeFullScreenPanel);
+        showNoIniUpdatePanel = showFullScreenPanel;
+        closeNoIniUpdatePanel = closeFullScreenPanel;
         noHardware.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
         noHardware.setFont(noHardware.getFont().deriveFont(noHardware.getFont().getSize2D() + 2));
         content.add(updateModeAndButton, BorderLayout.NORTH);
@@ -83,130 +125,450 @@ public class ProgramSelector {
 
         updateModeAndButton.setVisible(false);
         updateModeAndButton.add(splitButton);
-
-        splitButton.addActionListener(e -> {
-            if (firmwareUpdateInterceptor.apply(splitButton)) {
-                return;
-            }
-            final PortResult targetPort = resolveFlashPort();
-            if (targetPort == null) {
-                return;
-            }
-            executeJob(splitButton, mainButtonModeFor(targetPort), targetPort);
-        });
+        splitButton.addActionListener(e -> triggerPrimaryAction());
 
         // Keep the main button label and enabled state in sync with whatever port is currently selected. The combo is
         // shared with the Connect tab and is repopulated/re-selected after apply() runs, so drive the
         // control off selection changes (same source the action reads) rather than off apply()'s snapshot.
         comboPorts.addItemListener(e -> {
             if (e.getStateChange() == ItemEvent.SELECTED) {
-                refreshMainButtonText();
                 apply(connectivityContext.getCurrentHardware());
+                missingIniStateChanged.run();
             }
         });
         refreshMainButtonText();
     }
 
     /**
-     * A board already sitting in the OpenBLT bootloader has no running firmware: it never auto-connects,
-     * so {@link #linkManager} is never set for it and {@link UpdateMode#OPENBLT_AUTO} (which reboots a
-     * live ECU into the bootloader) cannot work. Flash it directly via {@link UpdateMode#OPENBLT_MANUAL}.
-     */
-    private UpdateMode mainButtonModeFor(@Nullable PortResult selectedPort) {
-        return mainButtonModeFor(selectedPort, isLiveConnection());
-    }
-
-    /**
-     * Pure decision logic behind the main Update-Firmware button mode, extracted so it can be unit tested
+     * Pure decision logic behind the normal update button mode, extracted so it can be unit tested
      * without Swing/hardware-detection singletons. [tag:better_ux_for_flashing]
      */
-    static UpdateMode mainButtonModeFor(@Nullable PortResult selectedPort, boolean liveConnection) {
+    @Nullable
+    static UpdateMode mainButtonModeFor(@Nullable PortResult selectedPort, boolean liveConnection,
+                                        boolean canUseDfu) {
         if (selectedPort != null && selectedPort.type == OpenBlt) {
             return OPENBLT_MANUAL;
         }
         // A DFU device is a board already sitting in the STM32 built-in bootloader: it has no running
-        // firmware to reboot and never auto-connects, so flash it directly via DFU_MANUAL rather than
-        // mislabeling the button as a (dead) OpenBLT action. [tag:better_ux_for_flashing]
+        // firmware to reboot and never auto-connects. The adaptive primary button offers confirmed
+        // recovery, but the normal-only update shortcut must not recover. [tag:better_ux_for_flashing]
         if (selectedPort != null && selectedPort.type == SerialPortType.Dfu) {
-            return DFU_MANUAL;
+            return null;
         }
-        // OPENBLT_AUTO reboots a *live* ECU into the bootloader; with no live connection there is nothing
-        // to reboot and awaitBinaryProtocol would just time out. So when offline — including a board
-        // sitting in a bootloader whose detection is momentarily flickering to Unknown — flash manually
-        // rather than flip-flopping into a dead AUTO job. [tag:better_ux_for_flashing]
-        if (!liveConnection) {
-            return OPENBLT_MANUAL;
+        if (selectedPort != null && selectedPort.type == SerialPortType.EcuWithOpenblt) {
+            return liveConnection ? OPENBLT_AUTO : null;
         }
-        return OPENBLT_AUTO;
+        if (isCanEcu(selectedPort)) {
+            return liveConnection ? OPENBLT_AUTO : null;
+        }
+        if (selectedPort != null && selectedPort.type == SerialPortType.Ecu) {
+            if (!liveConnection) {
+                return null;
+            }
+            return canUseDfu ? DFU_AUTO : null;
+        }
+        return null;
+    }
+
+    static UpdateMode mainButtonModeFor(@Nullable PortResult selectedPort, boolean liveConnection,
+                                        boolean canUseDfu, boolean matchingNoIniFailure) {
+        if (matchingNoIniFailure && selectedPort != null
+            && (selectedPort.type == SerialPortType.Ecu || selectedPort.type == SerialPortType.EcuWithOpenblt)) {
+            return OPENBLT_NO_INI;
+        }
+        return mainButtonModeFor(selectedPort, liveConnection, canUseDfu);
+    }
+
+    /** Keep no-INI consent inside the firmware tab so console navigation stays available. */
+    public void setNoIniUpdatePanelHost(Consumer<JComponent> showPanel, Runnable closePanel) {
+        showNoIniUpdatePanel = Objects.requireNonNull(showPanel);
+        closeNoIniUpdatePanel = Objects.requireNonNull(closePanel);
+    }
+
+    public void setMissingIniStateChangedListener(Runnable listener) {
+        missingIniStateChanged = Objects.requireNonNull(listener);
+    }
+
+    public void cancelNoIniUpdateConfirmation() {
+        cancelNoIniUpdate();
+    }
+
+    private void startMainButtonUpdate(JComponent parent, PortResult targetPort) {
+        if (isJobRunning() || externalPrimaryActionBusy.getAsBoolean()) {
+            return;
+        }
+        final ProgrammingCapabilities capabilities = capabilityProvider.get();
+        final UpdateMode mode = mainButtonModeFor(targetPort, isLiveConnection(), capabilities.canUseDfu(),
+            isMatchingNoIniFailure(targetPort));
+        if (mode == OPENBLT_NO_INI) {
+            showNoIniUpdateConfirmation(parent, targetPort);
+            return;
+        } else if (firmwareUpdateInterceptor.apply(parent, targetPort)) {
+            return;
+        }
+        executeJob(parent, mode, targetPort);
+    }
+
+    private void showNoIniUpdateConfirmation(JComponent parent, PortResult targetPort) {
+        final String signature = missingIniSignature(targetPort);
+        if (signature == null || isJobRunning() || externalPrimaryActionBusy.getAsBoolean()
+            || !isNoIniConfirmationTarget(targetPort, signature)) {
+            return;
+        }
+        pendingNoIniTarget = targetPort;
+        pendingNoIniSignature = signature;
+        String warning = "No matching INI is available for this ECU, so the console cannot back up or "
+            + "restore its settings. After the update, the ECU will use firmware defaults.\n\n"
+            + "Detected signature: " + signature + "\nSelected device: " + targetPort.port
+            + "\n\nKeep the engine stopped and maintain stable power throughout the update.";
+        showNoIniUpdatePanel.accept(FirmwareProgrammingPanel.noIniUpdateConfirmation(
+            warning, () -> confirmNoIniUpdate(targetPort, signature, parent), this::cancelNoIniUpdate));
+    }
+
+    private void confirmNoIniUpdate(PortResult targetPort, String signature, JComponent parent) {
+        if (pendingNoIniTarget == null || !sameConfirmedPort(pendingNoIniTarget, targetPort)
+            || !Objects.equals(pendingNoIniSignature, signature)
+            || isJobRunning() || externalPrimaryActionBusy.getAsBoolean()
+            || !isNoIniConfirmationTarget(targetPort, signature)) {
+            cancelNoIniUpdate();
+            return;
+        }
+        pendingNoIniTarget = null;
+        pendingNoIniSignature = null;
+        closeNoIniUpdatePanel.run();
+        runNoIniUpdateJob(resolveFlashPort(), parent, signature);
+    }
+
+    private void runNoIniUpdateJob(@Nullable PortResult targetPort, JComponent parent, String signature) {
+        if (targetPort == null || isJobRunning() || externalPrimaryActionBusy.getAsBoolean()
+            || !isNoIniConfirmationTarget(targetPort, signature)) {
+            return;
+        }
+        runJob(OpenBltManualJobFactory.createNoIniUpdate(
+            targetPort, parent, connectivityContext, linkManager, signature), parent);
+    }
+
+    private boolean isNoIniConfirmationTarget(PortResult targetPort, String signature) {
+        PortResult current = resolveFlashPort();
+        return sameConfirmedPort(targetPort, current)
+            && Objects.equals(signature, missingIniSignature(current))
+            && isMatchingNoIniFailure(current);
+    }
+
+    private void cancelNoIniUpdate() {
+        if (pendingNoIniTarget != null) {
+            pendingNoIniTarget = null;
+            pendingNoIniSignature = null;
+            closeNoIniUpdatePanel.run();
+        }
+    }
+
+    private void clearStaleNoIniUpdateConfirmation() {
+        if (pendingNoIniTarget != null && (pendingNoIniSignature == null || isJobRunning()
+            || externalPrimaryActionBusy.getAsBoolean()
+            || !isNoIniConfirmationTarget(pendingNoIniTarget, pendingNoIniSignature))) {
+            cancelNoIniUpdate();
+        }
     }
 
     private void refreshMainButtonText() {
-        final UpdateMode mode = mainButtonModeFor(resolveFlashPort());
-        if (mode == OPENBLT_MANUAL) {
-            splitButton.setText(OPENBLT_MANUAL.displayText);
-        } else if (mode == DFU_MANUAL) {
-            splitButton.setText(DFU_MANUAL.displayText);
-        } else {
-            splitButton.setText("Update Firmware");
-        }
+        refreshMainButtonText(isDfuRecoveryDefault(connectivityContext.getCurrentHardware()));
+    }
+
+    private void refreshMainButtonText(boolean recoveryDefault) {
+        this.recoveryDefault = recoveryDefault;
+        final UpdateMode mode = mainButtonModeFor(
+            resolveFlashPort(), isLiveConnection(), capabilityProvider.get().canUseDfu(),
+            isMatchingNoIniFailure(resolveFlashPort()));
+        splitButton.setText(recoveryDefault ? "Recover ECU" : mode == OPENBLT_MANUAL ? OPENBLT_MANUAL.displayText
+            : mode == OPENBLT_NO_INI ? OPENBLT_NO_INI.displayText
+            : confirmedUpToDate ? "Reflash anyway"
+            : confirmedNewerBuild ? "Update firmware" : primaryActionBranch == null
+                ? "Update ECU firmware" : "Update ECU · " + primaryActionBranch);
         matchFirmwareControlSizes();
+    }
+
+    public void setPrimaryActionBranch(@Nullable String branch) {
+        primaryActionBranch = branch == null || branch.trim().isEmpty() ? null : branch.trim();
+        refreshMainButtonText();
+    }
+
+    public void setPrimaryActionStatus(boolean upToDate, boolean newerBuild) {
+        confirmedUpToDate = upToDate;
+        confirmedNewerBuild = newerBuild;
+        refreshMainButtonText();
+    }
+
+    private boolean isDfuRecoveryDefault(@Nullable AvailableHardware hardware) {
+        if (hardware == null || !hardware.isDfuFound()) {
+            return false;
+        }
+        final PortResult selected = (PortResult) comboPorts.getSelectedItem();
+        final List<PortResult> knownPorts = hardware.getKnownPorts();
+        if (selected != null) {
+            final PortResult current = currentPort(knownPorts, selected);
+            return current != null && current.type == SerialPortType.Dfu;
+        }
+        // With no selection, only one DFU-only detection can supply the default. Never replace a
+        // stale/unknown selection or another ECU's update action with independently detected recovery.
+        return knownPorts.size() == 1 && resolveDetectedDfuPort(hardware) != null;
+    }
+
+    private void triggerPrimaryAction() {
+        final AvailableHardware hardware = connectivityContext.getCurrentHardware();
+        if (recoveryDefault != isDfuRecoveryDefault(hardware)) {
+            // A changed device must not turn a click on a stale Update label into recovery (or vice versa).
+            apply(hardware);
+            return;
+        }
+        if (recoveryDefault) {
+            startDfuRecovery(null, true);
+        } else if (mainButtonModeFor(resolveFlashPort(), isLiveConnection(),
+            capabilityProvider.get().canUseDfu(), isMatchingNoIniFailure(resolveFlashPort())) == OPENBLT_NO_INI) {
+            PortResult target = resolveNormalFlashPort();
+            if (target != null) {
+                startMainButtonUpdate(splitButton, target);
+            }
+        } else {
+            triggerUpdateFirmware();
+        }
     }
 
     private boolean isLiveConnection() {
         return linkManager != null && linkManager.getBinaryProtocol() != null;
     }
 
-    /**
-     * Resolve which port the main Update-Firmware action targets. A board already in the OpenBLT
-     * bootloader is flashed manually and needs no live connection, so — when the combo selection isn't
-     * itself a bootloader and we're offline — prefer any detected OpenBLT port over the connection-
-     * dependent AUTO path (which reboots a *running* ECU and just times out with no live BinaryProtocol).
-     * This covers the offline "open a tune, plug an OpenBLT board" flow where the combo selection may be
-     * null/stale right after the hot-plug. [tag:better_ux_for_flashing]
-     */
+    /** Resolve only the currently selected, still-detected port for expert operations; never guess a fallback. */
     private PortResult resolveFlashPort() {
         final PortResult selected = (PortResult) comboPorts.getSelectedItem();
-        return resolveFlashPort(
+        final AvailableHardware hardware = connectivityContext.getCurrentHardware();
+        return currentPort(hardware.getKnownPorts(), selected);
+    }
+
+    /** Current selection as reported by the latest scan; does not choose a fallback target. */
+    @Nullable
+    public PortResult getSelectedDetectedPort() {
+        return resolveFlashPort();
+    }
+
+    /**
+     * Resolve only a normal firmware-update target. DFU is intentionally excluded: it has its own
+     * explicitly labelled and confirmed recovery action, never reached by the normal update shortcut.
+     */
+    private PortResult resolveNormalFlashPort() {
+        final PortResult selected = (PortResult) comboPorts.getSelectedItem();
+        final AvailableHardware hardware = connectivityContext.getCurrentHardware();
+        final PortResult current = currentPort(hardware.getKnownPorts(), selected);
+        if (isMatchingNoIniFailure(current)) {
+            return current;
+        }
+        return resolveNormalFlashPort(
             selected,
-            hasMatchingLiveConnection(
-                selected,
-                isLiveConnection(),
-                linkManager == null ? null : linkManager.getLastTriedPort()),
-            connectivityContext.getCurrentHardware().getKnownPorts(SerialPortType.Dfu),
-            connectivityContext.getCurrentHardware().getKnownPorts(OpenBlt),
+            isLiveConnection(),
+            linkManager == null ? null : linkManager.getLastTriedPort(),
+            hardware.getKnownPorts(),
             UiProperties.isCanOpenBltEnabled()
         );
     }
 
-    /**
-     * Pure port-resolution logic behind the main Update-Firmware action, extracted so it can be unit
-     * tested without Swing/hardware-detection singletons. [tag:better_ux_for_flashing]
-     */
-    static PortResult resolveFlashPort(
-        @Nullable final PortResult selected,
-        final boolean liveConnection,
-        final List<PortResult> dfuPorts,
-        final List<PortResult> bltPorts,
-        final boolean canOpenBltEnabled
+    static PortResult resolveNormalFlashPort(
+        @Nullable PortResult selected,
+        boolean liveConnection,
+        @Nullable String connectedPort,
+        List<PortResult> knownPorts,
+        boolean canOpenBltEnabled
     ) {
-        if (isCanEcu(selected)) {
-            return canOpenBltEnabled && liveConnection ? selected : null;
+        selected = currentPort(knownPorts, selected);
+        if (selected == null) {
+            return null;
         }
-        if (selected != null && (selected.type == OpenBlt || selected.type == SerialPortType.Dfu)) {
+        if (isCanEcu(selected)) {
+            return canOpenBltEnabled && hasMatchingLiveConnection(selected, liveConnection, connectedPort)
+                ? selected : null;
+        }
+        if (isUnflashableEcu(selected)) {
+            return null;
+        }
+        if (selected.type == SerialPortType.Dfu) {
+            return null;
+        }
+        if (selected.type == OpenBlt) {
             return selected;
         }
-        if (!liveConnection) {
-            // A board sitting in the STM32 built-in bootloader is flashed manually via DFU; prefer it over
-            // the connection-dependent AUTO path (and over a null/stale combo selection right after launch)
-            // so the button isn't mislabeled as a dead OpenBLT action. [tag:better_ux_for_flashing]
-            if (!dfuPorts.isEmpty()) {
-                return dfuPorts.get(0);
-            }
-            if (!bltPorts.isEmpty()) {
-                return bltPorts.get(0);
-            }
+        if (selected.type == SerialPortType.Ecu || selected.type == SerialPortType.EcuWithOpenblt) {
+            return hasMatchingLiveConnection(selected, liveConnection, connectedPort) ? selected : null;
         }
-        return isUnflashableEcu(selected) ? null : selected;
+        return null;
+    }
+
+    private PortResult resolveDetectedDfuPort(@Nullable AvailableHardware hardware) {
+        if (hardware == null || !hardware.isDfuFound()) {
+            return null;
+        }
+        final List<PortResult> detected = hardware.getKnownPorts(SerialPortType.Dfu);
+        // The DFU backend is global, not bound to the selected physical device. A selection cannot disambiguate it.
+        return detected.size() == 1 ? detected.get(0) : null;
+    }
+
+    private boolean canRecoverDfu(@Nullable AvailableHardware hardware, boolean customFirmware) {
+        final ProgrammingCapabilities capabilities = capabilityProvider.get();
+        return resolveDetectedDfuPort(hardware) != null
+            && (customFirmware ? capabilities.canUseDfu() : canUseManualDfu(capabilities.supportsDfu,
+                capabilities.obfuscated, capabilities.bundleTarget, capabilities.effectiveTarget))
+            && !isJobRunning();
+    }
+
+    private boolean isJobRunning() {
+        return directJobInProgress || (jobExecutor != null && !jobExecutor.isNotInProgress()) || externalBusy.getAsBoolean();
+    }
+
+    private void startDfuRecovery() {
+        startDfuRecovery(null, false);
+    }
+
+    void startCustomDfuRecovery(File firmware) {
+        if (!firmware.isFile() || !new FileNameExtensionFilter("Firmware binaries (.bin)", "bin").accept(firmware)) {
+            showProgrammingError("Invalid firmware file", "Please select a .bin firmware file.");
+            return;
+        }
+        startDfuRecovery(firmware.getAbsolutePath(), false);
+    }
+
+    private void startDfuRecovery(@Nullable String firmwareFile, boolean requireRecoveryDefault) {
+        final AvailableHardware currentHardware = connectivityContext.getCurrentHardware();
+        if (!canRecoverDfu(currentHardware, firmwareFile != null)
+            || (requireRecoveryDefault && !isDfuRecoveryDefault(currentHardware))) {
+            return;
+        }
+        final PortResult dfuPort = resolveDetectedDfuPort(currentHardware);
+        if (dfuPort == null) {
+            return;
+        }
+        final ProgrammingCapabilities confirmedCapabilities = capabilityProvider.get();
+        final String warning = "Recovery may erase firmware and settings. Save a tune backup first, if possible.\n\n"
+            + "Recovery cannot identify the board or choose between connected ECUs. Disconnect all other ECUs "
+            + "and connect only the ECU you want to recover. Select its exact board and firmware.\n\n"
+            + "Keep the engine stopped and maintain stable power throughout recovery.";
+        showDfuRecoveryConfirmation(warning, () -> {
+            final AvailableHardware latestHardware = connectivityContext.getCurrentHardware();
+            final PortResult latestDfuPort = resolveDetectedDfuPort(latestHardware);
+            if (!canRecoverDfu(latestHardware, firmwareFile != null) || latestDfuPort == null
+                || !samePort(dfuPort, latestDfuPort)
+                || (requireRecoveryDefault && !isDfuRecoveryDefault(latestHardware))
+                || !sameFirmwareTarget(confirmedCapabilities, capabilityProvider.get())) {
+                return;
+            }
+            if (firmwareFile == null) {
+                executeJob(splitButton, DFU_MANUAL, latestDfuPort);
+            } else {
+                runJob(createDfuManualJob(firmwareFile), splitButton);
+            }
+        });
+    }
+
+    private void showDfuRecoveryConfirmation(String warning, Runnable confirmed) {
+        if (confirmDfuRecoveryForTests != null) {
+            // Existing deterministic capability tests can still supply immediate consent. Production never blocks EDT.
+            if (confirmDfuRecoveryForTests.test(warning)) {
+                confirmed.run();
+            }
+            return;
+        }
+        final long generation = ++modalGeneration;
+        showFullScreenPanel.accept(new DfuRecoveryConfirmationPanel(warning,
+            modalAction(generation, confirmed), modalAction(generation, () -> {})));
+    }
+
+    private void showNormalUpdateConfirmation(String message, Runnable confirmed) {
+        if (confirmNormalUpdateForTests != null) {
+            if (confirmNormalUpdateForTests.test(message)) {
+                confirmed.run();
+            }
+            return;
+        }
+        final long generation = ++modalGeneration;
+        showFullScreenPanel.accept(FirmwareProgrammingPanel.updateConfirmation(message,
+            modalAction(generation, confirmed), modalAction(generation, () -> {})));
+    }
+
+    private void showProgrammingError(String title, String message) {
+        final long generation = ++modalGeneration;
+        showFullScreenPanel.accept(FirmwareProgrammingPanel.error(title, message,
+            modalAction(generation, () -> {})));
+    }
+
+    /** Every selector modal shares ownership, including wipe and errors; stale actions cannot affect a newer view. */
+    private Runnable modalAction(long generation, Runnable action) {
+        return () -> {
+            if (generation != modalGeneration) {
+                return;
+            }
+            final long closedGeneration = ++modalGeneration;
+            closeFullScreenPanel.run(); // Close before an interceptor or accepted job may open its next screen.
+            if (modalGeneration == closedGeneration) {
+                action.run();
+            }
+        };
+    }
+
+    private boolean isMatchingNoIniFailure(@Nullable PortResult port) {
+        if (port == null
+            || (port.type != SerialPortType.Ecu && port.type != SerialPortType.EcuWithOpenblt)
+            || LinkManager.isCanPort(port.port)) {
+            return false;
+        }
+        if (missingIniSignature(port) == null) {
+            return false;
+        }
+        return samePort(currentPort(connectivityContext.getCurrentHardware().getKnownPorts(), port), port);
+    }
+
+    @Nullable
+    private String missingIniSignature(PortResult port) {
+        MissingIniRecoveryState.Failure probedFailure = connectivityContext.getMissingIniRecoveryState().get();
+        if (probedFailure != null && probedFailure.port.equals(port.port)
+            && SignatureHelper.parse(probedFailure.signature) != null) {
+            return probedFailure.signature;
+        }
+        return null;
+    }
+
+    private static boolean samePort(@Nullable PortResult left, @Nullable PortResult right) {
+        return left != null && right != null && left.type == right.type && left.port.equals(right.port);
+    }
+
+    private String normalUpdateConfirmation(PortResult targetPort, ProgrammingCapabilities capabilities) {
+        final ConnectedEcuTarget ecuTarget = connectivityContext.getConnectedEcuTarget();
+        final String target = capabilities.effectiveTarget;
+        final String targetDescription;
+        if (targetPort.type == OpenBlt && isKnownTarget(bootloaderBoard(targetPort))) {
+            targetDescription = bootloaderBoard(targetPort) + " (reported by selected bootloader)";
+        } else if (targetPort.type == OpenBlt) {
+            targetDescription = isKnownTarget(target)
+                ? target + " (suggested only; selected bootloader did not identify the board)"
+                : "Unknown (selected bootloader did not identify the board)";
+        } else if (ecuTarget.isLiveTargetKnown()) {
+            targetDescription = isKnownTarget(target)
+                ? target + " (reported by connected ECU)"
+                : "Unknown (connected ECU did not identify the board)";
+        } else if (isKnownTarget(target)) {
+            final String persisted = ConnectedEcuTarget.readPersisted();
+            final String source = target.equalsIgnoreCase(persisted == null ? "" : persisted)
+                ? "Saved board selection — not checked against the connected ECU"
+                : "Board specified by this firmware package — not checked against the ECU";
+            targetDescription = target + " (" + source + ")";
+        } else {
+            targetDescription = "Unknown — board not verified";
+        }
+        final BundleInfo bundle = BundleUtil.readBundleFullNameNotNull();
+        final String channel = bundle.isMaster() ? "Snapshot (development build)" : bundle.getBranchName();
+        return "ECU board: " + targetDescription + "\nFirmware channel: " + channel
+            + "\n\nConnect only the ECU you want to update. Keep the engine stopped and maintain stable power."
+            + "\n\nSelected device: " + targetPort.port;
+    }
+
+    private static boolean isKnownTarget(@Nullable String target) {
+        return target != null && !target.trim().isEmpty() && !"unknown".equalsIgnoreCase(target.trim());
     }
 
     static boolean hasMatchingLiveConnection(
@@ -214,11 +576,43 @@ public class ProgramSelector {
         boolean liveConnection,
         @Nullable String connectedPort
     ) {
-        return liveConnection
-            && (!isCanEcu(selected) || selected.port.equals(connectedPort));
+        return selected != null && liveConnection && selected.port.equals(connectedPort);
     }
 
-    private void executeJob(JComponent parent, UpdateMode selectedMode, PortResult selectedPort) {
+    private static PortResult currentPort(List<PortResult> ports, @Nullable PortResult selected) {
+        return ports.stream().filter(port -> samePort(port, selected)).findFirst().orElse(null);
+    }
+
+    private boolean canUseDfuNow() {
+        return capabilityProvider.get().canUseDfu();
+    }
+
+    private UpdateMode normalModeFor(PortResult targetPort, ProgrammingCapabilities capabilities) {
+        return mainButtonModeFor(targetPort, isLiveConnection(), capabilities.canUseDfu());
+    }
+
+    private static String bootloaderBoard(PortResult port) {
+        return port.bootloaderInfo == null ? null : port.bootloaderInfo.board;
+    }
+
+    private static boolean sameConfirmedPort(PortResult confirmed, @Nullable PortResult current) {
+        return samePort(confirmed, current)
+            && Objects.equals(confirmed.bootloaderInfo == null ? null : confirmed.bootloaderInfo.raw,
+                current.bootloaderInfo == null ? null : current.bootloaderInfo.raw);
+    }
+
+    private static boolean sameFirmwareTarget(ProgrammingCapabilities confirmed, ProgrammingCapabilities current) {
+        return Objects.equals(confirmed.bundleTarget, current.bundleTarget)
+            && Objects.equals(confirmed.effectiveTarget, current.effectiveTarget);
+    }
+
+    private boolean isValidatedLiveEcuTarget(PortResult targetPort) {
+        return isSerialEcu(targetPort)
+            && hasMatchingLiveConnection(targetPort, isLiveConnection(),
+                linkManager == null ? null : linkManager.getLastTriedPort());
+    }
+
+    void executeJob(JComponent parent, UpdateMode selectedMode, PortResult selectedPort) {
         log.info("ProgramSelector " + selectedMode + " " + selectedPort);
         Objects.requireNonNull(selectedMode);
         AsyncJob job;
@@ -227,8 +621,7 @@ public class ProgramSelector {
                 job = new DfuAutoJob(selectedPort, parent, connectivityContext, linkManager);
                 break;
             case DFU_MANUAL:
-                job = new DfuManualJob(connectivityContext.getConnectedEcuTarget(), null,
-                    suggested -> DfuBoardPicker.pick(suggested, showFullScreenPanel, closeFullScreenPanel));
+                job = createDfuManualJob(null);
                 break;
             case INSTALL_OPENBLT:
                 job = new InstallOpenBltJob(connectivityContext.getConnectedEcuTarget());
@@ -249,6 +642,12 @@ public class ProgramSelector {
             case OPENBLT_MANUAL:
                 job = OpenBltManualJobFactory.createProduction(selectedPort, parent, connectivityContext);
                 break;
+            case OPENBLT_NO_INI:
+                String noIniSignature = missingIniSignature(selectedPort);
+                if (isMatchingNoIniFailure(selectedPort) && noIniSignature != null) {
+                    showNoIniUpdateConfirmation(parent, selectedPort);
+                }
+                return;
             case OPENBLT_AUTO:
                 job = new OpenBltAutoJob(selectedPort, parent, connectivityContext, linkManager);
                 break;
@@ -271,23 +670,75 @@ public class ProgramSelector {
             artifact = OpenBltWipeArtifact.loadAndValidate(selectedPort);
         } catch (IOException e) {
             log.error("Emergency wipe validation failed", e);
-            JOptionPane.showMessageDialog(parent, e.getMessage(), "Emergency wipe unavailable",
-                JOptionPane.ERROR_MESSAGE);
+            showProgrammingError("Emergency wipe unavailable", e.getMessage() == null
+                ? "The emergency wipe artifact could not be validated." : e.getMessage());
             return;
         }
 
-        showFullScreenPanel.accept(new EmergencyWipePanel(artifact.confirmationMessage(), () -> {
-            closeFullScreenPanel.run();
-            runJob(OpenBltManualJobFactory.createEmergencyWipe(
-                selectedPort, parent, connectivityContext, artifact), parent);
-        }, closeFullScreenPanel));
+        final long generation = ++modalGeneration;
+        showFullScreenPanel.accept(new EmergencyWipePanel(artifact.confirmationMessage(), modalAction(generation, () -> {
+            final PortResult latestSelected = resolveFlashPort();
+            if (!isJobRunning() && latestSelected != null
+                && sameConfirmedPort(selectedPort, latestSelected) && isEmergencyWipeAvailable(latestSelected)) {
+                runJob(OpenBltManualJobFactory.createEmergencyWipe(
+                    latestSelected, parent, connectivityContext, artifact), parent);
+            }
+        }), modalAction(generation, () -> {})));
     }
 
     private void runJob(AsyncJob job, JComponent parent) {
         if (jobExecutor != null) {
             jobExecutor.startJob(job, parent);
         } else {
-            AsyncJobExecutor.INSTANCE.executeJobWithStatusWindow(job);
+            if (directJobInProgress) {
+                return;
+            }
+            directJobInProgress = true;
+            apply(connectivityContext.getCurrentHardware());
+            AsyncJobExecutor.INSTANCE.executeJobWithStatusWindow(job, com.rusefi.io.UpdateOperationCallbacks.DUMMY,
+                () -> SwingUtilities.invokeLater(() -> {
+                    directJobInProgress = false;
+                    apply(connectivityContext.getCurrentHardware());
+                }));
+        }
+    }
+
+    private DfuManualJob createDfuManualJob(@Nullable String firmwareFile) {
+        final PortResult intendedDfu = resolveDetectedDfuPort(connectivityContext.getCurrentHardware());
+        final PortResult intendedSelection = (PortResult) comboPorts.getSelectedItem();
+        final ProgrammingCapabilities intendedCapabilities = capabilityProvider.get();
+        return new DfuManualJob(connectivityContext.getConnectedEcuTarget(), firmwareFile,
+            suggested -> DfuBoardPicker.pick(suggested, showFullScreenPanel, closeFullScreenPanel),
+            () -> validateRecoveryOnEdt(() -> {
+                final AvailableHardware hardware = connectivityContext.getCurrentHardware();
+                final ProgrammingCapabilities current = capabilityProvider.get();
+                final PortResult selected = (PortResult) comboPorts.getSelectedItem();
+                final boolean selectionUnchanged = intendedSelection == null
+                    ? selected == null || samePort(intendedDfu, currentPort(hardware.getKnownPorts(), selected))
+                    : sameConfirmedPort(intendedSelection, currentPort(hardware.getKnownPorts(), selected));
+                // The job owns the busy slot now. Recheck other busy sources, not its own reservation.
+                return !externalBusy.getAsBoolean() && selectionUnchanged
+                    && samePort(intendedDfu, resolveDetectedDfuPort(hardware))
+                    && sameFirmwareTarget(intendedCapabilities, current)
+                    && (firmwareFile == null ? canUseManualDfu(current.supportsDfu, current.obfuscated,
+                        current.bundleTarget, current.effectiveTarget) : current.canUseDfu());
+            }));
+    }
+
+    private static boolean validateRecoveryOnEdt(BooleanSupplier validation) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return validation.getAsBoolean();
+        }
+        AtomicBoolean valid = new AtomicBoolean();
+        try {
+            SwingUtilities.invokeAndWait(() -> valid.set(validation.getAsBoolean()));
+            return valid.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            log.error("Recovery eligibility could not be rechecked", e.getCause());
+            return false;
         }
     }
 
@@ -295,507 +746,308 @@ public class ProgramSelector {
         this.jobExecutor = jobExecutor;
         if (jobExecutor != null) {
             jobExecutor.addOnJobAboutToStartListener(() -> SwingUtilities.invokeLater(() -> apply(connectivityContext.getCurrentHardware())));
-            jobExecutor.addOnJobInProgressFinishedListener(() -> SwingUtilities.invokeLater(() -> apply(connectivityContext.getCurrentHardware())));
+            jobExecutor.addOnJobReleasedListener(() -> SwingUtilities.invokeLater(() -> apply(connectivityContext.getCurrentHardware())));
         }
     }
 
     public void setLinkManager(@Nullable LinkManager linkManager) {
         this.linkManager = linkManager;
+        if (linkManager != null) {
+            linkManager.setMissingIniListener(new LinkManager.MissingIniListener() {
+                @Override
+                public void onMissingIni(String signature, String port) {
+                    connectivityContext.getMissingIniRecoveryState().record(port, signature);
+                    refreshForMissingIniChange();
+                }
+
+                @Override
+                public void onMissingIniCleared(String port) {
+                    connectivityContext.getMissingIniRecoveryState().clearForPort(port);
+                    refreshForMissingIniChange();
+                }
+
+                @Override
+                public void onConnectionAttempt(String port) {
+                    connectivityContext.getMissingIniRecoveryState().clearForPort(port);
+                    refreshForMissingIniChange();
+                }
+            });
+            LinkManager.MissingIniFailure failure = linkManager.getMissingIniFailure();
+            if (failure != null && SignatureHelper.parse(failure.signature) != null) {
+                connectivityContext.getMissingIniRecoveryState().record(failure.port, failure.signature);
+            }
+        }
+    }
+
+    private void refreshForMissingIniChange() {
+        Runnable refresh = () -> {
+            clearStaleNoIniUpdateConfirmation();
+            apply(connectivityContext.getCurrentHardware());
+            missingIniStateChanged.run();
+        };
+        if (SwingUtilities.isEventDispatchThread()) {
+            refresh.run();
+        } else {
+            SwingUtilities.invokeLater(refresh);
+        }
     }
 
     public void setFirmwareUpdateInterceptor(Function<JComponent, Boolean> firmwareUpdateInterceptor) {
-        this.firmwareUpdateInterceptor = Objects.requireNonNull(firmwareUpdateInterceptor);
+        Objects.requireNonNull(firmwareUpdateInterceptor);
+        this.firmwareUpdateInterceptor = (source, port) -> firmwareUpdateInterceptor.apply(source);
+    }
+
+    public void setTargetedFirmwareUpdateInterceptor(BiFunction<JComponent, PortResult, Boolean> interceptor) {
+        this.firmwareUpdateInterceptor = Objects.requireNonNull(interceptor);
+    }
+
+    void setCapabilityProviderForTests(Supplier<ProgrammingCapabilities> provider) {
+        capabilityProvider = Objects.requireNonNull(provider);
     }
 
     public void setExternalBusySupplier(BooleanSupplier externalBusy) {
         this.externalBusy = Objects.requireNonNull(externalBusy);
     }
 
+    public void setExternalPrimaryActionBusySupplier(BooleanSupplier busy) {
+        externalPrimaryActionBusy = Objects.requireNonNull(busy);
+    }
+
+    void setDfuRecoveryConfirmationForTests(Predicate<String> confirmation) {
+        confirmDfuRecoveryForTests = Objects.requireNonNull(confirmation);
+    }
+
+    void setNormalUpdateConfirmationForTests(@Nullable Predicate<String> confirmation) {
+        confirmNormalUpdateForTests = confirmation;
+    }
+
     /**
-     * Programmatically trigger the main "Update Firmware" action for the currently selected port —
-     * same as clicking the split button. Used by the console's "Update ECU" menu shortcut [tag:better_ux_for_flashing].
+     * Programmatically trigger the main "Update ECU firmware" action for the currently selected port —
+     * normal update only, even when the adaptive split button offers recovery. Used by the console's
+     * "Update ECU" menu shortcut [tag:better_ux_for_flashing].
      */
     public void triggerUpdateFirmware() {
-        if (firmwareUpdateInterceptor.apply(splitButton)) {
+        if (isJobRunning() || externalPrimaryActionBusy.getAsBoolean()) {
             return;
         }
-        final PortResult targetPort = resolveFlashPort();
+        final PortResult targetPort = resolveNormalFlashPort();
         if (targetPort == null) {
-            // Nothing detected/selected — mirrors the split button being disabled in apply(). [tag:better_ux_for_flashing]
-            log.info("triggerUpdateFirmware: no port to flash, ignoring");
+            log.info("triggerUpdateFirmware: no normal update target, ignoring");
             return;
         }
-        executeJob(splitButton, mainButtonModeFor(targetPort), targetPort);
-    }
-
-    public static void rebootToDfu(JComponent parent, String selectedPort, UpdateOperationCallbacks callbacks) {
-        String port = selectedPort == null ? PortDetector.AUTO : selectedPort;
-        DfuFlasher.rebootToDfu(parent, port, callbacks, Integration.CMD_REBOOT_DFU);
-    }
-
-    public static void rebootToOpenblt(JComponent parent, String selectedPort, UpdateOperationCallbacks callbacks) {
-        String port = selectedPort == null ? PortDetector.AUTO : selectedPort;
-        DfuFlasher.rebootToDfu(parent, port, callbacks, Integration.CMD_REBOOT_OPENBLT);
-    }
-
-    public static void flashOpenBltCan(
-        JComponent parent,
-        UpdateOperationCallbacks callbacks,
-        PortScanner scanner
-    ) {
-        if (FileLog.is32bitJava()) {
-            showError32bitJava(parent);
+        final ProgrammingCapabilities capabilities = capabilityProvider.get();
+        final UpdateMode mode = normalModeFor(targetPort, capabilities);
+        if (mode == null) {
             return;
         }
-
-        if (flashCanWithSuspendedScanner(
-            LinkManager.PCAN,
-            FindFileHelper.findSrecFile(),
-            callbacks,
-            scanner,
-            (firmware, openbltCallbacks) -> {
-                try {
-                    OpenbltJni.flashCan(firmware, openbltCallbacks);
-                } finally {
-                    OpenbltJni.stop(openbltCallbacks);
-                }
-            })) {
-            callbacks.done();
-        } else {
-            callbacks.error();
-        }
-    }
-
-    private static boolean waitForEcuPortDisappeared(
-        final PortResult ecuPort,
-        final UpdateOperationCallbacks callbacks
-    ) {
-        // Scanner is already suspended by the caller (bltUpdateFirmware).
-        return waitForPredicate(
-            String.format("Waiting for ECU on port %s to reboot to OpenBlt for up to " + TOTAL_WAIT_SECONDS + " seconds...", ecuPort),
-            () -> {
-                // Directly probe the port rather than relying on the scanner snapshot.
-                // The scanner cache would keep reporting EcuWithOpenblt even after the
-                // ECU has already entered OpenBLT mode (the OS port does not disappear).
-                try (IoStream stream = BufferedSerialIoStream.openPort(ecuPort.port)) {
-                    if (stream == null) {
-                        log.info("Port " + ecuPort.port + " is unavailable — ECU is rebooting");
-                        return true;
-                    }
-                    if (OpenbltDetectorStrategy.isPortOpenblt(stream)) {
-                        log.info("Port " + ecuPort.port + " is now in OpenBLT mode");
-                        return true;
-                    }
-                } catch (EOFException e) {
-                    // readByte timed out — keep waiting until a write error or
-                    // null stream indicates the ECU has actually reset.
-                    log.info("Port " + ecuPort.port + " still responding as ECU firmware (XCP ignored)");
-                } catch (Exception e) {
-                    log.info("Port " + ecuPort.port + " probe error (ECU transitioning): " + e.getMessage());
-                    return true;
-                }
-                log.info("Port " + ecuPort.port + " still responding as ECU firmware");
-                return false;
-            },
-            callbacks
-        );
-    }
-
-    private static List<PortResult> waitForNewOpenBltPortAppeared(
-        final List<PortResult> openBltPortsBefore,
-        final UpdateOperationCallbacks callbacks
-    ) {
-        // Scanner is suspended by the caller (bltUpdateFirmware). Scan all system
-        // COM ports ourselves so we can find OpenBLT even when it enumerates on a
-        // different port number than the original ECU port (common with USB-CDC where
-        // the bootloader has a different USB PID and gets a new COM assignment).
-        final List<PortResult> newPorts = new ArrayList<>();
-        waitForPredicate(
-            "Waiting for new OpenBlt port to appear...",
-            () -> {
-                for (SerialPort sp : SerialPort.getCommPorts()) {
-                    final String portName = sp.getSystemPortName();
-                    if (openBltPortsBefore.stream().anyMatch(p -> p.port.equals(portName))) {
-                        continue; // skip ports that were already in OpenBLT mode before
-                    }
-                    try (IoStream stream = BufferedSerialIoStream.openPort(portName)) {
-                        if (OpenbltDetectorStrategy.isPortOpenblt(stream)) {
-                            log.info("Direct probe: port " + portName + " is in OpenBLT mode");
-                            newPorts.add(new PortResult(portName, OpenBlt));
-                            return true;
-                        }
-                    } catch (Exception e) {
-                        log.info("Probe of " + portName + " error: " + e.getMessage());
-                    }
-                }
-                return false;
-            },
-            callbacks
-        );
-        return newPorts;
-    }
-
-    public static boolean flashOpenbltSerialAutomatic(
-        JComponent parent,
-        PortResult ecuPort,
-        BinaryProtocol bp,
-        LinkManager lm,
-        UpdateOperationCallbacks callbacks,
-        ConnectivityContext connectivityContext
-    ) {
-        return flashOpenbltSerialAutomatic(parent, ecuPort, bp, lm, callbacks, connectivityContext, null);
-    }
-
-    public static boolean flashOpenbltSerialAutomatic(
-        JComponent parent,
-        PortResult ecuPort,
-        BinaryProtocol bp,
-        LinkManager lm,
-        UpdateOperationCallbacks callbacks,
-        ConnectivityContext connectivityContext,
-        @Nullable String firmwareSrecFile
-    ) {
-        return flashOpenbltSerialAutomatic(parent, ecuPort, bp, lm, callbacks, connectivityContext,
-            firmwareSrecFile, CalibrationsHelper.FirmwareUpdatePolicy.FORWARD_MIGRATION);
-    }
-
-    public static boolean flashOpenbltSerialAutomatic(
-        JComponent parent,
-        PortResult ecuPort,
-        BinaryProtocol bp,
-        LinkManager lm,
-        UpdateOperationCallbacks callbacks,
-        ConnectivityContext connectivityContext,
-        @Nullable String firmwareSrecFile,
-        CalibrationsHelper.FirmwareUpdatePolicy policy
-    ) {
-        // Also protect callers that invoke this API without an OpenBltAutoJob.
-        if (!FirmwareFlashEligibility.isAllowed(bp == null ? null : bp.signature, firmwareSrecFile, callbacks)) {
-            return false;
-        }
-        return updateFirmwareAndRestorePreviousCalibrations(
-            parent, ecuPort, bp, lm, callbacks,
-            () -> bltUpdateFirmware(parent, ecuPort, callbacks, connectivityContext, firmwareSrecFile),
-            connectivityContext, policy);
-    }
-
-    public static boolean flashOpenbltCanAutomatic(
-        JComponent parent,
-        PortResult ecuPort,
-        BinaryProtocol bp,
-        LinkManager lm,
-        UpdateOperationCallbacks callbacks,
-        ConnectivityContext connectivityContext,
-        @Nullable String firmwareSrecFile,
-        CalibrationsHelper.FirmwareUpdatePolicy policy
-    ) {
-        if (!isAutomaticCanPort(ecuPort.port)
-            || lm == null
-            || bp == null
-            || !ecuPort.port.equals(lm.getLastTriedPort())) {
-            callbacks.logLine("CAN firmware update requires a matching live CAN ECU connection.");
-            return false;
-        }
-
-        if (!FirmwareFlashEligibility.isAllowed(bp.signature, firmwareSrecFile, callbacks)) {
-            return false;
-        }
-
-        if (!MaintenanceUtil.ensureFirmwareForConnectedTarget(
-            callbacks, connectivityContext.getConnectedEcuTarget())) {
-            return false;
-        }
-
-        final String fileName = firmwareSrecFile != null
-            ? firmwareSrecFile
-            : FindFileHelper.findSrecFileForConnectedBoard(connectivityContext.getConnectedEcuTarget());
-        if (fileName == null) {
-            callbacks.logLine(".srec image file not found");
-            return false;
-        }
-        if (!MaintenanceUtil.confirmFirmwareMatchesBoard(
-            fileName, callbacks, connectivityContext.getConnectedEcuTarget())) {
-            callbacks.logLine("Firmware update aborted - firmware/board mismatch.");
-            return false;
-        }
-
-        final OpenBltFlasher.PreparedFirmware preparedFirmware;
-        try {
-            preparedFirmware = OpenBltFlasher.prepareFirmware(fileName, makeOpenbltCallbacks(callbacks));
-        } catch (IOException e) {
-            callbacks.logLine("Unable to load firmware file: " + e.getMessage());
-            return false;
-        }
-
-        return updateFirmwareAndRestorePreviousCalibrations(
-            parent, ecuPort, bp, lm, callbacks,
-            () -> prepareCanHandoff(ecuPort.port, lm, callbacks,
-                () -> OpenbltRebooter.rebootToOpenblt(parent, bp, callbacks)),
-            () -> canUpdateFirmware(
-                callbacks, connectivityContext, ecuPort.port, fileName, preparedFirmware),
-            connectivityContext, policy);
-    }
-
-    static boolean prepareCanHandoff(
-        String canPort,
-        LinkManager lm,
-        UpdateOperationCallbacks callbacks,
-        BooleanSupplier rebootToOpenBlt
-    ) {
-        final boolean[] commandSent = {false};
-        try {
-            lm.submit(() -> commandSent[0] = rebootToOpenBlt.getAsBoolean()).get();
-            if (!commandSent[0]) {
-                callbacks.logLine(canPort + " OpenBLT reboot command was not sent.");
+        final String confirmation = normalUpdateConfirmation(targetPort, capabilities);
+        showNormalUpdateConfirmation(confirmation, () -> {
+            final PortResult currentPort = resolveNormalFlashPort();
+            final ProgrammingCapabilities currentCapabilities = capabilityProvider.get();
+            if (isJobRunning() || !sameConfirmedPort(targetPort, currentPort)
+                || !sameFirmwareTarget(capabilities, currentCapabilities)
+                || normalModeFor(currentPort, currentCapabilities) != mode) {
+                return;
             }
-            return commandSent[0];
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            callbacks.logLine("Interrupted while sending the " + canPort + " OpenBLT reboot command.");
-        } catch (ExecutionException e) {
-            callbacks.logLine("Failed to send the " + canPort + " OpenBLT reboot command: " + e.getCause());
-        }
-        return false;
-    }
-
-    private static boolean canUpdateFirmware(
-        UpdateOperationCallbacks callbacks,
-        ConnectivityContext connectivityContext,
-        String canPort,
-        String fileName,
-        OpenBltFlasher.PreparedFirmware preparedFirmware
-    ) {
-        return flashCanWithSuspendedScanner(
-            canPort,
-            fileName,
-            callbacks,
-            connectivityContext.getPortScanner(),
-            (firmware, openbltCallbacks) -> OpenBltFlasher.flashCan(
-                preparedFirmware,
-                LinkManager.SOCKET_CAN.equals(canPort) ? new SocketCanRawPort() : new PCanRawPort(),
-                openbltCallbacks));
-    }
-
-    static boolean flashCanWithSuspendedScanner(
-        String canPort,
-        String fileName,
-        UpdateOperationCallbacks callbacks,
-        PortScanner scanner,
-        CanFlashAction flashAction
-    ) {
-        try {
-            try {
-                if (!scanner.suspend().await(30, TimeUnit.SECONDS)) {
-                    callbacks.logLine("Timed out waiting for " + canPort + " discovery to stop.");
-                    return false;
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                callbacks.logLine("Interrupted while waiting for " + canPort + " discovery to stop.");
-                return false;
+            if (isValidatedLiveEcuTarget(currentPort) && firmwareUpdateInterceptor.apply(splitButton, currentPort)) {
+                return;
             }
-
-            final OpenbltJni.OpenbltCallbacks openbltCallbacks = makeOpenbltCallbacks(callbacks);
-            callbacks.logLine("flashCan " + canPort + " " + fileName);
-            flashAction.flash(fileName, openbltCallbacks);
-            callbacks.logLine("Update completed successfully!");
-            return true;
-        } catch (Throwable e) {
-            callbacks.logLine("flashOpenBltCan Error: " + e);
-            log.error("flashOpenBltCan " + e, e);
-            return false;
-        } finally {
-            // Remove the pre-flash ECU result so calibration restore waits for a fresh firmware reply.
-            try {
-                scanner.invalidatePort(canPort);
-            } finally {
-                scanner.resume();
-            }
-        }
-    }
-
-    private static boolean bltUpdateFirmware(JComponent parent, PortResult ecuPort, UpdateOperationCallbacks callbacks,
-                                             ConnectivityContext connectivityContext, @Nullable String firmwareSrecFile) {
-        // Suspend the scanner for the entire reboot → detect → flash sequence so it
-        // never races with our direct port probes for exclusive COM port access on Windows.
-        try {
-            connectivityContext.getPortScanner().suspend().await(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        try {
-            return bltUpdateFirmwareWithSuspendedScanner(parent, ecuPort, callbacks, connectivityContext, firmwareSrecFile);
-        } finally {
-            // Invalidate the cache so the scanner re-inspects the port (now running new
-            // firmware) on its first post-resume scan cycle.
-            connectivityContext.getPortScanner().invalidatePort(ecuPort.port);
-            connectivityContext.getPortScanner().resume();
-        }
-    }
-
-    private static boolean bltUpdateFirmwareWithSuspendedScanner(JComponent parent, PortResult ecuPort,
-                                                                 UpdateOperationCallbacks callbacks,
-                                                                 ConnectivityContext connectivityContext,
-                                                                 @Nullable String firmwareSrecFile) {
-        // Snapshot pre-existing OpenBLT ports so we can ignore them when searching
-        // for the newly-appeared bootloader port after the reboot.
-        final List<PortResult> openBltPortsBefore = connectivityContext.getCurrentHardware().getKnownPorts(OpenBlt);
-
-        rebootToOpenblt(parent, ecuPort.port, callbacks);
-
-        // invoking blocking method
-        final boolean isEcuPortDisappeared = waitForEcuPortDisappeared(ecuPort, callbacks);
-
-        if (!isEcuPortDisappeared) {
-            callbacks.logLine("Looks like your ECU still haven't rebooted to OpenBLT");
-            callbacks.logLine("");
-            callbacks.logLine("Try closing and opening console again");
-            callbacks.logLine("");
-            return false;
-        }
-
-        final List<PortResult> newItems = waitForNewOpenBltPortAppeared(openBltPortsBefore, callbacks);
-
-        // Check that exactly one thing appeared in the "after" list
-        if (newItems.isEmpty()) {
-            callbacks.logLine("Looks like your ECU disappeared during the update process. Please try again.");
-            return false;
-        }
-
-        if (newItems.size() > 1) {
-            // More than one port appeared? whattt?
-            callbacks.logLine("Unable to find ECU after reboot as multiple serial ports appeared.");
-            return false;
-        }
-
-        final String openbltPort = newItems.get(0).port;
-
-        callbacks.logLine("Serial port " + openbltPort + " appeared, programming firmware...");
-
-        return flashOpenbltSerial(
-            parent, openbltPort, callbacks, connectivityContext.getConnectedEcuTarget(), firmwareSrecFile);
-    }
-
-    private static OpenbltJni.OpenbltCallbacks makeOpenbltCallbacks(UpdateOperationCallbacks callbacks) {
-        return new OpenbltJni.OpenbltCallbacks() {
-            @Override
-            public void log(String line) {
-                callbacks.logLine(line);
-            }
-
-            @Override
-            public void updateProgress(int percent) {
-                callbacks.updateProgress(percent);
-            }
-
-            @Override
-            public void error(String line) {
-                throw new RuntimeException(line);
-            }
-
-            @Override
-            public void setPhase(String title, boolean hasProgress) {
-                callbacks.logLine("Phase: " + title);
-            }
-        };
-    }
-
-    private static void showError32bitJava(JComponent parent) {
-        JOptionPane.showMessageDialog(parent, "64 bit java required. 32 bit java not supported!",
-            "Error", JOptionPane.ERROR_MESSAGE);
-    }
-
-    public static boolean flashOpenbltSerial(JComponent parent, String port, UpdateOperationCallbacks callbacks,
-                                              com.rusefi.core.io.ConnectedEcuTarget connectedEcuTarget) {
-        return flashOpenbltSerial(parent, port, callbacks, connectedEcuTarget, null);
-    }
-
-    public static boolean flashOpenbltSerial(JComponent parent, String port, UpdateOperationCallbacks callbacks,
-                                             com.rusefi.core.io.ConnectedEcuTarget connectedEcuTarget,
-                                             @Nullable String firmwareSrecFile) {
-        if (FileLog.is32bitJava()) {
-            showError32bitJava(parent);
-            return false;
-        }
-
-        OpenbltJni.OpenbltCallbacks cb = makeOpenbltCallbacks(callbacks);
-
-        String fileName = firmwareSrecFile != null
-            ? firmwareSrecFile
-            : FindFileHelper.findSrecFileForConnectedBoard(connectedEcuTarget);
-        if (fileName == null) {
-            callbacks.logLine(".srec image file not found");
-            return false;
-        }
-        // refuse to silently flash firmware built for a different board (e.g. a dev-build fallback or a naming quirk). [tag:better_ux_for_flashing]
-        if (!MaintenanceUtil.confirmFirmwareMatchesBoard(fileName, callbacks, connectedEcuTarget)) {
-            callbacks.logLine("Firmware update aborted — firmware/board mismatch.");
-            return false;
-        }
-        try {
-            callbacks.logLine("flashSerial " + fileName);
-            OpenBltFlasher.flashSerial(fileName, port, cb);
-
-            callbacks.logLine("Update completed successfully!");
-            return true;
-        } catch (Throwable e) {
-            callbacks.logLine("flashOpenbltSerial Error: " + e);
-            log.error("flashOpenbltSerial " + e, e);
-            return false;
-        }
-    }
-
-    public static boolean wipeOpenbltSerial(String port, UpdateOperationCallbacks callbacks,
-                                            OpenBltWipeArtifact artifact) {
-        OpenbltJni.OpenbltCallbacks cb = makeOpenbltCallbacks(callbacks);
-
-        // Once a wipe is confirmed, fail safe: never let a later manual flash restore the suspect tune,
-        // even if this erase is interrupted after invalidating the application vector.
-        CalibrationsHelper.discardLastEcuCalibrations();
-        callbacks.logLine("Previous session tune discarded; the next manual update will keep firmware defaults.");
-        try {
-            OpenBltFlasher.eraseSerial(artifact, port, cb);
-            callbacks.logLine("Emergency wipe completed. The ECU remains in OpenBLT.");
-            return true;
-        } catch (Throwable e) {
-            callbacks.logLine("Emergency OpenBLT wipe error: " + e);
-            log.error("wipeOpenbltSerial " + e, e);
-            return false;
-        }
+            executeJob(splitButton, mode, currentPort);
+        });
     }
 
     @NotNull
     public static JComponent createHelpButton() {
-        return new URLLabel("HOWTO Update Firmware", UiProperties.getUpdateHelpUrl());
+        URLLabel help = new URLLabel("How it works ↗", UiProperties.getUpdateHelpUrl());
+        help.setToolTipText("How ECU firmware updates work");
+        return help;
     }
 
     public JPanel getControl() {
         return content;
     }
 
-    public void addFirmwareControl(JComponent control) {
-        additionalFirmwareControls.add(control);
-        updateModeAndButton.add(control, 0);
+    /**
+     * Fits the control into a toolbar row [tag:console_theme]: left-aligned without the outer gaps,
+     * as tall as the other toolbar controls, with a small icon instead of the 48 px arrow.
+     */
+    public void useToolbarStyle(Icon icon) {
+        updateModeAndButton.setLayout(new FlowLayout(FlowLayout.LEFT, JoinedButtons.ROW_GAP, 0));
+        updateModeAndButton.setOpaque(false);
+        content.setOpaque(false);
+        splitButton.setIcon(icon);
+        // height only: the label changes with the update mode, so the width must follow it
+        splitButton.setFixedHeight(JoinedButtons.HEIGHT);
         matchFirmwareControlSizes();
     }
 
+    /** Primary-action presentation used inside the live firmware summary card. */
+    public void useProminentCardStyle(Icon icon) {
+        prominentCardStyle = true;
+        updateModeAndButton.setLayout(new BoxLayout(updateModeAndButton, BoxLayout.Y_AXIS));
+        updateModeAndButton.setOpaque(false);
+        primaryActionRow.setOpaque(false);
+        content.setOpaque(false);
+        splitButton.setIcon(icon);
+        splitButton.useProminentStyle();
+        for (JComponent control : additionalFirmwareControls) {
+            control.setPreferredSize(null);
+        }
+        updateModeAndButton.remove(splitButton);
+        primaryActionRow.add(splitButton, 0);
+        rebuildFirmwareControls();
+    }
+
+    public void addFirmwareControl(JComponent control) {
+        additionalFirmwareControls.add(control);
+        if (prominentCardStyle) {
+            rebuildFirmwareControls();
+        } else {
+            updateModeAndButton.add(control, 0);
+        }
+        matchFirmwareControlSizes();
+    }
+
+    public void addPrimaryFirmwareControl(JComponent control) {
+        primaryActionRow.add(control);
+        primaryActionRow.revalidate();
+    }
+
+    private void rebuildFirmwareControls() {
+        updateModeAndButton.setLayout(new BoxLayout(updateModeAndButton, BoxLayout.Y_AXIS));
+        updateModeAndButton.removeAll();
+        updateModeAndButton.add(primaryActionRow);
+        if (!additionalFirmwareControls.isEmpty()) {
+            updateModeAndButton.add(Box.createVerticalStrut(8));
+            for (JComponent control : additionalFirmwareControls) {
+                JPanel controlRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+                controlRow.setOpaque(false);
+                controlRow.add(control);
+                updateModeAndButton.add(controlRow);
+                updateModeAndButton.add(Box.createVerticalStrut(6));
+            }
+            updateModeAndButton.remove(updateModeAndButton.getComponentCount() - 1);
+        }
+        updateModeAndButton.revalidate();
+        updateModeAndButton.repaint();
+        content.invalidate();
+        content.revalidate();
+    }
+
     private void matchFirmwareControlSizes() {
+        if (prominentCardStyle) {
+            return;
+        }
         Dimension size = splitButton.getPreferredSize();
         for (JComponent control : additionalFirmwareControls) {
             control.setPreferredSize(size);
         }
     }
 
+    private static final class ResponsiveActionRow extends JPanel {
+        private static final int GAP = 10;
+        private boolean stacked;
+
+        private ResponsiveActionRow() {
+            setLayout(null);
+            setOpaque(false);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            boolean stacked = getWidth() > 0 && getWidth() < horizontalWidth();
+            int width = 0;
+            int count = 0;
+            for (Component component : getComponents()) {
+                if (!component.isVisible()) {
+                    continue;
+                }
+                Dimension size = component.getPreferredSize();
+                width = Math.max(width, size.width);
+                count++;
+            }
+            if (count == 0) {
+                return new Dimension();
+            }
+            return stacked
+                ? new Dimension(width, maxVisibleHeight() * count + GAP * (count - 1))
+                : new Dimension(horizontalWidth(), maxVisibleHeight());
+        }
+
+        @Override
+        public void doLayout() {
+            boolean nextStacked = getWidth() < horizontalWidth();
+            if (stacked != nextStacked) {
+                stacked = nextStacked;
+                if (getParent() != null) {
+                    getParent().revalidate();
+                }
+            }
+            int count = 0;
+            int rowHeight = maxVisibleHeight();
+            for (Component component : getComponents()) {
+                if (component.isVisible()) {
+                    count++;
+                }
+            }
+            if (count == 0) {
+                return;
+            }
+            if (stacked) {
+                int y = (getHeight() - rowHeight * count - GAP * (count - 1)) / 2;
+                for (Component component : getComponents()) {
+                    if (component.isVisible()) {
+                        Dimension size = component.getPreferredSize();
+                        component.setBounds((getWidth() - size.width) / 2, y, size.width, rowHeight);
+                        y += rowHeight + GAP;
+                    }
+                }
+            } else {
+                int x = (getWidth() - horizontalWidth()) / 2;
+                for (Component component : getComponents()) {
+                    if (component.isVisible()) {
+                        Dimension size = component.getPreferredSize();
+                        component.setBounds(x, (getHeight() - rowHeight) / 2, size.width, rowHeight);
+                        x += size.width + GAP;
+                    }
+                }
+            }
+        }
+
+        private int horizontalWidth() {
+            int width = 0;
+            int count = 0;
+            for (Component component : getComponents()) {
+                if (component.isVisible()) {
+                    width += component.getPreferredSize().width;
+                    count++;
+                }
+            }
+            return count == 0 ? 0 : width + GAP * (count - 1);
+        }
+
+        private int maxVisibleHeight() {
+            int height = 0;
+            for (Component component : getComponents()) {
+                if (component.isVisible()) {
+                    height = Math.max(height, component.getPreferredSize().height);
+                }
+            }
+            return height;
+        }
+    }
+
     public void apply(AvailableHardware currentHardware) {
-        apply(currentHardware, DfuFlasher.isDfuProgrammingSupported(), FindFileHelper.isObfuscated(),
-            com.rusefi.core.io.BundleUtil.getBundleTarget(),
-            connectivityContext.getConnectedEcuTarget().effectiveTarget());
+        final ProgrammingCapabilities capabilities = capabilityProvider.get();
+        apply(currentHardware, capabilities.supportsDfu, capabilities.obfuscated,
+            capabilities.bundleTarget, capabilities.effectiveTarget);
     }
 
     /** Snapshot inputs permit hardware-free testing of the actual buttons and menu. */
     JPopupMenu apply(AvailableHardware currentHardware, boolean supportsDfu, boolean obfuscated,
                      String bundleTarget, String effectiveTarget) {
-        boolean isJobRunning = (jobExecutor != null && !jobExecutor.isNotInProgress()) || externalBusy.getAsBoolean();
+        clearStaleNoIniUpdateConfirmation();
+        boolean isJobRunning = isJobRunning();
         boolean additionalControlVisible = additionalFirmwareControls.stream().anyMatch(Component::isVisible);
         noHardware.setVisible(currentHardware.isEmpty());
         updateModeAndButton.setVisible(shouldShowFirmwareControls(
@@ -811,26 +1063,23 @@ public class ProgramSelector {
         boolean canUseDfu = supportsDfu && !requireBlt;
         boolean canUseManualDfu = canUseManualDfu(supportsDfu, obfuscated, bundleTarget, effectiveTarget);
 
-        if (canUseDfu) {
-            if (hasSerialPorts) {
-                addMenuItem(popupMenu, DFU_AUTO);
-                addMenuItem(popupMenu, DFU_SWITCH);
-            }
+        final PortResult selectedPort = currentPort(knownPorts, (PortResult) comboPorts.getSelectedItem());
+        if (canUseDfu && isAdvancedActionAvailable(DFU_AUTO, currentHardware, selectedPort)) {
+            addMenuItem(popupMenu, DFU_AUTO);
+            addMenuItem(popupMenu, DFU_SWITCH);
         }
-        if (hasDfuDevice && canUseManualDfu) {
+        if (hasDfuDevice && canUseManualDfu && resolveDetectedDfuPort(currentHardware) != null) {
             addMenuItem(popupMenu, DFU_MANUAL);
         }
-        if (canUseDfu) {
-            if (hasDfuDevice) {
-                addCustomFirmwareMenuItem(popupMenu);
-                addMenuItem(popupMenu, DFU_ERASE);
-                if (DfuFlasher.haveBootloaderBinFile()) {
-                    addMenuItem(popupMenu, INSTALL_OPENBLT);
-                }
+        if (canUseDfu && hasDfuDevice && resolveDetectedDfuPort(currentHardware) != null) {
+            addCustomFirmwareMenuItem(popupMenu);
+            addMenuItem(popupMenu, DFU_ERASE);
+            if (DfuFlasher.haveBootloaderBinFile()) {
+                addMenuItem(popupMenu, INSTALL_OPENBLT);
             }
         }
 
-        if (OsUtil.isWindows()) {
+        if (capabilityProvider.get().windows) {
             if (!requireBlt && currentHardware.isStLinkConnected()) {
                 addMenuItem(popupMenu, ST_LINK);
             }
@@ -839,8 +1088,12 @@ public class ProgramSelector {
             }
         }
 
-        if (hasSerialPorts) {
+        // A live CAN ECU (PCAN/SocketCAN) can be commanded into OpenBLT just like a serial one;
+        // the flash itself then goes through the CAN flasher (OPENBLT_CAN), not the serial manual job.
+        if (hasSerialPorts || isCanEcu(selectedPort)) {
             addMenuItem(popupMenu, OPENBLT_SWITCH);
+        }
+        if (hasSerialPorts) {
             addMenuItem(popupMenu, OPENBLT_MANUAL);
             PortResult selected = resolveFlashPort();
             if (isEmergencyWipeAvailable(selected)) {
@@ -848,18 +1101,23 @@ public class ProgramSelector {
             }
         }
 
-        int menuItemCount = popupMenu.getComponentCount();
-        PortResult flashPort = resolveFlashPort();
-        boolean hasFirmwareTarget = hasFirmwareTarget(hasSerialPorts, flashPort);
+        PortResult flashPort = resolveNormalFlashPort();
+        boolean hasFirmwareTarget = hasFirmwareTarget(hasSerialPorts, flashPort) && flashPort != null;
+        boolean recoveryAvailable = hasDfuDevice && canUseManualDfu(supportsDfu, obfuscated, bundleTarget, effectiveTarget)
+            && resolveDetectedDfuPort(currentHardware) != null;
 
-        splitButton.setPopupMenu(menuItemCount > 0 ? popupMenu : null);
-        splitButton.setMainButtonEnabled(shouldEnableMainButton(
-            hasFirmwareTarget, hasDfuDevice, isJobRunning, mainButtonModeFor(flashPort), canUseManualDfu));
-        splitButton.setArrowButtonEnabled(menuItemCount > 0 && !isJobRunning);
+        splitButton.setPopupMenu(popupMenu.getComponentCount() > 0 ? popupMenu : null);
+        final boolean recoveryDefault = isDfuRecoveryDefault(currentHardware);
+        final UpdateMode normalMode = flashPort == null ? null
+            : mainButtonModeFor(flashPort, isLiveConnection(), canUseDfu,
+                isMatchingNoIniFailure(flashPort));
+        splitButton.setMainButtonEnabled(recoveryDefault ? recoveryAvailable && !isJobRunning
+            : shouldEnableMainButton(hasFirmwareTarget, isJobRunning || externalPrimaryActionBusy.getAsBoolean(), normalMode));
+        splitButton.setArrowButtonEnabled(popupMenu.getComponentCount() > 0 && !isJobRunning);
 
         // Keep the main-button mode/label in sync with the connection state too (not just combo changes):
         // once the board is a live ECU again the button must go back to AUTO. [tag:better_ux_for_flashing]
-        refreshMainButtonText();
+        refreshMainButtonText(recoveryDefault);
 
         AutoupdateUtil.trueLayoutAndRepaint(splitButton);
         AutoupdateUtil.trueLayoutAndRepaint(content);
@@ -888,16 +1146,8 @@ public class ProgramSelector {
         return OpenBltWipeArtifact.isAvailableFor(port);
     }
 
-    static boolean shouldEnableMainButton(
-        boolean hasFirmwareTarget,
-        boolean hasDfuDevice,
-        boolean jobRunning,
-        UpdateMode mode,
-        boolean supportsDfu
-    ) {
-        boolean targetAvailable = mode == DFU_MANUAL ? hasDfuDevice : hasFirmwareTarget;
-        boolean modeSupported = mode != DFU_MANUAL || supportsDfu;
-        return targetAvailable && modeSupported && !jobRunning;
+    static boolean shouldEnableMainButton(boolean hasFirmwareTarget, boolean jobRunning, @Nullable UpdateMode mode) {
+        return mode != null && mode != DFU_MANUAL && hasFirmwareTarget && !jobRunning;
     }
 
     static boolean shouldShowFirmwareControls(
@@ -923,10 +1173,14 @@ public class ProgramSelector {
     private void addMenuItem(JPopupMenu menu, UpdateMode mode) {
         JMenuItem item = new JMenuItem(mode.displayText);
         item.addActionListener(e -> {
-            PortResult selected = mode == OPENBLT_EMERGENCY_WIPE
-                ? resolveFlashPort()
-                : (PortResult) comboPorts.getSelectedItem();
-            if (isUnflashableEcu(selected)) {
+            if (mode == DFU_MANUAL) {
+                startDfuRecovery();
+                return;
+            }
+            final AvailableHardware hardware = connectivityContext.getCurrentHardware();
+            // PortResult equality omits board metadata; validate and dispatch the current scan object.
+            final PortResult selected = currentPort(hardware.getKnownPorts(), (PortResult) comboPorts.getSelectedItem());
+            if (!isAdvancedActionAvailable(mode, hardware, selected)) {
                 return;
             }
             executeJob(splitButton, mode, selected);
@@ -934,9 +1188,55 @@ public class ProgramSelector {
         menu.add(item);
     }
 
+    private boolean isAdvancedActionAvailable(UpdateMode mode, AvailableHardware hardware, @Nullable PortResult selected) {
+        if (isJobRunning()) {
+            return false;
+        }
+        switch (mode) {
+            case DFU_AUTO:
+                return canUseDfuNow() && isSerialEcu(selected)
+                    && hardware.isPortAvailable(selected)
+                    && hasMatchingLiveConnection(selected, isLiveConnection(),
+                        linkManager == null ? null : linkManager.getLastTriedPort());
+            case DFU_SWITCH:
+                return canUseDfuNow() && isSerialEcu(selected)
+                    && hardware.isPortAvailable(selected)
+                    && hasMatchingLiveConnection(selected, isLiveConnection(),
+                        linkManager == null ? null : linkManager.getLastTriedPort());
+            case DFU_ERASE:
+            case INSTALL_OPENBLT:
+                return canUseDfuNow() && resolveDetectedDfuPort(hardware) != null
+                    && (mode != INSTALL_OPENBLT || DfuFlasher.haveBootloaderBinFile());
+            case ST_LINK:
+                final ProgrammingCapabilities capabilities = capabilityProvider.get();
+                return capabilities.windows && !capabilities.requiresBlt() && hardware.isStLinkConnected();
+            case OPENBLT_CAN:
+                return capabilityProvider.get().windows && hardware.isPCANConnected();
+            case OPENBLT_SWITCH:
+                // Over CAN the reboot command can only travel on the existing live connection —
+                // there is no way to open a second session on the single-client CAN channel.
+                return selected != null && hardware.isPortAvailable(selected)
+                    && (hasRealSerialPort(java.util.Collections.singletonList(selected))
+                        || (isCanEcu(selected) && hasMatchingLiveConnection(selected, isLiveConnection(),
+                            linkManager == null ? null : linkManager.getLastTriedPort())));
+            case OPENBLT_MANUAL:
+                return selected != null && hardware.isPortAvailable(selected)
+                    && hasRealSerialPort(java.util.Collections.singletonList(selected));
+            case OPENBLT_EMERGENCY_WIPE:
+                return selected != null && hardware.isPortAvailable(selected)
+                    && isEmergencyWipeAvailable(selected);
+            default:
+                return false;
+        }
+    }
+
     private void addCustomFirmwareMenuItem(JPopupMenu menu) {
         JMenuItem item = new JMenuItem("Pick Custom File [DFU]");
         item.addActionListener(e -> {
+            if (!canUseDfuNow() || isJobRunning()
+                || resolveDetectedDfuPort(connectivityContext.getCurrentHardware()) == null) {
+                return;
+            }
             JFileChooser chooser = new JFileChooser();
             chooser.setDialogTitle("Pick DFU firmware");
             chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
@@ -947,14 +1247,7 @@ public class ProgramSelector {
             }
 
             File firmware = chooser.getSelectedFile();
-            if (!firmware.isFile() || !chooser.getFileFilter().accept(firmware)) {
-                JOptionPane.showMessageDialog(splitButton, "Please select a .bin firmware file.",
-                    "Invalid firmware file", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            runJob(new DfuManualJob(
-                connectivityContext.getConnectedEcuTarget(), firmware.getAbsolutePath()), splitButton);
+            startCustomDfuRecovery(firmware);
         });
         menu.add(item);
     }
@@ -963,6 +1256,11 @@ public class ProgramSelector {
         return port != null && (port.isUnsupportedEcu()
             || port.type == SerialPortType.EcuUnknown
             || LinkManager.isCanPort(port.port));
+    }
+
+    private static boolean isSerialEcu(@Nullable PortResult port) {
+        return port != null && !LinkManager.isCanPort(port.port)
+            && (port.type == SerialPortType.Ecu || port.type == SerialPortType.EcuWithOpenblt);
     }
 
     private static boolean isCanEcu(@Nullable PortResult port) {

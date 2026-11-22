@@ -32,6 +32,9 @@ PROJECT_DIR = ..
 ifeq ($(USE_OPT),)
   USE_OPT = $(EXTRA_PARAMS) $(EXTRA_2_PARAMS) $(EXTRA_3_PARAMS) $(DEBUG_LEVEL_BLT_OPT) $(RFLAGS)
   USE_OPT += $(RUSEFI_OPT)
+  # same constant semantics as the application build: shared sources (board files, osc_detector)
+  # are written for float literals and otherwise trip -Werror=float-conversion here
+  USE_OPT += -fsingle-precision-constant
   # huh why do we have custom settings not uniform with rusefi_rules.mk?
   USE_OPT += -Wno-error=implicit-fallthrough \
     -Wno-error=bool-operation \
@@ -189,7 +192,7 @@ include $(PROJECT_DIR)/init/init.mk
 include $(PROJECT_DIR)/util/util.mk
 
 include $(PROJECT_DIR)/controllers/controllers.mk
-include $(PROJECT_DIR)/hw_layer/$(CPU_HWLAYER)/hw_ports.mk
+include $(CPU_HWLAYER_DIR)/hw_ports.mk
 include $(PROJECT_DIR)/hw_layer/drivers/drivers.mk
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
@@ -254,7 +257,8 @@ ASMXSRC = $(STARTUPASM) $(PORTASM) $(OSALASM) \
 	$(RUSEFIASM) \
 	$(PROJECT_DIR)/hw_layer/main_hardfault_asm.S
 
-INCDIR += $(ALLINC) \
+INCDIR += $(META_GENERATED_INC) \
+	$(ALLINC) \
 	$(PCH_DIR) \
 	.. \
 	$(MODULES_INC) \
@@ -282,7 +286,7 @@ INCDIR += $(ALLINC) \
 	$(PROJECT_DIR)/hw_layer/mass_storage \
 	$(PROJECT_DIR)/hw_layer/ports \
 	$(PROJECT_DIR)/console/binary/generated \
-	$(PROJECT_DIR)/hw_layer/$(CPU_HWLAYER) \
+	$(CPU_HWLAYER_DIR) \
 	$(HW_INC) \
 	$(HW_LAYER_DRIVERS_INC) \
 	$(PROJECT_DIR)/development \

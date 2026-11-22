@@ -1,5 +1,6 @@
 package com.rusefi.ui.wizard;
 
+import com.opensr5.ConfigurationImageTestHelper;
 import com.opensr5.ConfigurationImage;
 import com.opensr5.ConfigurationImageGetterSetter;
 import com.opensr5.ini.IniFileModel;
@@ -56,9 +57,11 @@ class DisplacementPanelTest {
             panel.onShow();
             assertEquals("wizardDisplacement", panel.getWizardFlagFieldName());
             JTextField input = (JTextField) find(panel.getPanel(), c -> "displacement".equals(c.getName()));
-            JButton save = (JButton) find(panel.getPanel(), c -> c instanceof JButton);
-            assertEquals("Save and Continue", save.getText());
-            assertNull(find(panel.getPanel(), c -> c instanceof JButton && ((JButton) c).getText().contains("Skip")));
+            JButton save = panel.getContinueButton();
+            assertEquals("Continue", save.getText());
+            assertNull(panel.getSkipButton());
+            assertNull(find(panel.getPanel(), c -> c instanceof JButton && "Continue".equals(((JButton) c).getText())),
+                "Continue is shown in the wizard footer");
             assertEquals(2, Double.parseDouble(input.getText()), 0.001);
             assertNull(saved.get());
             input.setText("");
@@ -84,7 +87,7 @@ class DisplacementPanelTest {
             panel.setOnStepCompleted(saved::set);
             panel.onShow();
             when(f.bp.getControllerConfiguration()).thenReturn(null);
-            JButton save = (JButton) find(panel.getPanel(), c -> c instanceof JButton);
+            JButton save = panel.getContinueButton();
             save.doClick();
             assertFalse(save.isEnabled());
             assertNull(saved.get());
@@ -109,7 +112,7 @@ class DisplacementPanelTest {
     private static class Fixture {
         final ScalarIniField field = new ScalarIniField("displacement", 4, "L", FieldType.FLOAT, 1, "3", 0);
         final IniFileModel ini = mock(IniFileModel.class);
-        final ConfigurationImage image = new ConfigurationImage(new byte[16]);
+        final ConfigurationImage image = ConfigurationImageTestHelper.newLittleEndian(new byte[16]);
         final BinaryProtocol bp = mock(BinaryProtocol.class);
         final UIContext context = new UIContext();
 

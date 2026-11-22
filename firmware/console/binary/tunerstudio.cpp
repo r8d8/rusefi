@@ -207,8 +207,10 @@ static uint8_t* getWorkingPageAddr(TsChannelBase* tsChannel, size_t page, size_t
 	case TS_PAGE_FS_IMAGE_SIZE:
 		{
 			uint32_t* data32 = reinterpret_cast<uint32_t*>(tsChannel->scratchBuffer + TS_PACKET_HEADER_SIZE);
-			// TODO: endian convert?
-			data32[0] = getStorageImageSize();
+			// READ32 filesystem metadata uses little-endian on every MCU.
+			uint32_t length = getStorageImageSize();
+			uint8_t* bytes = reinterpret_cast<uint8_t*>(data32);
+			for (unsigned i = 0; i < 4; i++) bytes[i] = length >> (8 * i);
 			return (uint8_t *)tsChannel->scratchBuffer + TS_PACKET_HEADER_SIZE;
 		}
 	case TS_PAGE_FS_IMAGE_DATA:
@@ -359,7 +361,7 @@ bool isTouchingArea(uint16_t offset, uint16_t count, int areaStart, int areaSize
  * This command is needed to make the whole transfer a bit faster
  */
 void TunerStudio::handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t page, uint16_t offset, uint16_t count,
-		void *content, size_t contentSize) {
+		void *content) {
 	tsState.writeChunkCommandCounter++;
 
 	efiPrintf("TS -> Page %d write chunk offset %d count %d (output_count=%d)",
@@ -368,14 +370,6 @@ void TunerStudio::handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t pag
 
 	if (validateOffsetCount(page, offset, count)) {
 		tunerStudioError(tsChannel, "ERROR: WR out of range");
-		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE);
-		return;
-	}
-
-	// the packet must carry what its count says: a short one would copy the bytes after its payload
-	// (its CRC, stale receive-buffer contents) into the tune (HZ-29 audit)
-	if (count > contentSize) {
-		tunerStudioError(tsChannel, "ERROR: WR short packet");
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE);
 		return;
 	}
@@ -417,6 +411,22 @@ void TunerStudio::handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t pag
 	sendOkResponse(tsChannel);
 }
 
+// [tag:ts_chunk_write_payload_bound] validateOffsetCount() only bounds the destination; `count`
+// must also fit in the received content, otherwise memcpy reads past it (stale frames, or memory
+// beyond scratchBuffer) into the live calibration. See TunerstudioCommands.writeChunkCountBeyondPayload.
+void TunerStudio::handleWriteChunkFrame(TsChannelBase* tsChannel, char *data, int payloadSize) {
+	const uint16_t* data16 = reinterpret_cast<uint16_t*>(data);
+	/* command with page argument */
+	uint16_t page = data16[0];
+	uint16_t offset = data16[1];
+	uint16_t count = data16[2];
+	if (count > payloadSize - (int)sizeof(TunerStudioPageRWChunkRequest)) {
+		sendErrorCode(tsChannel, TS_RESPONSE_UNDERRUN, "ERROR: WR count exceeds content");
+		return;
+	}
+	handleWriteChunkCommand(tsChannel, page, offset, count, data + sizeof(TunerStudioPageRWChunkRequest));
+}
+
 void TunerStudio::handleCrc32Check(TsChannelBase *tsChannel, uint32_t page, uint32_t offset, uint32_t count) {
 	tsState.crc32CheckCommandCounter++;
 
@@ -433,7 +443,7 @@ void TunerStudio::handleCrc32Check(TsChannelBase *tsChannel, uint32_t page, uint
 		return;
 	}
 
-	uint32_t crc = SWAP_UINT32(crc32(start, count));
+	uint32_t crc = wireBe32(crc32(start, count));
 	tsChannel->sendResponse(TS_CRC, (const uint8_t *) &crc, 4);
 	if (page == TS_PAGE_SETTINGS && offset == 0 && count == sizeof(persistent_config_s)) {
 		finishPendingBurn(tsChannel);
@@ -501,7 +511,7 @@ void TunerStudio::handleScatteredReadCommand(TsChannelBase* tsChannel) {
 //	printf("CRC %x\n", crc);
 #endif /* EFI_SIMULATOR */
 	// now write total CRC
-	*(uint32_t*)dataBuffer = SWAP_UINT32(crc);
+	*(uint32_t*)dataBuffer = wireBe32(crc);
 	tsChannel->write(dataBuffer, 4, true);
 	tsChannel->flush();
 }
@@ -876,7 +886,7 @@ static int tsProcessOne(TsChannelBase* tsChannel) {
 
 	uint32_t expectedCrc = *(uint32_t*) (tsChannel->scratchBuffer + incomingPacketSize);
 
-	expectedCrc = SWAP_UINT32(expectedCrc);
+	expectedCrc = wireBe32(expectedCrc);
 
 	uint32_t actualCrc = crc32(tsChannel->scratchBuffer, incomingPacketSize);
 	if (actualCrc != expectedCrc) {
@@ -964,14 +974,10 @@ static void handleGetText(TsChannelBase* tsChannel) {
 	tsState.textCommandCounter++;
 
 	printOverallStatus();
-
-	size_t outputSize;
-	const char* output = swapOutputBuffers(&outputSize);
 #if EFI_SIMULATOR
-	logMsg("get test sending [%d]\r\n", outputSize);
-#endif
-
-	tsChannel->writeCrcPacket(TS_RESPONSE_OK, reinterpret_cast<const uint8_t*>(output), outputSize, true);
+	size_t outputSize =
+#endif // EFI_SIMULATOR
+		loggingSendOutputData(tsChannel);
 #if EFI_SIMULATOR
 	logMsg("sent [%d]\r\n", outputSize);
 #endif // EFI_SIMULATOR
@@ -1002,7 +1008,12 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 	const uint16_t* data16 = reinterpret_cast<uint16_t*>(data);
 	uint32_t data32[3];
 	if (incomingPacketSize >= 13) {
-		memcpy(&data32[0], data, sizeof(data32));
+		// READ32 and CRC32 wire arguments are little-endian, including on PPC.
+		for (unsigned i = 0; i < 3; i++) {
+			const uint8_t* bytes = reinterpret_cast<const uint8_t*>(data) + 4 * i;
+			data32[i] = uint32_t(bytes[0]) | (uint32_t(bytes[1]) << 8)
+				| (uint32_t(bytes[2]) << 16) | (uint32_t(bytes[3]) << 24);
+		}
 	}
 
 	// only few commands have page argument, default page is 0
@@ -1057,15 +1068,7 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 		handleExecuteCommand(tsChannel, data, incomingPacketSize - 1);
 		break;
 	case TS_CHUNK_WRITE_COMMAND:
-		{
-			/* command with page argument */
-			page = data16[0];
-			offset = data16[1];
-			count = data16[2];
-			const int headerSize = 1 + sizeof(TunerStudioPageRWChunkRequest);
-			const size_t contentSize = incomingPacketSize > headerSize ? incomingPacketSize - headerSize : 0;
-			handleWriteChunkCommand(tsChannel, page, offset, count, data + sizeof(TunerStudioPageRWChunkRequest), contentSize);
-		}
+		handleWriteChunkFrame(tsChannel, data, incomingPacketSize - 1);
 		break;
 	case TS_CRC_CHECK_COMMAND:
 		/* command with page argument */
@@ -1122,8 +1125,8 @@ int TunerStudio::handleCrcCommand(TsChannelBase* tsChannel, char *data, int inco
 		//	I need test this functionality with simulator as well. We need to review the cases when we really need to turn off
 		//	`TS_IO_TEST_COMMAND` processing. Do we really need guards below?
 		{
-			uint16_t subsystem = SWAP_UINT16(data16[0]);
-			uint16_t index = SWAP_UINT16(data16[1]);
+			uint16_t subsystem = wireBe16(data16[0]);
+			uint16_t index = wireBe16(data16[1]);
 
 			executeTSCommand(subsystem, index);
 		}

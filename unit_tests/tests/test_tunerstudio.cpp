@@ -4,6 +4,8 @@
 #include "tunerstudio_impl.h"
 #include "binary_mlg_logging.h"
 #include "mlg_field.h"
+#include "basic_configuration.h"
+#include "flash_main.h"
 
 TEST(TunerStudioState, EngineStateLogField) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
@@ -14,7 +16,7 @@ TEST(TunerStudioState, EngineStateLogField) {
 			matches++;
 			EXPECT_EQ(1u, field.getSize());
 			EXPECT_STREQ("", field.getUnits());
-			EXPECT_DOUBLE_EQ(0x3f, field.readValueAsDouble(MLG::getUnitTestFieldOffset(field)));
+			EXPECT_DOUBLE_EQ(0x3f, field.readValueAsDouble());
 		}
 	});
 	EXPECT_EQ(1, matches);
@@ -112,7 +114,7 @@ TEST_F(TunerStudioEngineState, DfcoSetsDecelerationInEveryMode) {
 	Sensor::setMockValue(SensorType::Rpm, 2000);
 	Sensor::setMockValue(SensorType::Clt, 90);
 	Sensor::setMockValue(SensorType::Map, 20);
-	for (auto mode : {AE_MODE_MS_ADDER, AE_MODE_PERCENT_ADDER, AE_MODE_PREDICTIVE_MAP}) {
+	for (auto mode : {AE_MODE_MS_ADDER, AE_MODE_PERCENT_ADDER, AE_MODE_PREDICTIVE_MAP, AE_MODE_LUA}) {
 		engineConfiguration->accelEnrichmentMode = mode;
 		Sensor::setMockValue(SensorType::DriverThrottleIntent, 0);
 		engine->module<DfcoController>()->update();
@@ -123,6 +125,21 @@ TEST_F(TunerStudioEngineState, DfcoSetsDecelerationInEveryMode) {
 		ASSERT_FALSE(engine->module<DfcoController>()->cutFuel());
 		EXPECT_EQ(0x01, readState());
 	}
+}
+
+TEST_F(TunerStudioEngineState, LuaUsesAppliedMassInsteadOfTpsHistory) {
+	engineConfiguration->accelEnrichmentMode = AE_MODE_LUA;
+	auto& ae = engine->module<TpsAccelEnrichment>();
+	ae->isAboveAccelThreshold = true;
+	ae->isBelowDecelThreshold = true;
+	engine->engineState.tpsAccelEnrich = 10;
+	EXPECT_EQ(0x01, readState());
+	ae->setLuaEnrichment(0.001f);
+	ae->getLuaEnrichment();
+	EXPECT_EQ(0x11, readState());
+	advanceTimeUs(201000);
+	ae->getLuaEnrichment();
+	EXPECT_EQ(0x01, readState());
 }
 
 static uint8_t st5TestBuffer[16000];
@@ -231,7 +248,7 @@ TEST(TunerstudioCommands, writeChunkEngineConfig) {
 	// two step - writes to the engineConfiguration section require a burn
 	uint8_t val = 50;
 	TunerStudio instance;
-	instance.handleWriteChunkCommand(&channel, 0, 100, 1, &val, sizeof(val));
+	instance.handleWriteChunkCommand(&channel, 0, 100, 1, &val);
 
 	EXPECT_EQ(configBytes[100], 50);
 }
@@ -252,7 +269,7 @@ TEST(TunerstudioCommands, burnFixRunsAfterCrc) {
 	EXPECT_EQ(engineConfiguration->mapExpAverageAlpha, 0);
 	uint8_t zero = 0;
 	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS,
-		offsetof(engine_configuration_s, mapExpAverageAlpha), sizeof(zero), &zero, sizeof(zero));
+		offsetof(engine_configuration_s, mapExpAverageAlpha), sizeof(zero), &zero);
 	EXPECT_TRUE(channel.settingsBurnPending);
 	EXPECT_EQ(engineConfiguration->mapExpAverageAlpha, 0);
 
@@ -264,6 +281,39 @@ TEST(TunerstudioCommands, burnFixRunsAfterCrc) {
 	EXPECT_EQ(actualCrc, expectedCrc);
 	EXPECT_FALSE(channel.settingsBurnPending);
 	EXPECT_EQ(engineConfiguration->mapExpAverageAlpha, 1);
+}
+
+TEST(TunerstudioCommands, UnassignOutputsImmediateBurnPersistenceBehavior) {
+	// [tag:unassign_outputs] Persist independently of the preset refresh's suppressed TS Burn.
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	BufferTsChannel channel;
+	TunerStudio ts;
+	auto assignedOutput = static_cast<output_pin_e>(Gpio::A0);
+	engineConfiguration->fanPin = assignedOutput;
+	engineConfiguration->injectionPins[0] = assignedOutput;
+	const auto configurationVersion = engine->globalConfigurationVersion;
+	resetConfigurationWriteRequestCountForUnitTest();
+
+	ASSERT_TRUE(handleBasicConfigurationAction(static_cast<uint16_t>(BasicConfigurationAction::UnassignOutputs)));
+	EXPECT_EQ(static_cast<output_pin_e>(0), engineConfiguration->fanPin);
+	EXPECT_EQ(static_cast<output_pin_e>(0), engineConfiguration->injectionPins[0]);
+	EXPECT_EQ(configurationVersion, engine->globalConfigurationVersion);
+	EXPECT_EQ(1, getConfigurationWriteRequestCountForUnitTest());
+
+	// TunerStudio's preset flow may immediately send Burn and then the settings CRC.
+	// The refresh timer suppresses the TS Burn, so the action must queue its own
+	// non-forced persistence request while leaving hardware activation to reboot.
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS,
+		offsetof(engine_configuration_s, fanPin), sizeof(assignedOutput), &assignedOutput);
+	EXPECT_EQ(static_cast<output_pin_e>(0), engineConfiguration->fanPin);
+	ts.handleBurnCommand(&channel, TS_PAGE_SETTINGS);
+	ts.handleCrc32Check(&channel, TS_PAGE_SETTINGS, 0, sizeof(persistent_config_s));
+
+	EXPECT_FALSE(channel.settingsBurnPending);
+	EXPECT_EQ(configurationVersion, engine->globalConfigurationVersion);
+	EXPECT_EQ(static_cast<output_pin_e>(0), engineConfiguration->fanPin);
+	EXPECT_EQ(static_cast<output_pin_e>(0), engineConfiguration->injectionPins[0]);
+	EXPECT_EQ(1, getConfigurationWriteRequestCountForUnitTest());
 }
 
 TEST(TunerstudioCommands, burnFixRunsAfterTimeout) {
@@ -349,45 +399,12 @@ TEST(TunerstudioCommands, outOfRangeWriteChunkSendsExactlyOneError) {
 
 	uint8_t dummy[1] = {};
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, 0, OVERSIZED_COUNT, dummy, sizeof(dummy));
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, 0, OVERSIZED_COUNT, dummy);
 
 	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
 	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
 
 	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
-}
-
-// A chunk write whose packet carries fewer bytes than its count is refused. It used to copy whatever
-// followed the payload in the receive buffer (the CRC, older bytes) into the live tune (HZ-29 audit).
-TEST(TunerstudioCommands, shortChunkWriteIsRefused) {
-	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
-	BufferTsChannel channel;
-	TunerStudio ts;
-	int prevErrors = tsState.errorOutOfRange;
-
-	// the receive buffer as tsProcessOne() leaves it: a 2-byte payload, then its CRC and stale bytes
-	const uint8_t received[8] = {0x11, 0x22, 0xC1, 0xC2, 0xC3, 0xC4, 0xEE, 0xEE};
-	const size_t payload = 2;
-	const uint16_t offset = 100;
-	uint8_t* configBytes = reinterpret_cast<uint8_t*>(config);
-	memset(configBytes + offset, 0, sizeof(received));
-
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, sizeof(received), (void*)received, payload);
-
-	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
-	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OUT_OF_RANGE);
-	EXPECT_EQ(tsState.errorOutOfRange - prevErrors, 1);
-	for (size_t i = 0; i < sizeof(received); i++) {
-		EXPECT_EQ(configBytes[offset + i], 0) << i;
-	}
-
-	// a packet carrying its whole count is written, and only that
-	channel.reset();
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, offset, payload, (void*)received, payload);
-	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OK);
-	EXPECT_EQ(configBytes[offset], 0x11);
-	EXPECT_EQ(configBytes[offset + 1], 0x22);
-	EXPECT_EQ(configBytes[offset + 2], 0);
 }
 
 // The range check compares without adding offset and count, which wrap in 32 bits for a malformed
@@ -506,7 +523,7 @@ TEST(TunerstudioCommands, tuningDetectorEnabledSuspendsAfterVeWrite) {
 	const uint16_t veOffset = static_cast<uint16_t>(offsetof(persistent_config_s, veTable));
 	uint8_t dummy = 0;
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy, sizeof(dummy));
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy);
 
 	// With enabled=true and timer just reset, isTuningVeNow() must return true
 	EXPECT_TRUE(isTuningVeNow());
@@ -523,10 +540,58 @@ TEST(TunerstudioCommands, tuningDetectorDisabledDoesNotSuspendAfterVeWrite) {
 	const uint16_t veOffset = static_cast<uint16_t>(offsetof(persistent_config_s, veTable));
 	uint8_t dummy = 0;
 	TunerStudio ts;
-	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy, sizeof(dummy));
+	ts.handleWriteChunkCommand(&channel, TS_PAGE_SETTINGS, veOffset, 1, &dummy);
 
 	// With enabled=false, tuning detection uses 0 s threshold — always elapsed → not tuning
 	EXPECT_FALSE(isTuningVeNow());
 
 	resetCalibrationTimerForTest();
+}
+
+// [tag:ts_chunk_write_payload_bound] TS_CHUNK_WRITE_COMMAND used to copy `count` bytes
+// from the receive buffer without comparing `count` with the received payload length.
+// A header-only frame then copied whatever followed the header in scratchBuffer (stale
+// data from earlier frames or, for larger counts, memory past the buffer) into the live
+// calibration, where a normal page read returns it. This test stays within scratchBuffer.
+TEST(TunerstudioCommands, writeChunkCountBeyondPayload) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	BufferTsChannel channel;
+
+	static constexpr uint16_t chunkOffset = 100;
+	static constexpr uint16_t chunkCount = 16;
+	static constexpr uint8_t staleByte = 0xA5;
+
+	uint8_t* configBytes = reinterpret_cast<uint8_t*>(config);
+	memset(configBytes + chunkOffset, 0, chunkCount);
+
+	// leftover bytes from an earlier, longer frame
+	memset(channel.scratchBuffer, staleByte, sizeof(channel.scratchBuffer));
+
+	// command byte + page/offset/count header, no content
+	const TunerStudioPageRWChunkRequest request{ TS_PAGE_SETTINGS, chunkOffset, chunkCount };
+	channel.scratchBuffer[0] = TS_CHUNK_WRITE_COMMAND;
+	memcpy(channel.scratchBuffer + 1, &request, sizeof(request));
+	const int incomingPacketSize = 1 + sizeof(request);
+
+	TunerStudio ts;
+	ts.handleWriteChunkFrame(&channel, channel.scratchBuffer + 1, incomingPacketSize - 1);
+
+	// rejected, and nothing the peer did not send reaches the calibration
+	EXPECT_EQ(channel.writeIdx, TS_ERROR_PACKET_SIZE);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_UNDERRUN);
+	for (size_t i = 0; i < chunkCount; i++) {
+		EXPECT_EQ(configBytes[chunkOffset + i], 0) << "index " << i;
+	}
+
+	// a frame carrying exactly `count` content bytes is still written
+	channel.reset();
+	uint8_t frame[1 + sizeof(request) + chunkCount];
+	frame[0] = TS_CHUNK_WRITE_COMMAND;
+	memcpy(frame + 1, &request, sizeof(request));
+	memset(frame + 1 + sizeof(request), 0x5A, chunkCount);
+	ts.handleWriteChunkFrame(&channel, reinterpret_cast<char*>(frame + 1), sizeof(request) + chunkCount);
+	EXPECT_EQ(st5TestBuffer[2], TS_RESPONSE_OK);
+	for (size_t i = 0; i < chunkCount; i++) {
+		EXPECT_EQ(configBytes[chunkOffset + i], 0x5A) << "index " << i;
+	}
 }

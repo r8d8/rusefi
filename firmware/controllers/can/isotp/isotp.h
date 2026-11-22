@@ -22,6 +22,9 @@
 #include "can_mocks.h"
 #endif /* EFI_UNIT_TEST */
 
+// Quiet periodic CAN traffic during a serial session; expire after inactivity.
+#define CAN_SERIAL_PAUSE_MS 10000
+
 #define CAN_FLOW_STATUS_OK 0
 #define CAN_FLOW_STATUS_WAIT_MORE 1
 #define CAN_FLOW_STATUS_ABORT 2
@@ -71,6 +74,8 @@ public:
 class CanRxMessageSource {
 public:
   virtual bool get(CanRxMessage &item, int timeout) = 0;
+  virtual void prepareFlowControlWait() = 0;
+  virtual bool getFlowControl(CanRxMessage &item, int timeout) = 0;
 };
 
 class ICanTransmitter {
@@ -82,6 +87,10 @@ class ICanReceiver {
 public:
   virtual can_msg_t receive(CANRxFrame *crfp, can_sysinterval_t timeout) = 0;
   virtual void onTpFirstFrame() = 0;
+  // Arm before transmitting the first frame, so an immediate reply is retained.
+  virtual void prepareFlowControlWait() = 0;
+  // Receiving TX acknowledgements must not consume queued incoming commands.
+  virtual can_msg_t receiveFlowControl(CANRxFrame *crfp, can_sysinterval_t timeout) = 0;
 };
 
 class IsoTpBase {

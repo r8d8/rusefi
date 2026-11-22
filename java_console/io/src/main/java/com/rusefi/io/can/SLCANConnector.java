@@ -1,6 +1,8 @@
 package com.rusefi.io.can;
 
 import com.rusefi.io.IoStream;
+import com.rusefi.io.can.slcan.SlcanCodec;
+import com.rusefi.io.can.slcan.SlcanSetup;
 import com.rusefi.io.can.slcan.SlcanVersion;
 import com.rusefi.io.serial.BufferedSerialIoStream;
 
@@ -72,8 +74,7 @@ public final class SLCANConnector implements RawCanPort {
             canable = SlcanVersion.isCanableFamily(version);
             System.out.println(port + " SLCAN version: " + version);
             drain(100); // Discard any trailing version acknowledgement before setup.
-            expectOk("S" + bitrate);
-            expectOk("O");
+            SlcanSetup.openClosedChannel(version, bitrate, this::expectOk, System.out::println);
         } catch (IOException | RuntimeException e) {
             close();
             throw e;
@@ -93,7 +94,7 @@ public final class SLCANConnector implements RawCanPort {
     }
 
     private void expectOk(String command) throws IOException {
-        // CANable does not acknowledge setup commands. Its ordered V reply is a barrier.
+        // CANable can omit setup acknowledgements. Its ordered V reply is a barrier.
         writeLine(command);
         if (canable) {
             writeLine("V");
@@ -130,39 +131,16 @@ public final class SLCANConnector implements RawCanPort {
     }
 
     static String encode(ClassicCanFrame frame) {
-        CanAddress address = frame.getAddress();
-        byte[] payload = frame.getPayload();
-        StringBuilder result = new StringBuilder(String.format(address.isExtended() ? "T%08X" : "t%03X", address.getId()));
-        result.append(payload.length);
-        for (byte value : payload) {
-            result.append(String.format("%02X", value & 0xff));
-        }
-        return result.toString();
+        return SlcanCodec.encode(frame, 0);
     }
 
     static Optional<ClassicCanFrame> decode(String value) {
-        // Only data frames enter ISO-TP. Reject RTR, FD, malformed lengths and non-hex data.
-        if (!value.matches("(t[0-9A-Fa-f]{3}|T[0-9A-Fa-f]{8})[0-8][0-9A-Fa-f]*")) {
+        SlcanCodec.Frame frame = SlcanCodec.decode(value);
+        // Only untagged data frames enter this connector's ISO-TP stream.
+        if (frame == null || frame.rtr || frame.busIndex != 0) {
             return Optional.empty();
         }
-        boolean extended = value.charAt(0) == 'T';
-        int idEnd = extended ? 9 : 4;
-        int count = Character.digit(value.charAt(idEnd), 16);
-        int expected = idEnd + 1 + 2 * count;
-        if (value.length() != expected && value.length() != expected + 4) {
-            return Optional.empty();
-        }
-        try {
-            CanAddress address = new CanAddress(Integer.parseInt(value.substring(1, idEnd), 16), extended);
-            byte[] payload = new byte[count];
-            for (int i = 0; i < count; i++) {
-                int offset = idEnd + 1 + 2 * i;
-                payload[i] = (byte) Integer.parseInt(value.substring(offset, offset + 2), 16);
-            }
-            return Optional.of(new ClassicCanFrame(address, payload));
-        } catch (IllegalArgumentException e) {
-            return Optional.empty();
-        }
+        return Optional.of(new ClassicCanFrame(frame.address, frame.data));
     }
 
     @Override

@@ -60,7 +60,7 @@ void LtftState::fillRandom() {
 	for (size_t bank = 0; bank < FT_BANK_COUNT; bank++) {
 		for (size_t loadIndex = 0; loadIndex < VE_LOAD_COUNT; loadIndex++) {
 			for (size_t rpmIndex = 0; rpmIndex < VE_RPM_COUNT; rpmIndex++) {
-				trims[bank][loadIndex][rpmIndex] = PERCENT_DIV * (loadIndex + rpmIndex * 0.1);
+				trims[bank][loadIndex][rpmIndex] = PERCENT_DIV * (loadIndex + rpmIndex * 0.1f);
 			}
 		}
 	}
@@ -141,8 +141,8 @@ void LongTermFuelTrim::learn(ClosedLoopFuelResult clResult, float rpm, float fue
 	auto y = priv::getClosestBin(rpm, config->veRpmBins);
 
 	// Skip learning if current load point falls far outside the table
-	if ((abs(x.Frac) > 0.5) ||
-		(abs(y.Frac) > 0.5)) {
+	if ((std::abs(x.Frac) > 0.5) ||
+		(std::abs(y.Frac) > 0.5)) {
 		// we are outside table
 		ltftCntMiss++;
 		ltftLearning = false;
@@ -151,13 +151,13 @@ void LongTermFuelTrim::learn(ClosedLoopFuelResult clResult, float rpm, float fue
 
 	bool adjusted = false;
 
-	// calculate weight depenting on distance from cell center
+	// calculate weight depending on distance from cell center
 	// Is this too heavy?
-	float weight = 1.0 - hypotf(x.Frac, y.Frac) / hypotf(0.5, 0.5);
+	float weight = 1.0f - hypotf(x.Frac, y.Frac) / hypotf(0.5f, 0.5f);
 	float k = getIntegratorGain(cfg, clResult.region) * integrator_dt * weight;
 
 	for (size_t bank = 0; bank < FT_BANK_COUNT; bank++) {
-		float lambdaCorrection = clResult.banks[bank] - 1.0;
+		float lambdaCorrection = clResult.banks[bank] - 1.0f;
 
 		// If we're within the deadband, make no adjustment.
 		if (std::abs(lambdaCorrection) < PERCENT_DIV * cfg.deadband) {

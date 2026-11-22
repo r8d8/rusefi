@@ -226,7 +226,7 @@ void ServoThrottle::onFastCallback() {
 
 #if EFI_TUNER_STUDIO
 	engine->outputChannels.servoThrottleRequest = m_feedForward;
-	engine->outputChannels.servoThrottlePulseUs = m_commandPulseUs;
+	engine->outputChannels.servoThrottlePulseUs = static_cast<uint16_t>(m_commandPulseUs);
 	engine->outputChannels.servoGovernorState = (uint8_t)m_state;
 	engine->outputChannels.servoThrottleCanCommand = (uint8_t)canState;
 	m_pid.postState(engine->outputChannels.servoGovernorStatus);

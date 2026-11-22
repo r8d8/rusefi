@@ -9,6 +9,7 @@ import com.opensr5.ini.IniFileModel;
 import com.opensr5.ini.TsStringFunction;
 import com.opensr5.ini.field.ArrayIniField;
 import com.opensr5.ini.field.IniField;
+import com.opensr5.ini.field.PcVariableArrayIniField;
 import com.rusefi.config.StringFormatter;
 
 import javax.swing.*;
@@ -20,9 +21,12 @@ import java.awt.event.MouseEvent;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
 import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.EventObject;
+import java.util.function.Supplier;
 
 /**
  * curve panel consists of two parts
@@ -42,6 +46,11 @@ public class CurveWidget {
     private final JPanel content = new JPanel(new BorderLayout());
     private final CurveCanvas canvas = new CurveCanvas();
     private final JTable table = new JTable();
+    /** Live value of the X axis channel, from {@code xBins = bins, channel} (issue #10670). */
+    private final LiveChannelFeed live = new LiveChannelFeed(canvas, () -> {
+        canvas.repaint();
+        table.repaint();
+    });
 
     private CurveModel curveModel;
     private AxisModel xAxis;
@@ -56,14 +65,29 @@ public class CurveWidget {
     private Double[] yValues;
     private String xUnits;
     private String yUnits;
+    private String xLabel;
+    private String yLabel;
+    private String curveTitle;
+    private final boolean readOnly;
     private int xDigits;
     private int yDigits;
     private ConfigurationImage imageTarget;
     private ArrayIniField xBinsField;
+    private boolean xBinsFixed;
     private ArrayIniField yBinsField;
     private Runnable onEdit;
+    /** [tag:unburned_marks] The last burned tune; null marks nothing. */
+    private Supplier<ConfigurationImage> burnedImage = () -> null;
+    private Supplier<UnburnedWording> unburnedWording = () -> UnburnedWording.BURNED;
+    private final JLabel unburnedCountLabel = UnburnedCellMark.createCountLabel();
 
     public CurveWidget(CurveModel curveModel, IniFileModel iniFileModel, ConfigurationImage ci) {
+        this(curveModel, iniFileModel, ci, ci, false);
+    }
+
+    public CurveWidget(CurveModel curveModel, IniFileModel iniFileModel, ConfigurationImage valuesImage,
+                       ConfigurationImage configImage, boolean readOnly) {
+        this.readOnly = readOnly;
         table.getTableHeader().setReorderingAllowed(false);
         table.setDefaultRenderer(Object.class, new GradientRenderer());
         table.setDefaultEditor(Object.class, new DefaultCellEditor(new JTextField()) {
@@ -86,7 +110,8 @@ public class CurveWidget {
         });
         table.setCellSelectionEnabled(true);
         table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        table.setToolTipText("Type to replace a value; Enter to accept; Esc to cancel; Shift+arrows to select");
+        table.setToolTipText(readOnly ? "ECU page values are read-only" :
+            "Type to replace a value; Enter to accept; Esc to cancel; Shift+arrows to select");
         table.getSelectionModel().addListSelectionListener(e -> canvas.repaint());
         table.getColumnModel().getSelectionModel().addListSelectionListener(e -> canvas.repaint());
         // JTable defaults to a 450x400 preferredScrollableViewportSize; left unchanged the table would
@@ -98,6 +123,8 @@ public class CurveWidget {
         // The table header is reparented into the JScrollPane's column header by configureEnclosingScrollPane(),
         // so it does not need (and must not get) a separate NORTH slot here.
         rightPanel.add(new JScrollPane(table), BorderLayout.CENTER);
+        unburnedCountLabel.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+        rightPanel.add(unburnedCountLabel, BorderLayout.SOUTH);
 
         content.setLayout(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
@@ -110,41 +137,125 @@ public class CurveWidget {
 
         gbc.gridx = 1;
         gbc.weightx = 0.2;
+        gbc.insets = new Insets(0, 8, 0, 0);
         content.add(rightPanel, gbc);
 
-        update(curveModel, iniFileModel, ci);
+        update(curveModel, iniFileModel, valuesImage, configImage);
     }
 
-    private void update(CurveModel curveModel, IniFileModel iniFile, ConfigurationImage ci) {
+    private void update(CurveModel curveModel, IniFileModel iniFile, ConfigurationImage valuesImage,
+                        ConfigurationImage configImage) {
         this.curveModel = Objects.requireNonNull(curveModel);
-        this.imageTarget = ci;
-        this.configuredXAxis = curveModel.getxAxis().resolve(iniFile, ci);
-        this.configuredYAxis = curveModel.getyAxis().resolve(iniFile, ci);
-
+        this.imageTarget = valuesImage;
+        this.configuredXAxis = curveModel.getxAxis().resolve(iniFile, configImage);
+        this.configuredYAxis = curveModel.getyAxis().resolve(iniFile, configImage);
         IniField xField = iniFile.findIniField(curveModel.getxBins()).get();
-        this.xUnits = resolveUnits(xField.getUnits(), iniFile, ci);
+        this.curveTitle = resolveCurveLabel(curveModel.getTitle(), iniFile, valuesImage, configImage, xField.getPageIndex());
+        this.xLabel = resolveCurveLabel(curveModel.getXLabel(), iniFile, valuesImage, configImage, xField.getPageIndex());
+        this.yLabel = resolveCurveLabel(curveModel.getYLabel(), iniFile, valuesImage, configImage, xField.getPageIndex());
+        this.xUnits = resolveUnits(xField.getUnits(), iniFile, configImage);
         this.xDigits = parseDigits(xField.getDigits());
         this.xBinsField = xField instanceof ArrayIniField ? (ArrayIniField) xField : null;
+        // PC variable bins (gear numbers, #10626) are fixed by the INI and have no tune storage
+        this.xBinsFixed = xField instanceof PcVariableArrayIniField;
 
         IniField yField = iniFile.findIniField(curveModel.getyBins()).get();
-        this.yUnits = resolveUnits(yField.getUnits(), iniFile, ci);
+        this.yUnits = resolveUnits(yField.getUnits(), iniFile, configImage);
         this.yDigits = parseDigits(yField.getDigits());
         this.yBinsField = yField instanceof ArrayIniField ? (ArrayIniField) yField : null;
 
         // Field limits are engineering values, independent of the INI's suggested plot range (#9191).
-        xMin = resolveLimit(xBinsField == null ? null : xBinsField.getMin(), iniFile, ci, Double.NEGATIVE_INFINITY);
-        xMax = resolveLimit(xBinsField == null ? null : xBinsField.getMax(), iniFile, ci, Double.POSITIVE_INFINITY);
-        yMin = resolveLimit(yBinsField == null ? null : yBinsField.getMin(), iniFile, ci, Double.NEGATIVE_INFINITY);
-        yMax = resolveLimit(yBinsField == null ? null : yBinsField.getMax(), iniFile, ci, Double.POSITIVE_INFINITY);
+        xMin = resolveLimit(xBinsField == null ? null : xBinsField.getMin(), iniFile, configImage, Double.NEGATIVE_INFINITY);
+        xMax = resolveLimit(xBinsField == null ? null : xBinsField.getMax(), iniFile, configImage, Double.POSITIVE_INFINITY);
+        yMin = resolveLimit(yBinsField == null ? null : yBinsField.getMin(), iniFile, configImage, Double.NEGATIVE_INFINITY);
+        yMax = resolveLimit(yBinsField == null ? null : yBinsField.getMax(), iniFile, configImage, Double.POSITIVE_INFINITY);
 
-        this.xValues = readArray(curveModel.getxBins(), iniFile, ci);
-        this.yValues = readArray(curveModel.getyBins(), iniFile, ci);
+        this.xValues = readArray(curveModel.getxBins(), iniFile, valuesImage);
+        this.yValues = readArray(curveModel.getyBins(), iniFile, valuesImage);
         updatePlotAxes();
 
         canvas.setCurve(curveModel, xValues, yValues);
         table.setModel(new CurveTableModel());
+        live.setChannels(curveModel.getXBinsChannel());
+        refreshUnburnedMarks();
         content.revalidate();
         content.repaint();
+    }
+
+    /** [tag:unburned_marks] Supplies the last burned tune, so changed points are marked in the table. */
+    public void setBurnedImage(Supplier<ConfigurationImage> burnedImage) {
+        this.burnedImage = burnedImage == null ? () -> null : burnedImage;
+        refreshUnburnedMarks();
+    }
+
+    /** Names the reference tune in the cell tooltips: burned, or loaded while offline. */
+    public void setUnburnedWording(Supplier<UnburnedWording> wording) {
+        unburnedWording = wording == null ? () -> UnburnedWording.BURNED : wording;
+    }
+
+    /** Re-marks the table and recounts, after an edit or when the burned tune changes. */
+    public void refreshUnburnedMarks() {
+        UnburnedChanges changes = UnburnedChanges.of(imageTarget, burnedImage.get());
+        UnburnedCellMark.updateCountLabel(unburnedCountLabel,
+            changes.countChangedCells(xBinsField) + changes.countChangedCells(yBinsField));
+        table.repaint();
+    }
+
+    JLabel getUnburnedCountLabelForTests() {
+        return unburnedCountLabel;
+    }
+
+    /** The burned value shown in table cell ({@code row}, {@code column}) when it differs, else null. */
+    String burnedCellText(int row, int column) {
+        ConfigurationImage burned = burnedImage.get();
+        ArrayIniField field = column == 0 ? xBinsField : yBinsField;
+        if (burned == null || field == null || field.getCols() <= 0) {
+            return null;
+        }
+        // curve points are the field's cells in row-major order, as readArray reads them
+        int storedRow = row / field.getCols();
+        int storedColumn = row % field.getCols();
+        if (!UnburnedChanges.of(imageTarget, burned).isCellChanged(field, storedRow, storedColumn)) {
+            return null;
+        }
+        return StringFormatter.niceToString(UnburnedCellMark.burnedValue(field, storedRow, storedColumn, burned),
+            column == 0 ? xDigits : yDigits);
+    }
+
+    LiveChannelFeed liveFeedForUnitTest() {
+        return live;
+    }
+
+    /** The live X value as a fractional index into the curve points, or null when there is none. */
+    private Double livePosition() {
+        if (xValues == null || yValues == null) {
+            return null;
+        }
+        return LiveOperatingPoint.axisPosition(xValues, Math.min(xValues.length, yValues.length), live.value(0));
+    }
+
+    /** The table row nearest the live X value, or -1. */
+    int liveRow() {
+        Double position = livePosition();
+        return position == null ? -1 : (int) Math.round(position);
+    }
+
+    private static String resolveCurveLabel(String raw, IniFileModel ini, ConfigurationImage valuesImage,
+                                            ConfigurationImage configImage, int dataPage) {
+        Map<String, Double> values = new HashMap<>();
+        if (dataPage != 0 && valuesImage != null) {
+            for (String variable : ExpressionEvaluator.extractVariables(raw)) {
+                Optional<IniField> field = ini.findIniField(variable);
+                if (field.isPresent() && field.get().getPageIndex() == dataPage
+                    && field.get().getOffset() + Math.max(4, field.get().getSize()) <= valuesImage.getSize()) {
+                    Double value = valuesImage.readNumericValue(field.get());
+                    if (value != null) {
+                        values.put(variable, value);
+                    }
+                }
+            }
+        }
+        return TsStringFunction.resolveDisplayLabel(raw, ini, configImage, values);
     }
 
     public void setOnEdit(Runnable onEdit) {
@@ -192,6 +303,9 @@ public class CurveWidget {
     }
 
     private void setXValue(int index, double value) {
+        if (xBinsFixed) {
+            return;
+        }
         double min = index == 0 ? xMin : Math.max(xMin, xValues[index - 1]);
         double max = index == xValues.length - 1 ? xMax : Math.min(xMax, xValues[index + 1]);
         if (min <= max) {
@@ -284,6 +398,7 @@ public class CurveWidget {
         private boolean dragged = false;
 
         public CurveCanvas() {
+            // [tag:fixed_color] the curve plot is a black scope in every theme, with bright marks on it
             setBackground(Color.BLACK);
             // An empty JPanel reports a near-zero preferred width, so GridBagLayout has no canvas baseline
             // to defend while shrinking and the plot collapses to a sliver on small windows (issue #9635).
@@ -294,7 +409,7 @@ public class CurveWidget {
             MouseAdapter mouseAdapter = new MouseAdapter() {
                 @Override
                 public void mousePressed(MouseEvent e) {
-                    draggingIndex = findIndex(e.getPoint());
+                    draggingIndex = readOnly ? null : findIndex(e.getPoint());
                     dragged = false;
                 }
 
@@ -368,8 +483,8 @@ public class CurveWidget {
                 plotGraphics.dispose();
             }
 
-            g2.setColor(Color.WHITE);
-            String title = curve.getTitle();
+            g2.setColor(Color.WHITE); // [tag:fixed_color] on the black scope
+            String title = curveTitle;
             int titleWidth = g2.getFontMetrics().stringWidth(title);
             g2.drawString(title, (getWidth() - titleWidth) / 2, 15);
 
@@ -388,7 +503,7 @@ public class CurveWidget {
         }
 
         public void drawGrid(Graphics2D g2) {
-            Color gridColor = new Color(200, 200, 200, 100); // light grey, semi-transparent
+            Color gridColor = new Color(200, 200, 200, 100); // light grey, semi-transparent // [tag:fixed_color] on the black scope
             g2.setStroke(new BasicStroke(0.5f));
 
             FontMetrics fm = g2.getFontMetrics();
@@ -410,7 +525,7 @@ public class CurveWidget {
                 int labelWidth = fm.stringWidth(label);
                 int labelLeft = p1.x - labelWidth / 2;
                 if (labelLeft > lastXLabelRight) {
-                    g2.setColor(Color.RED);
+                    g2.setColor(Color.RED); // [tag:fixed_color] on the black scope
                     g2.drawString(label, labelLeft, p1.y + fm.getAscent() + 2);
                     lastXLabelRight = labelLeft + labelWidth + 4; // 4px minimum gap between labels
                 }
@@ -425,7 +540,7 @@ public class CurveWidget {
                 g2.setColor(gridColor);
                 g2.drawLine(p1.x, p1.y, p2.x, p2.y);
 
-                g2.setColor(Color.RED);
+                g2.setColor(Color.RED); // [tag:fixed_color] on the black scope
                 String label = String.format(Locale.ROOT, "%." + yDigits + "f", val);
                 int labelWidth = fm.stringWidth(label);
                 g2.drawString(label, p1.x - labelWidth - 5, p1.y + fm.getAscent() / 2);
@@ -436,24 +551,48 @@ public class CurveWidget {
         private void drawCurve(Graphics2D g2) {
             if (x == null || y == null || x.length == 0) return;
 
-            g2.setColor(Color.ORANGE);
+            g2.setColor(Color.ORANGE); // [tag:fixed_color] on the black scope
             for (int i = 0; i < x.length - 1; i++) {
                 Point p1 = worldToCanvas(x[i], y[i]);
                 Point p2 = worldToCanvas(x[i + 1], y[i + 1]);
                 g2.drawLine(p1.x, p1.y, p2.x, p2.y);
             }
 
-            g2.setColor(Color.GREEN);
+            g2.setColor(Color.GREEN); // [tag:fixed_color] on the black scope
             for (int i = 0; i < x.length; i++) {
                 Point p = worldToCanvas(x[i], y[i]);
                 g2.fillOval(p.x - 4, p.y - 4, 8, 8);
             }
 
-            g2.setColor(Color.MAGENTA);
+            g2.setColor(Color.MAGENTA); // [tag:fixed_color] on the black scope
             for (int row : table.getSelectedRows()) {
                 Point p = worldToCanvas(x[row], y[row]);
                 g2.fillOval(p.x - 5, p.y - 5, 10, 10);
             }
+            drawLivePoint(g2);
+        }
+
+        /** A vertical line at the live X value and a dot where the firmware interpolates the curve. */
+        private void drawLivePoint(Graphics2D g2) {
+            Double position = livePosition();
+            if (position == null) {
+                return;
+            }
+            int from = (int) Math.floor(position);
+            int to = Math.min(from + 1, Math.min(x.length, y.length) - 1);
+            double fraction = position - from;
+            double liveX = x[from] + fraction * (x[to] - x[from]);
+            double liveY = y[from] + fraction * (y[to] - y[from]);
+            Point p = worldToCanvas(liveX, liveY);
+            Rectangle plot = getPlotBounds();
+            Stroke stroke = g2.getStroke();
+            g2.setColor(Color.CYAN); // [tag:fixed_color] live point on the black scope
+            g2.setStroke(new BasicStroke(1f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 10f, new float[]{4f, 4f}, 0f));
+            g2.drawLine(p.x, plot.y, p.x, plot.y + plot.height);
+            g2.setStroke(stroke);
+            g2.fillOval(p.x - 6, p.y - 6, 12, 12);
+            g2.setColor(Color.WHITE); // [tag:fixed_color] live point outline on the black scope
+            g2.drawOval(p.x - 6, p.y - 6, 12, 12);
         }
 
         private Rectangle getPlotBounds() {
@@ -507,8 +646,8 @@ public class CurveWidget {
 
         @Override
         public String getColumnName(int column) {
-            String label = column == 0 ? curveModel.getXLabel() : curveModel.getYLabel();
-            return label != null ? label : (column == 0 ? "X Axis" : "Y Axis");
+            String label = column == 0 ? xLabel : yLabel;
+            return label != null && !label.isEmpty() ? label : (column == 0 ? "X Axis" : "Y Axis");
         }
 
         @Override
@@ -520,11 +659,14 @@ public class CurveWidget {
 
         @Override
         public boolean isCellEditable(int rowIndex, int columnIndex) {
-            return true;
+            return !readOnly && !(columnIndex == 0 && xBinsFixed);
         }
 
         @Override
         public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+            if (readOnly) {
+                return;
+            }
             try {
                 double val = Double.parseDouble(aValue.toString());
                 if (!Double.isFinite(val)) {
@@ -555,7 +697,18 @@ public class CurveWidget {
     private class GradientRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            Component c = renderCell(table, value, isSelected, hasFocus, row, column);
+            // [tag:unburned_marks] after the live-row outline, which replaces the border
+            UnburnedCellMark.apply(c, String.valueOf(value), burnedCellText(row, column), unburnedWording.get());
+            return c;
+        }
+
+        private Component renderCell(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+            if (row == liveRow()) {
+                // The row sits on the theme-independent value gradient, so the outline is fixed too.
+                setBorder(BorderFactory.createLineBorder(Color.BLACK, 2)); // [tag:fixed_color] live row outline
+            }
             if (isSelected) return c;
 
             double doubleValue;
@@ -582,21 +735,9 @@ public class CurveWidget {
         }
 
         private void applyGradient(Component c, double value, double minVal, double maxVal) {
-            if (maxVal <= minVal) {
-                c.setBackground(Color.WHITE);
-                return;
-            }
-            double ratio = (value - minVal) / (maxVal - minVal);
-            ratio = Math.max(0, Math.min(1, ratio));
-
-            int r1 = 173, g1 = 216, b1 = 230; // Min value color
-            int r2 = 255, g2 = 182, b2 = 193; // Max value color
-
-            int red = (int) (r1 + ratio * (r2 - r1));
-            int green = (int) (g1 + ratio * (g2 - g1));
-            int blue = (int) (b1 + ratio * (b2 - b1));
-            c.setBackground(new Color(red, green, blue));
-            c.setForeground(Color.BLACK);
+            Color background = CalibrationColorPalette.background(value, minVal, maxVal);
+            c.setBackground(background);
+            c.setForeground(CalibrationColorPalette.foreground(background));
         }
     }
 }

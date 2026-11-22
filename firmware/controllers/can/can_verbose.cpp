@@ -74,7 +74,7 @@ void populateFrame(Status& msg) {
 	msg.fan = enginePins.fanRelay.getLogicValue();
 	msg.fan2 = enginePins.fanRelay2.getLogicValue();
 
-	msg.gear = Sensor::getOrZero(SensorType::DetectedGear);
+	msg.gear = static_cast<uint8_t>(Sensor::getOrZero(SensorType::DetectedGear));
 
 #ifdef MODULE_ODOMETER
 	// scale to units of 0.1km
@@ -101,7 +101,7 @@ struct Speeds {
 
 void populateFrame(Speeds& msg) {
 	auto rpm = Sensor::getOrZero(SensorType::Rpm);
-	msg.rpm = rpm;
+	msg.rpm = static_cast<uint16_t>(rpm);
 
 	auto timing = engine->engineState.timingAdvance[0];
 	msg.timing = timing > 360 ? timing - 720 : timing;
@@ -109,9 +109,9 @@ void populateFrame(Speeds& msg) {
 	msg.injDuty = getInjectorDutyCycle(rpm);
 	msg.coilDuty = getCoilDutyCycle(rpm);
 #endif // EFI_ENGINE_CONTROL
-	msg.vssKph = Sensor::getOrZero(SensorType::VehicleSpeed);
+	msg.vssKph = static_cast<uint8_t>(Sensor::getOrZero(SensorType::VehicleSpeed));
 
-	msg.EthanolPercent = Sensor::getOrZero(SensorType::FuelEthanolPercent);
+	msg.EthanolPercent = static_cast<uint8_t>(Sensor::getOrZero(SensorType::FuelEthanolPercent));
 }
 
 struct PedalAndTps {
@@ -241,10 +241,10 @@ struct Cams {
 
 void populateFrame(Cams& msg) {
 #if EFI_SHAFT_POSITION_INPUT
-	msg.Bank1IntakeActual  = engine->triggerCentral.getVVTPosition(0, 0);
-	msg.Bank1ExhaustActual = engine->triggerCentral.getVVTPosition(0, 1);
-	msg.Bank2IntakeActual  = engine->triggerCentral.getVVTPosition(1, 0);
-	msg.Bank2ExhaustActual = engine->triggerCentral.getVVTPosition(1, 1);
+	msg.Bank1IntakeActual  = static_cast<int8_t>(engine->triggerCentral.getVVTPosition(0, 0));
+	msg.Bank1ExhaustActual = static_cast<int8_t>(engine->triggerCentral.getVVTPosition(0, 1));
+	msg.Bank2IntakeActual  = static_cast<int8_t>(engine->triggerCentral.getVVTPosition(1, 0));
+	msg.Bank2ExhaustActual = static_cast<int8_t>(engine->triggerCentral.getVVTPosition(1, 1));
 #endif // EFI_SHAFT_POSITION_INPUT
 
 	// TODO: maybe don't rely on outputChannels here
@@ -259,8 +259,8 @@ struct Egts {
 };
 
 void populateFrame(Egts& msg) {
-	msg.egt[0] = Sensor::getOrZero(SensorType::EGT1) / 5;
-	msg.egt[1] = Sensor::getOrZero(SensorType::EGT2) / 5;
+	msg.egt[0] = static_cast<uint8_t>(Sensor::getOrZero(SensorType::EGT1) / 5);
+	msg.egt[1] = static_cast<uint8_t>(Sensor::getOrZero(SensorType::EGT2) / 5);
 	// DBC Defines signals Egt3 through Egt8 but we do not have the code
 }
 

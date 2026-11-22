@@ -32,6 +32,7 @@
 #include "idle_thread.h"
 #include "injector_model.h"
 #include "launch_control.h"
+#include "rolling_launch.h"
 #include "shift_torque_reduction_controller.h"
 #include "nitrous_controller.h"
 #include "antilag_system.h"
@@ -73,6 +74,9 @@
 
 #ifndef EFI_BOOTLOADER
 #include "engine_modules_generated.h"
+#include "burst_knock.h"
+#include "engine_state_machine.h"
+#include "wot_enrichment.h"
 #endif
 
 #if EFI_MISFIRE_DETECTION
@@ -127,10 +131,14 @@ public:
     bool isPwmEnabled = true;
 
     /**
-     * ELM327 cannot handle both RX and TX at the same time, we have to stay quite once first ISO/TP packet was detected
-     * this is a pretty temporary hack only while we are trying ELM327, long term ISO/TP and rusEFI broadcast should find a way to coexists
+     * ELM327 cannot handle both RX and TX at the same time, we have to stay quiet once an ISO/TP packet was detected.
+     * This is a pretty temporary hack only while we are trying ELM327; long term ISO/TP and rusEFI broadcast should find a way to coexist.
+     *
+     * This is a timestamp (NT ticks, absolute) instead of a latched bool so that periodic CAN
+     * traffic (board BCM emulation, verbose CAN) resumes automatically once the serial session
+     * goes quiet - a latched flag would permanently mute board CAN TX just because TS connected once.
      */
-    bool pauseCANdueToSerial = false;
+    efitick_t pauseCANdueToSerialUntil = 0;
 
 #if EFI_ELECTRONIC_THROTTLE_BODY
     IEtbController *etbControllers[ETB_COUNT] = {nullptr};
@@ -199,7 +207,10 @@ public:
 #endif // EFI_SERVO_THROTTLE
         TpsAccelEnrichment,
 #if EFI_LAUNCH_CONTROL
+#if EFI_ENGINE_CONTROL
         NitrousController,
+#endif // EFI_ENGINE_CONTROL
+        RollingLaunchControl,
 #endif // EFI_LAUNCH_CONTROL
 #if EFI_LTFT_CONTROL
         LongTermFuelTrim,
@@ -213,6 +224,9 @@ public:
 #endif // EFI_MISFIRE_DETECTION
 
 #include "modules_list_generated.h"
+		BurstKnock,
+        EngineStateMachine,
+        WotEnrichment,
 
         EngineModule // dummy placeholder so the previous entries can all have commas
     > engineModules{};

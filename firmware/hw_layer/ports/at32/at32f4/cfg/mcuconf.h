@@ -139,7 +139,7 @@
 #define STM32_IRQ_TIM3_PRIORITY             7
 #define STM32_IRQ_TIM4_PRIORITY             7
 #define STM32_IRQ_TIM5_PRIORITY             7
-#define STM32_IRQ_TIM6_PRIORITY             7
+#define STM32_IRQ_TIM6_PRIORITY             EFI_IRQ_ADC_PRIORITY
 #define STM32_IRQ_TIM7_PRIORITY             7
 #define STM32_IRQ_TIM8_BRK_TIM12_PRIORITY   7
 #define STM32_IRQ_TIM8_UP_TIM13_PRIORITY    7
@@ -170,7 +170,8 @@
 /*
  * ADC driver system settings.
  */
-#define STM32_ADC_ADCPRE                    ADC_CCR_ADCPRE_DIV4
+// AT32 ADC clock is HCLK / 8 = 36 MHz at 288 MHz, independent of PCLK2.
+#define STM32_ADC_ADCPRE                    ADC_CCR_ADCPRE_DIV8
 #define STM32_ADC_USE_ADC1                  TRUE
 #define STM32_ADC_USE_ADC2                  TRUE
 #define STM32_ADC_USE_ADC3                  TRUE
@@ -223,6 +224,9 @@
 #define STM32_GPT_USE_TIM12                 FALSE
 #define STM32_GPT_USE_TIM13                 FALSE
 #define STM32_GPT_USE_TIM14                 FALSE
+
+// TIM6 starts fast ADC conversions; match the ADC completion/error handlers.
+#define STM32_GPT_TIM6_IRQ_PRIORITY         EFI_IRQ_ADC_PRIORITY
 
 /*
  * I2C driver system settings.
@@ -328,7 +332,8 @@
 #define STM32_SERIAL_USE_USART1             FALSE
 #endif
 #define STM32_SERIAL_USE_USART2             FALSE
-#define STM32_SERIAL_USE_USART3             FALSE
+// USART3 supports the board LIN master; the board selects its TX/RX pins.
+#define STM32_SERIAL_USE_USART3             TRUE
 #define STM32_SERIAL_USE_UART4              FALSE
 #define STM32_SERIAL_USE_UART5              FALSE
 #define STM32_SERIAL_USE_USART6             TRUE
@@ -337,7 +342,9 @@
  * SPI driver system settings.
  */
 #define STM32_SPI_USE_SPI1                  TRUE
+#ifndef STM32_SPI_USE_SPI2
 #define STM32_SPI_USE_SPI2                  FALSE
+#endif
 #define STM32_SPI_USE_SPI3                  FALSE
 #define STM32_SPI_USE_SPI4                  FALSE
 #define STM32_SPI_USE_SPI5                  FALSE
@@ -420,7 +427,8 @@
 
 /*
  * WDG driver system settings.
+ * Assign the independent watchdog when a board enables HAL_USE_WDG.
  */
-#define STM32_WDG_USE_IWDG                  FALSE
+#define STM32_WDG_USE_IWDG                  TRUE
 
 #endif /* MCUCONF_H */

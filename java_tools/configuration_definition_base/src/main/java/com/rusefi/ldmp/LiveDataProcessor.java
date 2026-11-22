@@ -125,14 +125,14 @@ public class LiveDataProcessor {
 
     private void end(int sensorTsPosition) throws IOException {
         log.info("TS_TOTAL_OUTPUT_SIZE=" + sensorTsPosition);
-        try (FileWriter fw = new FileWriter(getTsOutputsDestination() + "total_live_data_generated.h")) {
+        try (LazyFile fw = fileFactory.create(getTsOutputsDestination() + "total_live_data_generated.h")) {
             fw.write(header);
             fw.write("#define TS_TOTAL_OUTPUT_SIZE " + sensorTsPosition);
         }
     }
 
     interface EntryHandler {
-        void onEntry(String name, String javaName, String inFolder, String prepend, String[] outputNames, String[] constexpr, String conditional, String engineModule, Boolean isPtr, String cppFileName, String outFolder) throws IOException;
+        void onEntry(String name, String javaName, String inFolder, String prepend, String[] outputNames, String[] prefixNames, String[] constexpr, String conditional, String engineModule, Boolean isPtr, String cppFileName, String outFolder) throws IOException;
     }
 
     public int handleYaml(List<LinkedHashMap> liveDocs) throws IOException {
@@ -149,7 +149,7 @@ public class LiveDataProcessor {
 
         EntryHandler handler = new EntryHandler() {
             @Override
-            public void onEntry(String name, String javaName, String inFolder, String prepend, String[] outputNames, String[] constexpr, String conditional, String engineModule, Boolean isPtr, String cppFileName, String outFolder) throws IOException {
+            public void onEntry(String name, String javaName, String inFolder, String prepend, String[] outputNames, String[] prefixNames, String[] constexpr, String conditional, String engineModule, Boolean isPtr, String cppFileName, String outFolder) throws IOException {
                 Objects.requireNonNull(outFolder);
                 // TODO: use outputNames
 
@@ -171,7 +171,10 @@ public class LiveDataProcessor {
 
                 outputsSections.outputNames = outputNames;
                 dataLogConsumer.outputNames = outputNames;
+                dataLogConsumer.prefixNames = prefixNames;
                 gaugeConsumer.outputNames = outputNames;
+                gaugeConsumer.prefixNames = prefixNames;
+                sdCardFieldsConsumer.prefixNames = prefixNames;
 
                 List<JavaSensorsConsumer> javaSensorsConsumers = new ArrayList<>();
                 for (int i = 0; i < outputNames.length; i++) {
@@ -180,9 +183,15 @@ public class LiveDataProcessor {
                     javaSensorsConsumers.add(javaSensorsConsumer);
                 }
 
+                // [tag:live_data_single_write] These two consumers accumulate content across all
+                // entries into one file each. Only handleEndStruct is registered, so the per-entry
+                // endFile() of ReaderStateImpl does not reach them: a partial write differs from the
+                // complete file on disk, LazyFile then rewrites it on every run and the fresh mtime
+                // makes 'make' regenerate the configuration and recompile the firmware although
+                // nothing changed. Both files are written once after the last entry, below.
                 state.addDestination(
-                    outputsSections,
-                    dataLogConsumer
+                    outputsSections::handleEndStruct,
+                    dataLogConsumer::handleEndStruct
                 );
 
                 List<FragmentDialogConsumer> fragmentConsumers = new ArrayList<>();
@@ -209,24 +218,22 @@ public class LiveDataProcessor {
 
                 sdCardFieldsConsumer.structureStartingTsPosition = outputsSections.getBaseOffset();
 
-                if (constexpr != null) {
-                    sdCardFieldsConsumer.expressions = constexpr;
+                if (engineModule != null && outputNames.length != 1) {
+                    throw new IllegalStateException("engineModule requires a single output: " + name);
+                }
+                if (constexpr != null || engineModule != null) {
+                    // [tag:live_data_sd_mapping] Bits are relative to the generated state,
+                    // not the containing module (which may have a polymorphic base).
+                    sdCardFieldsConsumer.expressions = engineModule == null ? constexpr : new String[] {
+                            "static_cast<" + name + "_s&>(*engine->module<" + engineModule + ">())" };
                     sdCardFieldsConsumer.names = outputNames;
                     sdCardFieldsConsumer.conditional = conditional;
-                    sdCardFieldsConsumer.isPtr = isPtr;
+                    sdCardFieldsConsumer.isPtr = engineModule == null && isPtr;
                     state.addDestination(sdCardFieldsConsumer::handleEndStruct);
 
-                    outputValueConsumer.expressions = constexpr;
-                    outputValueConsumer.names = outputNames;
-                    outputValueConsumer.moduleMode = false;
-                    outputValueConsumer.conditional = conditional;
-                    outputValueConsumer.isPtr = isPtr;
-                    state.addDestination(outputValueConsumer::handleEndStruct);
-
-                } else if (engineModule != null) {
                     outputValueConsumer.currentEngineModule = engineModule;
-                    outputValueConsumer.moduleMode = true;
-                    outputValueConsumer.expressions = new String[] {""};
+                    outputValueConsumer.moduleMode = engineModule != null;
+                    outputValueConsumer.expressions = engineModule == null ? constexpr : new String[] {""};
                     outputValueConsumer.names = outputNames;
                     outputValueConsumer.conditional = conditional;
                     outputValueConsumer.isPtr = isPtr;
@@ -273,6 +280,8 @@ public class LiveDataProcessor {
             isPtr = isPtr != null && isPtr;
 
             Object outputNames = entry.get("output_name");
+            // human-readable per-instance prefixes, see DataLogConsumer#getHumanGaugeName
+            Object prefixNames = entry.get("prefix_names");
             Object additionalHeaders = entry.get("additional_headers");
 
             if (additionalHeaders != null) {
@@ -290,6 +299,9 @@ public class LiveDataProcessor {
             }
 
             String[] outputNamesArr = getStrings(outputNames);
+            String[] prefixNamesArr = prefixNames == null ? null : getStrings(prefixNames);
+            if (prefixNamesArr != null && prefixNamesArr.length != outputNamesArr.length)
+                throw new IllegalStateException(name + ": prefix_names " + Arrays.toString(prefixNamesArr) + " vs output_name " + Arrays.toString(outputNamesArr));
             String[] constexpr = constexprValue == null ? null : getStrings(constexprValue);
 
             if (inputFolder != null) {
@@ -299,7 +311,7 @@ public class LiveDataProcessor {
                 inputFolder = inputOutputFolder;
             }
 
-            handler.onEntry(name, java, inputFolder, prepend, outputNamesArr, constexpr, conditional, engineModule, isPtr, cppFileName, "live_data_generated");
+            handler.onEntry(name, java, inputFolder, prepend, outputNamesArr, prefixNamesArr, constexpr, conditional, engineModule, isPtr, cppFileName, "live_data_generated");
 
             String enumName = "LDS_" + name;
             String type = name + "_s"; // convention
@@ -342,6 +354,8 @@ public class LiveDataProcessor {
         SdCardFieldsContent.wrapContent(lazyFile, sdCardFieldsConsumer.getBody(), additionalHeadersStr.toString());
         lazyFile.close();
 
+        // [tag:live_data_single_write]
+        outputsSections.endFile();
         dataLogConsumer.endFile();
         outputValueConsumer.endFile();
         try (LazyFile fw = fileFactory.create("console/binary/generated/sensors.java")) {

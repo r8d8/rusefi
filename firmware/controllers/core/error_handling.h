@@ -42,6 +42,15 @@
  *   - Bad tune / setup the user must fix in TunerStudio     -> configError()
  *   - We must not keep firing injectors/coils as configured -> firmwareError()/criticalError()
  *
+ * [tag:user_facing_ini_labels] When a user-visible diagnostic names a tune setting,
+ * use its human-readable .ini field label so the user can find the control to fix.
+ * Internal C++ members and .ini keys are implementation identifiers, not UI labels.
+ * Match the label in the relevant INI template/board input; qualify short labels
+ * such as "Mode" with their setting/dialog context. Keep diagnostics and labels
+ * aligned when either changes. For example, accelEnrichmentMode is labeled
+ * "Accel Enrichment Mode" in tunerstudio.template.ini; the fuel_math.cpp diagnostic
+ * and its regression test use that label (https://github.com/rusefi/rusefi/issues/10363).
+ *
  * See also docs/AI/ files referenced from CLAUDE.md.
  */
 
@@ -51,12 +60,12 @@
  *
  * see also configError() for bad-tune problems and firmwareError() for fatal ones.
  */
-bool warning(ObdCode code, const char *fmt, ...);
+bool warning(ObdCode code, const char *fmt = nullptr, ...);
 
 /**
  * Same as warning(), but also report to the user via a pop-up window in TunerStudio.
  */
-bool warningTsReport(ObdCode code, const char *fmt, ...);
+bool warningTsReport(ObdCode code, const char *fmt = nullptr, ...);
 
 using critical_msg_t = char[CRITICAL_BUFFER_SIZE];
 

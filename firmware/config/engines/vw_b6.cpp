@@ -44,7 +44,7 @@ static inline void commonPassatB6() {
 	strcpy(engineConfiguration->engineCode, "BPY");
 	strcpy(engineConfiguration->vehicleName, "test");
 
-	setPPSCalibration(0.36, 2.13, 0.73, 4.30);
+	setPPSCalibration(0.36f, 2.13f, 0.73f, 4.30f);
 
 	engineConfiguration->invertCamVVTSignal = true;
 
@@ -64,14 +64,14 @@ static inline void commonPassatB6() {
 	engineConfiguration->lowPressureFuel.value2 = PSI2KPA(200);
 
 	gppwm_channel *lowPressureFuelPumpControl = &engineConfiguration->gppwm[1];
-	strcpy(engineConfiguration->gpPwmNote[1], "LPFP");
+	strcpy(config->gpPwmNote[1], "LPFP");
 	lowPressureFuelPumpControl->pwmFrequency = 20;
 	lowPressureFuelPumpControl->loadAxis = GPPWM_FuelLoad;
 	lowPressureFuelPumpControl->dutyIfError = 50;
 	setTable(lowPressureFuelPumpControl->table, (uint8_t)50);
 
 	gppwm_channel *coolantControl = &engineConfiguration->gppwm[0];
-	strcpy(engineConfiguration->gpPwmNote[0], "Rad Fan");
+	strcpy(config->gpPwmNote[0], "Rad Fan");
 	coolantControl->loadAxis = GPPWM_Clt;
 
 	coolantControl->pwmFrequency = 25;
@@ -119,9 +119,9 @@ static const float hardCodedFreqBins[] = {139,
 
 // MAF grams per second
 static const float hardCodedGperSValues[] {
-		3.58,
+		3.58f,
 		4.5,
-		6.7,
+		6.7f,
 		11,
 		22,
 		25,
@@ -147,7 +147,7 @@ void setProteusVwPassatB6() {
 			config->scriptCurve1[mi] = 4000;
 		}
 	}
-	strcpy(engineConfiguration->scriptCurveName[0], "MAFcurve");
+	strcpy(config->scriptCurveName[0], "MAFcurve");
 #endif
 
 	commonPassatB6();

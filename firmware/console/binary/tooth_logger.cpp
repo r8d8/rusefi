@@ -30,7 +30,7 @@
  *     when either a write error occurs or the logger goes idle: ToothLoggerWriter()
  *     blocks up to 3 seconds waiting for a tooth event (filledBuffers.fetch with
  *     TIME_MS2I(3000)); on timeout it flushes the partially-filled buffer and
- *     signals a new file. Note there is NO 32MB size cap on .teeth files - the
+ *     signals a new file. Note there is NO 32MB size cap on .teeth/.teethbin files - the
  *     LOGGER_MAX_FILE_SIZE check in mmc_card.cpp applies only to regular .mlg logs.
  *
  * TODO: remove legacy 'binary' format since we have CSV now?
@@ -505,7 +505,7 @@ int ToothLoggerWriteCsvHeader(Writer &writer) {
 	size_t total = 0;
 	// keep in sync with composite_logger_s
 	// drop trigger - purpose not clear
-	const char header[] = "Time[s], Primary, Cam 1, Cam 2, Cam 3, Cam 4, Sync, TDC, Coils, Injectors, ACR, VBatt, ET, InstantMAP, TPS";
+	const char header[] = "Time[s], Phase, Primary, Cam 1, Cam 2, Cam 3, Cam 4, Sync, TDC, Coils, Injectors, ACR, VBatt, ET, InstantMAP, TPS";
 
 	// no tailing '\0'
 	writer.write(header, sizeof(header) - 1);
@@ -538,14 +538,15 @@ static int ToothLoggerWriteCsvLine(Writer &writer, efitick_t timestamp, composit
 	float et = snapshot.et;
 	float instantMap = snapshot.instantMap;
 	float tps = snapshot.tps;
+	float phase = snapshot.phase;
 
 	// it is cheaper to write all data, even we have 1 cylinder engine with single crank sensor
-	int ret = chsnprintf(tmp, sizeof(tmp), "%d.%06d, "
+	int ret = chsnprintf(tmp, sizeof(tmp), "%d.%06d, %.2f, "
 				"%d, %d, %d, %d, %d, "
 				"%d, %d, "
 				"%d, %d, %d, "	// TODO: convert to bitwise?
 				"%.2f, %.2f, %.2f, %.2f",
-			sec, usec,
+			sec, usec, phase,
 			c.priLevel, c.cam1, c.cam2, c.cam3, c.cam4,
 			c.sync, c.tdc,
 			c.coil, c.injector, c.acr,

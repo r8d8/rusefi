@@ -38,6 +38,13 @@ bool RpmCalculator::isCranking() const {
 	return state == CRANKING || (state == SPINNING_UP && cachedRpmValue > 0);
 }
 
+/**
+ * @return true if there was a full shaft revolution within the last second
+ */
+bool RpmCalculator::isRunning() const {
+	return state == RUNNING;
+}
+
 bool RpmCalculator::isSpinningUp() const {
 	return state == SPINNING_UP;
 }
@@ -103,13 +110,6 @@ RpmCalculator::RpmCalculator() :
 		StoredValueSensor(SensorType::Rpm, 0)
 	{
 	assignRpmValue(0);
-}
-
-/**
- * @return true if there was a full shaft revolution within the last second
- */
-bool RpmCalculator::isRunning() const {
-	return state == RUNNING;
 }
 
 /**
@@ -194,13 +194,8 @@ void RpmCalculator::setRpmValue(float value) {
 	// This presumably fixes injection mode change for cranking-to-running transition.
 	// 'isSimultaneous' flag should be updated for events if injection modes differ for cranking and running.
 	if (state != oldState && engineConfiguration->crankingInjectionMode != engineConfiguration->injectionMode) {
-		// Reset the state of all injectors: when we change fueling modes, we could
-		// immediately reschedule an injection that's currently underway.  That will cause
-		// the injector's overlappingCounter to get out of sync with reality.  As the fix,
-		// every injector's state is forcibly reset just before we could cause that to happen.
-		engine->injectionEvents.resetOverlapping();
-
-		// reschedule all injection events now that we've reset them
+		// Rebuild future events for the new mode. In-flight actions retain their
+		// output mask and must be allowed to close their original injectors.
 		engine->injectionEvents.addFuelEvents();
 	}
 #endif
@@ -386,7 +381,7 @@ static void onTdcCallback() {
 #endif /* EFI_UNIT_TEST */
 
 	float rpm = Sensor::getOrZero(SensorType::Rpm);
-	addEngineSnifferTdcEvent(rpm);
+	addEngineSnifferTdcEvent(static_cast<int>(rpm));
 #if EFI_TOOTH_LOGGER
 	LogTriggerTopDeadCenter(getTimeNowNt());
 #endif /* EFI_TOOTH_LOGGER */
@@ -427,6 +422,12 @@ void tdcMarkCallback(
 #endif // EFI_ENGINE_CONTROL
 }
 
+efitick_t getTimeAfterAngle(efitick_t nowNt, angle_t angle) {
+	float delayUs = engine->rpmCalculator.oneDegreeUs * angle;
+
+	return sumTickAndFloat(nowNt, USF2NT(delayUs));
+}
+
 /**
  * Schedules a callback 'angle' degree of crankshaft from now.
  * The callback would be executed once after the duration of time which
@@ -435,9 +436,7 @@ void tdcMarkCallback(
  * @return tick time of scheduled action
  */
 efitick_t scheduleByAngle(scheduling_s *timer, efitick_t nowNt, angle_t angle, action_s const& action) {
-	float delayUs = engine->rpmCalculator.oneDegreeUs * angle;
-
-	efitick_t actionTimeNt = sumTickAndFloat(nowNt, USF2NT(delayUs));
+	efitick_t actionTimeNt = getTimeAfterAngle(nowNt, angle);
 
 	engine->scheduler.schedule("angle", timer, actionTimeNt, action);
 

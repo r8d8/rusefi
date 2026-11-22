@@ -54,7 +54,7 @@ static void endAveraging(MapAverager* arg);
 static size_t currentMapAverager = 0;
 
 void startAveraging(mapSampler* s) {
-    if (!engine->engineState.mapAveragingDuration) {
+    if (engine->engineState.mapAveragingDuration == 0) {
         // Zero duration means the engine wasn't spinning or something, abort
         return;
     }
@@ -121,7 +121,7 @@ void MapAverager::stop() {
 				minPressure = averagedMapRunningBuffer[i];
 		}
 
-    engine->outputChannels.mapPerCylinder[m_cylinderNumber] = minPressure;
+    engine->outputChannels.mapPerCylinder[m_cylinderNumber] = static_cast<uint8_t>(minPressure);
 		setValidValue(filterMapValue(minPressure), getTimeNowNt());
 	} else {
 #if EFI_PROD_CODE

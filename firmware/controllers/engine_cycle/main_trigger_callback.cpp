@@ -39,41 +39,12 @@
 #include "local_version_holder.h"
 #include "event_queue.h"
 #include "injector_model.h"
-#include "injection_gpio.h"
 
 #if EFI_LAUNCH_CONTROL
 #include "launch_control.h"
 #endif // EFI_LAUNCH_CONTROL
 
 #include "backup_ram.h"
-
-void endSimultaneousInjection(InjectionEvent* event) {
-	endSimultaneousInjectionOnlyTogglePins();
-	event->update();
-}
-
-void turnInjectionPinLow(InjectionEvent *event) {
-	efitick_t nowNt = getTimeNowNt();
-
-	for (size_t i = 0; i < efi::size(event->outputs); i++) {
-		InjectorOutputPin *output = event->outputs[i];
-		if (output) {
-			output->close(nowNt);
-		}
-	}
-	event->update();
-}
-
-static void turnInjectionPinLowStage2(InjectionEvent* event) {
-	efitick_t nowNt = getTimeNowNt();
-
-	for (size_t i = 0; i < efi::size(event->outputsStage2); i++) {
-		InjectorOutputPin *output = event->outputsStage2[i];
-		if (output) {
-			output->close(nowNt);
-		}
-	}
-}
 
 void InjectionEvent::onTriggerTooth(efitick_t nowNt, float currentPhase, float nextPhase) {
 	auto eventAngle = injectionStartAngle;
@@ -132,12 +103,12 @@ void InjectionEvent::onTriggerTooth(efitick_t nowNt, float currentPhase, float n
 #endif /*EFI_PRINTF_FUEL_DETAILS */
 
 	if (this->cylinderNumber == 0) {
-		if (engine->outputChannels.actualLastInjection) {
+		if (engine->outputChannels.actualLastInjection != 0) {
 			engine->outputChannels.actualLastInjectionRatio = injectionDurationStage1 / engine->outputChannels.actualLastInjection;
 		} else {
 			engine->outputChannels.actualLastInjectionRatio = 0;
 		}
-		if (engine->outputChannels.actualLastInjectionStage2) {
+		if (engine->outputChannels.actualLastInjectionStage2 != 0) {
 			engine->outputChannels.actualLastInjectionRatioStage2 = injectionDurationStage2 / engine->outputChannels.actualLastInjectionStage2;
 		} else {
 			engine->outputChannels.actualLastInjectionRatioStage2 = 0;
@@ -175,28 +146,16 @@ void InjectionEvent::onTriggerTooth(efitick_t nowNt, float currentPhase, float n
 
 	// Only bother with the second stage if it's long enough to be relevant
 	bool hasStage2Injection = durationUsStage2 > 50;
+	// [tag:injection_action_snapshot] Capture the same outputs for both stages
+	// before a cranking/running mode transition can rebuild this event.
+	const InjectorContext ctx(calculateInjectorOutputMask(), getIndex(), hasStage2Injection);
 
 #if EFI_PRINTF_FUEL_DETAILS
 	if (printFuelDebug) {
-		InjectorOutputPin *output = outputs[0];
-		printf("handleFuelInjectionEvent fuelout %s injection_duration %dus engineCycleDuration=%.1fms\t\n", output->getName(), (int)durationUsStage1,
+		printf("handleFuelInjectionEvent fuelout %06x injection_duration %dus engineCycleDuration=%.1fms\t\n", unsigned(ctx.outputsMask()), (int)durationUsStage1,
 				(int)MS2US(getCrankshaftRevolutionTimeMs(Sensor::getOrZero(SensorType::Rpm))) / 1000.0);
 	}
 #endif /*EFI_PRINTF_FUEL_DETAILS */
-
-	action_s startAction, endActionStage1, endActionStage2;
-	// We use different callbacks based on whether we're running sequential mode or not - everything else is the same
-	if (isSimultaneous) {
-		startAction = action_s::make<startSimultaneousInjection>();
-		endActionStage1 = action_s::make<endSimultaneousInjection>(this);
-	} else {
-		auto const taggedPointer{TaggedPointer<decltype(this)>::make(this, hasStage2Injection)};
-
-		// sequential or batch
-		startAction = action_s::make<turnInjectionPinHigh>( taggedPointer.getRaw() );
-		endActionStage1 = action_s::make<turnInjectionPinLow>( this );
-		endActionStage2 = action_s::make<turnInjectionPinLowStage2>( this );
-	}
 
 	// Correctly wrap injection start angle
 	float angleFromNow = eventAngle - currentPhase;
@@ -204,28 +163,34 @@ void InjectionEvent::onTriggerTooth(efitick_t nowNt, float currentPhase, float n
 		angleFromNow += getEngineState()->engineCycle;
 	}
 
-	// Schedule opening (stage 1 + stage 2 open together)
-	efitick_t startTime = scheduleByAngle(nullptr, nowNt, angleFromNow, startAction);
+	// Opening (stage 1 + stage 2 open together), closing stage 1, and closing stage 2 if applicable.
+	// These are scheduled all together or not at all: an opening without its closing would leave the
+	// injector open. [tag:scheduling_pool_exhaustion]
+	efitick_t startTime = getTimeAfterAngle(nowNt, angleFromNow);
 
-	// Schedule closing stage 1
-	efitick_t turnOffTimeStage1 = startTime + US2NT((int)durationUsStage1);
-	getScheduler()->schedule("inj", nullptr, turnOffTimeStage1, endActionStage1);
+	TimedAction actions[3] = {
+			{startTime, action_s::make<startInjection>(ctx.raw)},
+			{startTime + US2NT((int)durationUsStage1), action_s::make<endInjection>(ctx.raw)},
+	};
+	size_t actionCount = 2;
 
-	// Schedule closing stage 2 (if applicable)
-	if (hasStage2Injection && endActionStage2) {
-		efitick_t turnOffTimeStage2 = startTime + US2NT((int)durationUsStage2);
-		getScheduler()->schedule("inj stage 2", nullptr, turnOffTimeStage2, endActionStage2);
+	if (hasStage2Injection) {
+		actions[actionCount++] = {startTime + US2NT((int)durationUsStage2), action_s::make<endInjectionStage2>(ctx.raw)};
+	}
+
+	if (!getScheduler()->scheduleTogether("inj", actions, actionCount)) {
+		return;
 	}
 
 #if EFI_DETAILED_LOGGING
 	printf("scheduling injection angle=%.2f/delay=%d injectionDuration=%d %d\r\n", angleFromNow, (int)NT2US(startTime - nowNt), (int)durationUsStage1, (int)durationUsStage2);
 #endif
 #if EFI_DETAILED_LOGGING
-	efiPrintf("handleFuel pin=%s eventIndex %d duration=%.2fms %u", outputs[0]->getName(),
+	efiPrintf("handleFuel mask=%x eventIndex %d duration=%.2fms %u", unsigned(ctx.outputsMask()),
 			cylinderNumber,
 			injectionDurationStage1,
 			(unsigned)getRevolutionCounter());
-	efiPrintf("handleFuel pin=%s delay=%.2f %u", outputs[0]->getName(), NT2USF(startTime - nowNt),
+	efiPrintf("handleFuel mask=%x delay=%.2f %u", unsigned(ctx.outputsMask()), NT2USF(startTime - nowNt),
 			(unsigned)getRevolutionCounter());
 #endif /* EFI_DETAILED_LOGGING */
 }

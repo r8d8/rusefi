@@ -1,11 +1,16 @@
 package com.opensr5.ini;
 
+import com.opensr5.ini.field.ArrayIniField;
 import com.opensr5.ini.field.IniField;
+import com.opensr5.ini.field.ScalarIniField;
 import com.rusefi.config.Field;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ImmutableIniFileModel implements IniFileModel {
+    private static final Pattern ARRAY_ELEMENT = Pattern.compile("^([^\\[\\]]+)\\[([0-9]+)\\]$");
     private final String signature;
     private final int blockingFactor;
     private final Map<String, List<String>> defines;
@@ -33,6 +38,7 @@ public class ImmutableIniFileModel implements IniFileModel {
     private final List<String> lambdaTargetTables;
     private final List<VeAnalyzeFilter> veAnalyzeFilters;
     private final List<EventTriggerModel> eventTriggers;
+    private final Set<String> requiresPowerCycle;
 
     private static <V> Map<String, V> copyWithCaseInsensitiveKeys(Map<String, V> source) {
         LowercaseHashMap<V> result = new LowercaseHashMap<>(source.size() * 2);
@@ -77,7 +83,8 @@ public class ImmutableIniFileModel implements IniFileModel {
                                  List<VeAnalyzeMap> veAnalyzeMaps,
                                  List<String> lambdaTargetTables,
                                  List<VeAnalyzeFilter> veAnalyzeFilters,
-                                 List<EventTriggerModel> eventTriggers) {
+                                 List<EventTriggerModel> eventTriggers,
+                                 Collection<String> requiresPowerCycle) {
         this.signature = signature;
         this.blockingFactor = blockingFactor;
         this.defines = Collections.unmodifiableMap(new TreeMap<>(defines));
@@ -122,6 +129,10 @@ public class ImmutableIniFileModel implements IniFileModel {
         this.lambdaTargetTables = Collections.unmodifiableList(new ArrayList<>(lambdaTargetTables));
         this.veAnalyzeFilters = Collections.unmodifiableList(new ArrayList<>(veAnalyzeFilters));
         this.eventTriggers = Collections.unmodifiableList(new ArrayList<>(eventTriggers));
+        // field names compare case-insensitively, as in allIniFields
+        TreeSet<String> powerCycle = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        powerCycle.addAll(requiresPowerCycle);
+        this.requiresPowerCycle = Collections.unmodifiableSet(powerCycle);
     }
 
     /**
@@ -165,6 +176,13 @@ public class ImmutableIniFileModel implements IniFileModel {
     }
 
     @Override
+    public boolean isLittleEndian() {
+        // Sourced from the [Constants] 'endianness' line captured into protocolMeta; the
+        // whole wire protocol is little-endian, so an ini that omits it means little-endian.
+        return "little".equalsIgnoreCase(protocolMeta.getOrDefault("endianness", "little"));
+    }
+
+    @Override
     public Map<String, List<String>> getDefines() {
         return defines;
     }
@@ -181,11 +199,42 @@ public class ImmutableIniFileModel implements IniFileModel {
 
     @Override
     public Optional<IniField> findIniField(String key) {
+        IniField field = findDeclaredField(key);
+        if (field != null) {
+            return Optional.of(field);
+        }
+        Matcher matcher = ARRAY_ELEMENT.matcher(key);
+        if (!matcher.matches()) {
+            return Optional.empty();
+        }
+        IniField base = findDeclaredField(matcher.group(1));
+        if (!(base instanceof ArrayIniField)) {
+            return Optional.empty();
+        }
+        ArrayIniField array = (ArrayIniField) base;
+        int index;
+        try {
+            index = Integer.parseInt(matcher.group(2));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
+        // A single subscript selects an element of a one-dimensional INI array.
+        if (array.getCols() != 1 || index >= array.getRows()) {
+            return Optional.empty();
+        }
+        ScalarIniField element = new ScalarIniField(array.getName() + "[" + index + "]",
+            array.getOffset(index, 0), array.getUnits(), array.getType(),
+            array.getMultiplier(), array.getDigits(), 0);
+        element.setPageIndex(array.getPageIndex());
+        return Optional.of(element);
+    }
+
+    private IniField findDeclaredField(String key) {
         IniField field = allIniFields.get(key);
         if (field == null) {
             field = secondaryIniFields.get(key);
         }
-        return Optional.ofNullable(field);
+        return field;
     }
 
     @Override
@@ -369,5 +418,10 @@ public class ImmutableIniFileModel implements IniFileModel {
     @Override
     public List<EventTriggerModel> getEventTriggers() {
         return eventTriggers;
+    }
+
+    @Override
+    public Set<String> getRequiresPowerCycle() {
+        return requiresPowerCycle;
     }
 }

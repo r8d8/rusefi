@@ -5,6 +5,11 @@
 name: Build Custom Board Firmware
 
 inputs:
+  submodule_token:
+    # [tag:submodule_auth] see .github/actions/submodule-init/action.yml
+    description: 'Optional token for submodule fetches; empty is fine for public submodules'
+    required: false
+    default: ''
   rusefi_dir:
     description: 'Path to rusefi submodule'
     required: false
@@ -133,10 +138,19 @@ runs:
         echo "sim_output=${{inputs.sim_output}}"
 
     - name: Checkout Submodules
+      # [tag:submodule_auth] same logic as .github/actions/submodule-init/action.yml, inlined
+      # because a composite action cannot `uses:` a path built from inputs.rusefi_dir
       working-directory: ${{inputs.rusefi_dir}}
       shell: bash
+      env:
+        SUBMODULES_TOKEN: ${{ inputs.submodule_token }}
       run: |
         : Checkout Submodules
+        if [ -n "$SUBMODULES_TOKEN" ]; then
+          export GIT_CONFIG_COUNT=1
+          export GIT_CONFIG_KEY_0="url.https://x-access-token:${SUBMODULES_TOKEN}@github.com/.insteadOf"
+          export GIT_CONFIG_VALUE_0="https://github.com/"
+        fi
         misc/git_scripts/common_submodule_init.sh
 
     - name: Invoking Post-Checkout Action
@@ -461,35 +475,35 @@ runs:
 
     - name: Upload github action bin artifact
       if: ${{ contains(inputs.artifacts, 'bin') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.SHORT_BOARD_NAME}}.bin
         path: ${{inputs.rusefi_dir}}/firmware/deliver/rusefi*.bin
 
     - name: Upload github action srec artifact
       if: ${{ contains(inputs.artifacts, 'srec') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_update_${{env.SHORT_BOARD_NAME}}.srec
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi.srec
 
     - name: Upload github action hex artifact
       if: ${{ contains(inputs.artifacts, 'hex') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.SHORT_BOARD_NAME}}.hex
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi*.hex
 
     - name: Upload github action list artifact
       if: ${{ contains(inputs.artifacts, 'list') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.PROJECT_BOARD}}.list
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi*.list
 
     - name: Upload github action map artifact
       if: ${{ contains(inputs.artifacts, 'map') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.PROJECT_BOARD}}.map
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi*.map
@@ -501,25 +515,25 @@ runs:
       if: ${{ contains(inputs.artifacts, 'elf') }}
       working-directory: ${{inputs.rusefi_dir}}/firmware/build
       run: |
-        arm-none-eabi-objdump -d rusefi.elf > rusefi.txt
+        ${CROSS_COMPILE:-arm-none-eabi-}objdump -d rusefi.elf > rusefi.txt
 
     - name: Upload github action text artifact
       if: ${{ contains(inputs.artifacts, 'elf') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.PROJECT_BOARD}}.txt
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi*.txt
 
     - name: Upload github action elf artifact
       if: ${{ contains(inputs.artifacts, 'elf') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: rusefi_${{env.PROJECT_BOARD}}.elf
         path: ${{inputs.rusefi_dir}}/firmware/build/rusefi*.elf
 
     - name: Upload github action bootloader bin artifact
       if: ${{ contains(inputs.artifacts, 'bootloader') }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: openblt_${{env.PROJECT_BOARD}}.bin
         path: ${{inputs.rusefi_dir}}/firmware/bootloader/blbuild/openblt_${{env.PROJECT_BOARD}}.bin

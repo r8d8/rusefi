@@ -6,7 +6,7 @@ import com.rusefi.io.UpdateOperationCallbacks;
 import com.rusefi.maintenance.CalibrationsHelper;
 import com.rusefi.maintenance.MaintenanceUtil;
 import com.rusefi.maintenance.OpenBltWipeArtifact;
-import com.rusefi.maintenance.ProgramSelector;
+import com.rusefi.maintenance.FirmwareOperations;
 
 import javax.swing.*;
 
@@ -20,13 +20,19 @@ public class ProductionFlashSteps {
         @Override
         public boolean flash(final JComponent parent, final String port, final UpdateOperationCallbacks callbacks,
                              final ConnectedEcuTarget target) {
-            return ProgramSelector.flashOpenbltSerial(parent, port, callbacks, target);
+            return FirmwareOperations.flashOpenbltSerial(parent, port, callbacks, target);
         }
 
         @Override
         public void restoreCalibrations(final UpdateOperationCallbacks callbacks,
                                         final ConnectivityContext connectivityContext) {
             CalibrationsHelper.restorePreviousCalibrationsAfterManualFlash(callbacks, connectivityContext);
+        }
+
+        @Override
+        public OpenBltManualJob.RestoreResult restoreCalibrationsWithResult(final UpdateOperationCallbacks callbacks,
+                                                                          final ConnectivityContext connectivityContext) {
+            return CalibrationsHelper.restorePreviousCalibrationsAfterManualFlashWithResult(callbacks, connectivityContext);
         }
     };
 
@@ -40,13 +46,19 @@ public class ProductionFlashSteps {
             @Override
             public boolean flash(final JComponent parent, final String port,
                                  final UpdateOperationCallbacks callbacks, final ConnectedEcuTarget target) {
-                return ProgramSelector.wipeOpenbltSerial(port, callbacks, artifact);
+                return FirmwareOperations.wipeOpenbltSerial(port, callbacks, artifact);
             }
 
             @Override
             public void restoreCalibrations(final UpdateOperationCallbacks callbacks,
                                             final ConnectivityContext connectivityContext) {
                 // Emergency wipe intentionally leaves the ECU in OpenBLT with no tune restoration.
+            }
+
+            @Override
+            public OpenBltManualJob.RestoreResult restoreCalibrationsWithResult(final UpdateOperationCallbacks callbacks,
+                                                                              final ConnectivityContext connectivityContext) {
+                return OpenBltManualJob.RestoreResult.SKIPPED;
             }
         };
     }

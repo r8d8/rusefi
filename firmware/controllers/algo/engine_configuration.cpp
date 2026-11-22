@@ -284,7 +284,7 @@ static void setDefaultGppwmParameters() {
 	// Same config for all channels
 	for (size_t i = 0; i < efi::size(engineConfiguration->gppwm); i++) {
 		auto& cfg = engineConfiguration->gppwm[i];
-		chsnprintf(engineConfiguration->gpPwmNote[i], sizeof(engineConfiguration->gpPwmNote[0]), "GPPWM%d", (int)i);
+		chsnprintf(config->gpPwmNote[i], sizeof(config->gpPwmNote[0]), "GPPWM%d", (int)i);
 
 		// Set default axes
 		cfg.loadAxis = GPPWM_Zero;
@@ -413,7 +413,7 @@ static void setDefaultEngineConfiguration() {
 
 	// VVT closed loop, totally random values!
 	engineConfiguration->auxPid[0].pFactor = 2;
-	engineConfiguration->auxPid[0].iFactor = 0.005;
+	engineConfiguration->auxPid[0].iFactor = 0.005f;
 	engineConfiguration->auxPid[0].dFactor = 0;
 	engineConfiguration->auxPid[0].offset = 33;
 	engineConfiguration->auxPid[0].minValue = 10;
@@ -497,7 +497,7 @@ static void setDefaultEngineConfiguration() {
 	setDefaultEngineNoiseTable();
 
     // is this same old setCommonNTCSensor?
-	engineConfiguration->clt.config = {0, 23.8889, 48.8889, 9500, 2100, 1000, 1500};
+	engineConfiguration->clt.config = {0, 23.8889f, 48.8889f, 9500, 2100, 1000, 1500};
 
     setCommonNTCSensorParameters(&engineConfiguration->iat);
 
@@ -518,8 +518,8 @@ static void setDefaultEngineConfiguration() {
 	setDefaultIdleSpeedTarget();
 	//	setTargetRpmCurve(1200);
 
-	engineConfiguration->idleRpmPid.pFactor = 0.05;
-	engineConfiguration->idleRpmPid.iFactor = 0.002;
+	engineConfiguration->idleRpmPid.pFactor = 0.05f;
+	engineConfiguration->idleRpmPid.iFactor = 0.002f;
 
 	engineConfiguration->idleRpmPid.minValue = -20;
 	engineConfiguration->idleRpmPid.maxValue = 20;
@@ -622,7 +622,7 @@ static void setDefaultEngineConfiguration() {
 
 	engineConfiguration->driveWheelRevPerKm = 1000;
 	engineConfiguration->finalGearRatio = 1;
-	engineConfiguration->vssGearRatio = 3.73;
+	engineConfiguration->vssGearRatio = 3.73f;
 	engineConfiguration->vssToothCount = 21;
 
 	engineConfiguration->mapErrorDetectionTooLow = 5;
@@ -675,7 +675,36 @@ void loadConfiguration() {
 	call_board_override(custom_board_ConfigOverrides);
 }
 
+// [tag:config_reset_fast_callback]
+// A reset zeroes the live configuration and refills it over many steps, on the console thread for
+// 'resetconfig'/'rewriteconfig'. Fast callback passes arrive from a higher priority thread and from
+// trigger context, so one can land mid-refill and compute fuel from zeroed tables: inf * 0 gave the
+// "NaN runningFuel" critical error of #10647. Engine::periodicFastCallback() skips its pass while
+// this is set; the next pass sees the complete configuration.
+static volatile bool configurationResetInProgress = false;
+
+bool isConfigurationResetInProgress() {
+	return configurationResetInProgress;
+}
+
+namespace {
+struct ConfigurationResetGuard {
+	// resets do not nest today, restoring the previous value keeps that from mattering
+	const bool m_previous = configurationResetInProgress;
+
+	ConfigurationResetGuard() {
+		configurationResetInProgress = true;
+	}
+
+	~ConfigurationResetGuard() {
+		configurationResetInProgress = m_previous;
+	}
+};
+}
+
 void resetConfigurationExt(configuration_callback_t boardCallback, engine_type_e engineType) {
+	ConfigurationResetGuard resetGuard;
+
 	enginePins.reset(); // that's mostly important for functional tests
 	/**
 	 * Let's apply global defaults first

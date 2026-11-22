@@ -477,7 +477,7 @@ static void getValue(const char *paramStr) {
 
 	{
 		float value = getConfigValueByName(paramStr);
-		if (value != EFI_ERROR_CODE) {
+		if (value != static_cast<float>(EFI_ERROR_CODE)) {
 			efiPrintf("%s value: %.2f", paramStr, value);
 			return;
 		}
@@ -772,10 +772,14 @@ void setEngineType(int value, bool isWriteToFlash) {
 }
 
 void setLuaScript(const char *luaScript) {
+#if EFI_LUA
 	// luaScript lives on its own dedicated TunerStudio page (page5_s), not in the
 	// main config — see #7911. This runs during applyEngineType(), which is invoked
 	// after resetExtraPages()/luaConfigPageSetDefaults(), so the engine-default script
 	// installed here survives the page reset.
 	auto dest = luaConfigPageGetState()->luaScript;
 	strncpy(dest, luaScript, efi::size(luaConfigPageGetState()->luaScript) - 1);
+#else
+	(void)luaScript;
+#endif
 }

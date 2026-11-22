@@ -72,7 +72,7 @@ static void setTpsLoadBins(TValue (&bins)[TSize]) {
 	int previous = -1;
 	for (int i = 0; i < TSize; i++) {
 		float fraction = (float)i / (TSize - 1);
-		int tps = std::round(100 * fraction * fraction);
+		int tps = static_cast<int>(std::round(100 * fraction * fraction));
 		// Keep the axis strictly ascending where the quadratic rounds to the same integer
 		tps = std::max(tps, previous + 1);
 		bins[i] = tps;
@@ -97,7 +97,7 @@ static float dleStartingVe(float tps, float rpm, float maxRpm) {
  * cooling.
  */
 static float dleStartingLambda(float tps) {
-	return interpolateClamped(40, 1.0, 80, 0.85, tps);
+	return interpolateClamped(40, 1.0f, 80, 0.85f, tps);
 }
 
 /**
@@ -201,8 +201,8 @@ static void setDleTwinCommon(float maxRpm) {
 	// rotor minimum 99.3 %, overshoot 101.5 %, no limit cycle at hover. The model has no tach noise or
 	// rpm quantization - check on the engine before raising them.
 	engineConfiguration->servoGovernorEnabled = true;
-	engineConfiguration->servoGovernorPid.pFactor = 0.04;
-	engineConfiguration->servoGovernorPid.iFactor = 0.1;
+	engineConfiguration->servoGovernorPid.pFactor = 0.04f;
+	engineConfiguration->servoGovernorPid.iFactor = 0.1f;
 	engineConfiguration->servoGovernorPid.dFactor = 0;
 	engineConfiguration->servoGovernorPid.minValue = -20;
 	engineConfiguration->servoGovernorPid.maxValue = 20;
@@ -258,7 +258,7 @@ void setDle60Twin() {
 	setDleTwinCommon(/*maxRpm*/ 8500);
 	strcpy(engineConfiguration->engineCode, "DLE-60 Twin");
 
-	engineConfiguration->displacement = 0.061;
+	engineConfiguration->displacement = 0.061f;
 	engineConfiguration->cylinderBore = 36;
 
 	// Stage 1.0's fuel system (clearwater, user decision 2026-10-27): the Honda Grom 125 pump unit and
@@ -317,7 +317,7 @@ void setDle120Twin() {
 	setDleTwinCommon(/*maxRpm*/ 8000);
 	strcpy(engineConfiguration->engineCode, "DLE-120 Twin");
 
-	engineConfiguration->displacement = 0.120;
+	engineConfiguration->displacement = 0.120f;
 	engineConfiguration->cylinderBore = 47;
 
 	engineConfiguration->injector.flow = 180;

@@ -9,9 +9,26 @@ public class CurveModel {
     private final AxisModel yAxis;
     private final String xBins;
     private final String yBins;
+    private final String topicHelp;
+    private final String xBinsChannel;
 
     public CurveModel(String curveId, String title, String xLabel, String yLabel,
                       AxisModel xAxis, AxisModel yAxis, String xBins, String yBins) {
+        this(curveId, title, xLabel, yLabel, xAxis, yAxis, xBins, yBins, null);
+    }
+
+    public CurveModel(String curveId, String title, String xLabel, String yLabel,
+                      AxisModel xAxis, AxisModel yAxis, String xBins, String yBins, String topicHelp) {
+        this(curveId, title, xLabel, yLabel, xAxis, yAxis, xBins, yBins, topicHelp, null);
+    }
+
+    /**
+     * @param xBinsChannel output channel of the X axis, from {@code xBins = bins, channel}; null when
+     *                     the INI names none
+     */
+    public CurveModel(String curveId, String title, String xLabel, String yLabel,
+                      AxisModel xAxis, AxisModel yAxis, String xBins, String yBins, String topicHelp,
+                      String xBinsChannel) {
         this.curveId = curveId;
         this.title = title;
         this.xLabel = xLabel;
@@ -20,6 +37,16 @@ public class CurveModel {
         this.yAxis = yAxis;
         this.xBins = xBins;
         this.yBins = yBins;
+        this.topicHelp = topicHelp;
+        this.xBinsChannel = xBinsChannel;
+    }
+
+    public String getXBinsChannel() {
+        return xBinsChannel;
+    }
+
+    public String getTopicHelp() {
+        return topicHelp;
     }
 
     public String getCurveId() {

@@ -79,6 +79,60 @@ public class LinkManager implements Closeable {
     private boolean isDisconnectedByUser;
     private boolean notifyGlobalStatusOnClose = true;
     private volatile EcuCompatibilityListener ecuCompatibilityListener = EcuCompatibilityListener.VOID;
+    private volatile MissingIniFailure missingIniFailure;
+
+    /** Signature and port captured from the exact running-ECU connection that failed to load its INI. */
+    public static final class MissingIniFailure {
+        public final String signature;
+        public final String port;
+
+        private MissingIniFailure(String signature, String port) {
+            this.signature = signature;
+            this.port = port;
+        }
+    }
+
+    @FunctionalInterface
+    public interface MissingIniListener {
+        void onMissingIni(String signature, String port);
+
+        default void onMissingIniCleared(String port) {
+        }
+
+        default void onConnectionAttempt(String port) {
+        }
+
+        default void onIniResolutionStarted(String port) {
+        }
+
+    }
+
+    private volatile MissingIniListener missingIniListener = (signature, port) -> {};
+
+    public LinkManager setMissingIniListener(MissingIniListener listener) {
+        missingIniListener = Objects.requireNonNull(listener);
+        return this;
+    }
+
+    public void recordMissingIniFailure(String signature) {
+        if (signature != null && lastTriedPort != null) {
+            missingIniFailure = new MissingIniFailure(signature, lastTriedPort);
+            missingIniListener.onMissingIni(signature, lastTriedPort);
+        }
+    }
+
+    public MissingIniFailure getMissingIniFailure() {
+        return missingIniFailure;
+    }
+
+    public void clearMissingIniFailure() {
+        missingIniFailure = null;
+        missingIniListener.onMissingIniCleared(lastTriedPort);
+    }
+
+    public void onIniResolutionStarted(String port) {
+        missingIniListener.onIniResolutionStarted(port);
+    }
 
     // The board identity this link records at connect time. Defaults to a private instance (probe/tool
     // LinkManagers); production consoles share ConnectivityContext's instance so flashing decisions see
@@ -231,8 +285,8 @@ public class LinkManager implements Closeable {
 
     /**
      * When false, {@link #close()} does not push {@link ConnectionStatusValue#NOT_CONNECTED} to the
-     * global {@link ConnectionStatusLogic#INSTANCE}.  Set this on short-lived scanner probes so they
-     * do not evict the splash-screen auto-connect or any other persistent connection.
+     * global {@link ConnectionStatusLogic#INSTANCE} or clear shared sensor data when the stream closes.
+     * Set this on short-lived scanner probes so they do not disrupt a persistent connection.
      */
     public LinkManager setNotifyGlobalStatusOnClose(boolean notify) {
         this.notifyGlobalStatusOnClose = notify;
@@ -299,12 +353,14 @@ public class LinkManager implements Closeable {
     private final CommunicationThreadFactory COMMUNICATION_THREAD_FACTORY = new CommunicationThreadFactory();
     /**
      * All request/responses to underlying controller are happening on this single-threaded executor in a FIFO manner
+     * No permanent core thread: discovery discards LinkManagers after each probe. Idle workers
+     * must exit, while the executor remains usable after close() for console reconnects.
      */
     public final ExecutorService COMMUNICATION_EXECUTOR = new ThreadPoolExecutor(
+        0,
         1,
-        1,
-        0L,
-        TimeUnit.MILLISECONDS,
+        1L,
+        TimeUnit.SECONDS,
         COMMUNICATION_QUEUE,
         COMMUNICATION_THREAD_FACTORY
     );
@@ -349,6 +405,8 @@ public class LinkManager implements Closeable {
 
     public void start(String port, ConnectionStatusLogic.Listener stateListener) {
         Objects.requireNonNull(port, "port");
+        clearMissingIniFailure();
+        missingIniListener.onConnectionAttempt(port);
         log.info("LinkManager: Starting " + port);
         lastTriedPort = port; // Save port before connection attempt
         if (isLogViewerMode(port)) {
@@ -377,8 +435,8 @@ public class LinkManager implements Closeable {
                         return TcpIoStream.open(port);
                     } catch (Throwable e) {
                         log.error("TCP error " + e);
-                        stateListener.onConnectionFailed("Error " + e);
-                        return null;
+                        // PortHolder owns failure notification so cancelled opens stay silent.
+                        throw new IllegalStateException("Error " + e, e);
                     }
                 }
             };

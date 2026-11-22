@@ -9,6 +9,10 @@
 
 #include <rusefi/true_false.h>
 
+#ifndef KNOCK_SPECTROGRAM
+#define KNOCK_SPECTROGRAM FALSE
+#endif
+
 // see SIM_SD1_PORT and SIM_SD2_PORT
 #define TS_PRIMARY_UxART_PORT SD1
 #define EFI_TS_PRIMARY_IS_SERIAL TRUE
@@ -24,7 +28,9 @@
  * <p>
  * Note the simulator and unit_tests keep their own efifeatures.h copies that bypass all of this.
 */
+#ifndef EFI_LTFT_CONTROL
 #define EFI_LTFT_CONTROL LTFT_PAGE_ENABLED
+#endif
 #define EFI_AUX_VALVES FALSE
 
 #define EFI_TS_TUNNEL_CAN TRUE
@@ -145,6 +151,11 @@
 #endif
 
 #define EFI_CAN_SUPPORT TRUE
+
+// [tag:skip_can2_init]
+#ifndef SKIP_CAN2_INIT
+#define SKIP_CAN2_INIT FALSE
+#endif
 
 #ifndef EFI_UDS
 #define EFI_UDS FALSE

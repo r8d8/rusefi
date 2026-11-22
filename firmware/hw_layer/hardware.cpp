@@ -82,6 +82,15 @@ std::optional<setup_custom_board_overrides_type> custom_board_BeforeTuneDefaults
 
 std::optional<setup_custom_bool_type> custom_board_isBoardWithPowerManagement;
 std::optional<setup_custom_bool_type> custom_board_boardAllowTriggerActions;
+std::optional<setup_custom_bool_type> custom_board_requireValidatedSync;
+std::optional<setup_custom_bool_type> custom_board_syncEarlyGapWhileCranking;
+std::optional<setup_custom_bool_type> custom_board_syncByPositionWhileCranking;
+std::optional<setup_custom_bool_type> custom_board_syncGapHardening;
+std::optional<setup_custom_bool_type> custom_board_syncAcceptToothLoss;
+std::optional<setup_custom_bool_type> custom_board_syncGapAnchorCorrection;
+std::optional<setup_custom_bool_type> custom_board_mapInstantAtArm;
+std::optional<setup_custom_get_float_type> custom_board_vrGapShiftPitch;
+std::optional<setup_custom_get_float_type> custom_board_triggerDebounceUs;
 
 std::optional<setup_custom_bool_type> custom_board_getAcrState;
 
@@ -146,6 +155,10 @@ void applyNewHardwareSettings() {
      *
      */
 	ButtonDebounce::stopConfigurationList();
+
+#ifdef MODULE_FUEL_PUMP
+	stopFuelPump();
+#endif
 
 #if EFI_PROD_CODE
 	stopSensors();

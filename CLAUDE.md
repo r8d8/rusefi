@@ -10,9 +10,20 @@ rusEFI is an open-source engine control unit firmware for STM32 microcontrollers
 
 After each completed unit of work (a landed feature, a fixed bug, or a finished investigation), and at minimum once per working session:
 
-1. **Append** a dated entry to `docs/report.md` — never rewrite or reorder earlier entries. Cover: what was done, key decisions and why, validation performed (tests run, hardware checks), and open follow-ups. Match the file's existing style: plain ASCII, `-`/`->` instead of dashes/arrows, tables for change inventories.
+1. **Append** a dated entry to `docs/report.md` — never rewrite or reorder earlier entries. Cover: what was done, key decisions and why, validation performed (tests run, hardware checks), and open follow-ups. Match the file's existing style: plain ASCII, `-`/`->` instead of dashes/arrows, tables for change inventories. The fork tracks and commits this report (it records each DLE preset change for the stored tunes, see below); upstream rusEFI made it a local, ignored commit-message draft in 187e7e0f480 (2026-10-17), which the fork does not follow.
 2. **Fold durable, non-obvious knowledge into this CLAUDE.md**: build/tooling quirks, hardware protocols, architecture invariants, recurring debugging root-causes. Skip anything derivable from the code or git history — CLAUDE.md records what the code cannot say.
-3. **Update user-facing wiki docs**: the rusEFI wiki source may be checked out as a sibling repo at `../rusefi_documentation`. When a change alters user-visible behavior documented there — notably Lua scripting (hooks, `print()` semantics, console Lua tab behavior, console magic strings -> `Lua-Scripting.md`) — edit the matching page in the same unit of work, if that checkout is available. Same source-control rules apply there: git add is allowed; never commit or push, leave those actions for the human.
+3. **Update user-facing wiki docs when users need new or corrected guidance**: the rusEFI wiki source may be checked out as a sibling repo at `../rusefi_documentation`. Update the matching page when a change affects how users configure, use, or troubleshoot the product, or makes existing instructions inaccurate. Skip obvious expected behavior and routine fixes that restore it, such as expressions displaying their resolved values. Keep minor implementation details and validation in tests and commit notes; a user-visible code change does not automatically need a documentation addition. Same source-control rules apply there: git add is allowed; never commit or push, leave those actions for the human.
+
+### Current-state documentation
+
+Describe current behavior, configuration, constraints and usage in present tense
+in ordinary documentation, including wiki pages, `docs/AI/` and durable guidance.
+Do not include commit hashes, revision footers, local checkout folder names,
+machine-specific paths, import/review chronology or narratives about earlier
+implementations. Git records history. Use repository-relative source paths,
+symbols, settings and test names when they help explain the current behavior.
+Keep historical analysis in explicitly requested historical reports, not in
+current-state documentation.
 
 ## Build Commands
 
@@ -40,7 +51,37 @@ Firmware and unit-test builds keep dependency files in `firmware/.dep/` and `uni
 
 After ChibiOS build-rule changes, validate generated-header dependencies with an empty `DEPDIR` (a fresh directory under `/tmp` is sufficient). Existing compiler-generated `.dep` files can hide missing explicit Makefile prerequisites: an incremental build generates the RAM disk correctly while a clean CI build compiles against its checked-in placeholder header.
 
+On STM32F4, a linker error at `.heap_ccm` saying `cannot move location counter
+backwards` from an address above `0x10010000` means static data exceeds the
+64 KiB CCM RAM region, not flash. Inspect both SRAM and CCM before removing
+features. `PERSISTENT_LOCATION=` places the settings container in main SRAM;
+the Lua configuration page stays in CCM and Lua can allocate from both heaps.
+
+F4 can overflow both SRAM and CCM in the same build. The linker stops at the
+first backwards heap assignment, so fixing main SRAM can expose a second CCM
+failure. After linking, inspect `__heap_base__`/`__heap_end__` and
+`__heap_ccm_base__`/`__heap_ccm_end__`: the memory-usage table counts the heaps
+as allocated and reports 100% even when space remains. Firmware CI samples
+boards using their metadata `SKIP_RATE`; a green master run is not evidence
+that a particular board was built.
+
 ### Unit Tests
+
+The host build shadows `firmware/hw_layer/adc/adc_inputs.h` with
+`unit_tests/adc_inputs.h`. Including the short name in a host test does not
+expose newly added production declarations; keep the mock declaration in sync
+when testing a shared ADC entry point. Host tests run the shared ADC subscription
+and filtering code with per-channel voltages supplied by `setMockAdcVoltage()`.
+Call `AdcSubscription::UpdateSubscribers()` explicitly to deliver samples;
+posting directly to a sensor cannot establish that it remains subscribed.
+`EngineTestHelper` clears subscriptions and mock voltages between tests. These
+host tests do not establish hardware DMA acquisition or pin configuration.
+
+`TEST_ENGINE` enables MAF by default. In host tests, `init_maf.cpp`'s static
+`mafCurve` binds its table references before `EngineTestHelper` installs `config`;
+delivering ADC samples to that MAF converter dereferences an invalid table.
+Disable both MAF ADC channels in unrelated subscription tests (see
+`MapSensorReconfiguration`); testing MAF delivery requires fixing that lifetime.
 
 ```bash
 cd unit_tests
@@ -59,7 +100,7 @@ Follow [TDB Test Driven Bugfixing](https://github.com/rusefi/rusefi/wiki/TDB-Tes
 1. First deliver a passing reproduction test that explicitly asserts the current bad behavior. Keep this coverage change separate from the fix.
 2. In a subsequent change, fix the bug and update the same test to expect correct behavior. Changing the expectations demonstrates that the coverage exercises the fix.
 
-Do not deliver the fix before coverage, combine the initial coverage and fix, or fix a bug without new coverage or adjusted expectations. Commits and merges remain human actions under Source Control Hygiene.
+Do not deliver the fix before coverage, combine the initial coverage and fix, or fix a bug without new coverage or adjusted expectations. The coverage and the fix are separate commits (see Source Control Hygiene).
 
 #### Code Coverage
 Coverage reports are generated using `gcovr` (requires Python 3).
@@ -84,6 +125,11 @@ Unit tests use Google Test and run on PC, not on the ECU.
 
 On a fresh Linux host (e.g. a cloud container) the unit-test build needs more than a compiler: Gradle requires a **JDK 11 toolchain** (only JDK 21 installed -> "Cannot find a Java installation ... languageVersion=11"; Gradle's foojay auto-download can be blocked by egress proxies, so install `openjdk-11-jdk-headless`), and the generated RAM-disk image needs `7z` (`p7zip-full`), `mkfs.fat` (`dosfstools`), `mcopy` (`mtools`), `xxd` and `zip` (`hw_layer/mass_storage/create_ini_image.sh` fails with "zip: command not found" / exit 136 without it). HTTP 429 from Maven Central during the first Gradle run is transient; rerunning resumes from the cache. The clang unit-test build (`make CC=clang`) links with ASan, so it also needs clang's compiler-rt archives (`libclang_rt.asan*.a`; Ubuntu package `libclang-rt-18-dev` for clang 18) - without them every object compiles and only the final link fails. The same applies to the 32-bit simulator (`simulator/`, `make USE_CLANG=yes`): it needs `gcc-multilib`/`g++-multilib` and the i386 ASan archives (`libclang_rt.asan-i386.a`).
 
+Fuel-pipeline fixtures used by custom boards must initialize `config->lambdaTable`
+explicitly: the default lambda calibration only populates a 16x16 table. With
+some custom boards 24 RPM bins, a `TEST_ENGINE` fixture otherwise divides by zero and returns
+infinite fuel mass, which can silently satisfy floating-point equality checks.
+
 If a fresh unit-test build fails with `can't create build/obj/*.o: No such file or directory`, create `build/obj`, `build/lst`, and `.dep` under `unit_tests/`, then rerun `make -j12`. A partially created `build/` directory can satisfy the current directory prerequisite without its object subdirectory existing (observed during the MCP4728 work, 2026-09-27).
 
 When testing actuator init paths, remember that `EngineTestHelper` construction already runs `commonInitEngineController()` -> `initElectronicThrottle()`: with `TEST_ENGINE` (which defaults `etbFunctions[0]=DC_Wastegate`) DC hardware pool slot 0 is started *before* the test body runs, and the `DcHardware::isStarted` latch silently ignores any re-init with different settings. Call `resetDcHardwareForUnitTest()` / `resetIdleHardwareForUnitTest()` (both `EFI_UNIT_TEST` seams; also invoked by the `EngineTestHelper` constructor for cross-test isolation) before re-initializing with test-specific config. The idle stepper stack (`initIdleHardware()`, `StepDirectionStepper`, `DualHBridgeStepper`) compiles in unit tests; in that build `StepperMotor` is an alias of `StepperMotorBase` with no thread — tests drive it by calling `doIteration()` manually (see `test_idle_hardware.cpp`).
@@ -91,6 +137,34 @@ When testing actuator init paths, remember that `EngineTestHelper` construction 
 `EngineTestHelper` replaces `fuelAlgorithm` with a mock airmass model (`UNSUPPORTED_ENUM_VALUE` + `mockAirmassModel`) *after* applying the engine type, so a test asserting an engine preset's `fuelAlgorithm` sees the mock value, and a running test of a real fuel model must restore it (`engineConfiguration->fuelAlgorithm = ...`) after construction. `engineState.fuelInjectionCounter` only counts injector pins that are assigned; presets that leave pins to the board need them set through the `EngineTestHelper(type, configurationCallback)` constructor (see `test_dle_twin.cpp`).
 
 #### Troubleshooting test output
+
+`RpmCalculator::setRpmValue()` invokes `periodicFastCallback()` when RPM changes
+from zero to nonzero. This recalculates target lambda and other fuel state even
+in a test that otherwise calls only one controller. Set controlled fuel inputs
+after starting/restarting RPM, or use the recalculated target when checking that
+a learned trim is held (see `ShortTermFuelTrimBehavior`).
+
+For suspected test-order leaks, run the built binary directly from `unit_tests/`:
+`build/rusefi_test --gtest_shuffle --gtest_random_seed=31337 --gtest_repeat=3`.
+Record the failing iteration's seed and keep the same test selection when replaying;
+changing `--gtest_filter` changes the shuffled order. `test.sh` accepts a name filter,
+not arbitrary GoogleTest flags. `EngineTestHelperBase` rewinds simulated time to zero,
+while `Sensor::resetRegistry()` only clears registry entries: a file-static
+`StoredValueSensor` can retain a previous value/timestamp and appear fresh after the
+clock rewind. Reset/invalidate the underlying object, not just its registration.
+
+File-static `FrequencySensor` objects retain edge-timer and biquad history across
+the fixture's clock rewind. That can give the next edge a zero elapsed interval,
+feeding infinity and then NaN into the filter; invalidating the published value
+does not clear this history. Call `resetHistoryForUnitTest()` once at fixture
+setup, as in `OutputShaftSpeed.PulseInputTimeoutAndReconfiguration`. Do not reset
+it again inside a production-reconfiguration test, which must exercise the real
+init/deinit behavior. This test-clock issue does not establish a hardware fault.
+
+For Valgrind, rebuild with `SANITIZE=no`; the normal non-Windows unit-test build
+enables ASan. From `unit_tests/`, use `make clean`, `make -j12 SANITIZE=no`, then
+`./run_with_valgrind.sh`. `make_for_valgrind.sh` selects the flag but does not clean
+old objects, so running it alone after an ASan build can reuse incompatible objects.
 
 `EngineTestHelper::applyTriggerWaveform()` also increments the global configuration version and notifies hardware controllers. Static ETB controllers can retain PID pointers into an earlier test's destroyed configuration when the next test skips throttle initialization (for example, without TPS sensors). A later configuration notification then reads the stale pointer in `Pid::isSame()`, detectable under Valgrind. For tests that only need trigger/cylinder geometry refreshed, use `engine->updateTriggerConfiguration()` directly; tests of global configuration changes still require ETB lifetime isolation. See the MAP sampling tests and the 2026-09-29 report.
 
@@ -111,6 +185,16 @@ Use explicitly named `TEST` cases sharing a helper when their traces are needed.
 
 **Cross-platform requirement**: Unit test code MUST build and run on all supported host platforms — Linux (GCC/Clang), macOS (Clang), and Windows (MSVC and MinGW). Avoid POSIX-only APIs (e.g. `realpath`, `PATH_MAX`, `dirent.h` without guards) unless wrapped in `#ifdef` guards or replaced by portable C++ equivalents. Prefer `std::filesystem` over POSIX path APIs.
 
+MinGW can leave an ordinary cross-translation-unit call unresolved when the
+implementation alone carries `PUBLIC_API_WEAK`, even with its object linked
+directly. A two-file reproduction fails with MinGW GCC 13 and passes with Linux
+GCC/Clang; making the definition strong fixes the MinGW link. Windows CI GCC
+14.2 hit this when sensor tests first called `getAnalogInputDividerCoefficient`
+directly (run 37217674429). Check weak/strong symbol linkage before adding mocks
+or changing source lists. Preserve production board overrides when changing
+weak definitions; migrate them to explicit board callbacks or narrowly scope
+the host-build adjustment.
+
 ### Hardware CI settings-write timing
 
 Hardware CI's F407 `HighRevTest` is sensitive to asynchronous settings burns: `setEngineType()` queues a forced save, while the Java helper resumes configuration changes after a fixed sleep. Passing master runs can already contain `Flash: validation failed`; do not treat that message alone as a new regression. In PR #10186, adding a 5 s settings retry backoff moved the next erase from the RPM settling period into the 40 s assertion window, producing `engine stopped`, ~1200 ms coil-overcharge warnings, and 6000 -> 0 RPM failures. Self-stimulation explicitly permits settings writes even on F4, where flash erase stalls execution. Check flash-write timing against the assertion window before investigating trigger decoding. The cause of the original validation mismatches was not established by those logs (concurrent mutation of the live configuration is a candidate).
@@ -128,6 +212,26 @@ callbacks. A linear callback that chains another conversion must not guard on
 `adcIsBufferComplete()` or manually assign the driver state; call the I-class
 start API directly from the callback (see `slowAdcEndCB()` in
 `firmware/hw_layer/ports/stm32/stm32_adc_v2.cpp`).
+
+### Nested system locks: caught only by the simulator
+
+Code running under `chibios_rt::CriticalSectionLocker`/`chSysLock*` (for
+example `ToothLoggerBufferPool::appendI()`) must call only I-class functions.
+Calling a helper that takes its own locker, such as
+`TriggerCentral::getCurrentEnginePhase()`, makes ChibiOS state checking halt
+the simulator with `chSysHalt: SV#4` (thread) or `SV#6` (ISR). Unit tests have
+no lock state checker and pass; the simulator functional test (CI
+`build-simulator.yaml`) is the first place this shows up. Use or add an `...I`
+variant (`getCurrentEnginePhaseI()`).
+
+### Simulator build feature flags
+
+The simulator Makefile does not track changes to board-derived
+`TS_PAGE_GUARD_DEFS` as object dependencies. When switching between board
+configurations with different feature flags (for example, `EFI_LUA=FALSE` and
+Lua enabled), run `make clean` in `simulator/` before validating the new build;
+otherwise stale objects can make it appear to pass without compiling the new
+configuration.
 
 ### Simulator Functional Test (local WSL quirks)
 
@@ -173,30 +277,99 @@ firmware/gen_enum_to_string.sh
 
 ### Deep Dive AI Guidance
 For detailed technical documentation intended for AI assistants, see:
+- [Firmware Business Logic Testing](docs/firmware-business-logic-testing.md) - Host-test seams, fuel-trim and PWM behavior tests, A/C state ownership and LTFT persistence follow-ups.
 - [Fueling System](docs/AI/fueling_system.md) - Mass-based fueling pipeline (17 stages).
 - [Cold-start Logic](docs/AI/cold_start.md) - Priming, cranking-state hysteresis, mass tables, ASE/WUE overlap, cycle counters and sensor fallbacks.
-- [Acceleration Enrichment](docs/AI/acceleration_enrichment.md) - Three selectable AE modes, independent wall wetting, TPS sampling, correction units, flex compensation and diagnostics.
+- [Acceleration Enrichment](docs/AI/acceleration_enrichment.md) - Four selectable AE modes including Lua mass injection, independent wall wetting, TPS sampling, correction units, flex compensation and diagnostics.
 - [Ignition System](docs/AI/ignition_system.md) - Timing calculation and spark scheduling.
+- [Launch Control](docs/AI/launch_control.md) - Activation modes, RPM arming latch, pre-launch timing/skip ramps, full cuts, shared-clutch flat shift, fuel-trim learning and diagnostic limitations.
+- [Rev Limiters](docs/AI/rev_limiters.md) - Constant/CLT hard limits, strict hysteresis, timing/fuel ramps, independent ETB taper, fault ceilings, cut priority and diagnostics.
+- [Engine State Machine](docs/AI/engine_state_machine.md) - Operating-state classification, shift recognition and optional STFT region selection.
+- [VVT Control](docs/AI/vvt_control.md) - Activation gates, oil-pressure base duty, scheduled P gain, integral bounds and diagnostics.
 - [Engine Protection](docs/AI/protection_system.md) - LimpManager and cut logic.
 - [Sensor Framework](docs/AI/sensors_system.md) - Sensor registry, conversion pipeline, redundancy and mocking.
 - [Kick-Start Cranking](docs/AI/kick-start.md) - kickStartCranking mode: both coils charged off the trigger edge and fired a dwell-time later below 800 RPM, normal spark suppressed via ClearReason::KickStart.
 - [Scheduling & Timing](docs/AI/scheduling_system.md) - Microsecond timer, event queue/executor, angle-based scheduling, periodic callback rates (fast 200 Hz / slow 20 Hz) and other fixed-rate loops.
 - [Lua Scripting API](docs/AI/lua_scripting.md) - Custom Lua hooks (lua_hooks.cpp and friends) grouped by category, indexing conventions, how to add a hook.
+- [Lua Implementation Injection](docs/AI/lua_implementation_injection.md) - Subsystem replacement vs. adjustment hooks, native consumers, phase limits, units, timeouts and reset behavior.
 - [SD Card Logging](docs/AI/sd_card_logging.md) - SD thread mode state machine, .mlg/.teeth formats, f_expand pre-allocation.
 - [Engine Sniffer](docs/AI/engine_sniffer.md) - Digital Sniffer, tooth/composite capture, RPM gates, formats, diagnostic artifacts, and relevant MCP tools and limits.
 - [Lookups & Log Field Metadata](docs/AI/lookup.md) - The three generated per-field tables (config value_lookup, output_lookup, MLG log fields): shared codegen machinery, differing direction/naming/flash shape, EFI_LUA_LOOKUP gating, dead switch-variant ODR hazard.
 - [Hardware Quality Control & Direct I/O](docs/AI/hardware-quality-control.md) - Bench test subsystem, direct pin console commands, CAN QC protocol (0x770000) for factory test rigs, smart-driver diagnostics, trigger self-stimulation, ETB bench/autocal.
+- [HW QC Stim Rig](docs/AI/hw-qc-stim-rig.md) - Tester firmware in rusefi-hardware `digital-inputs/firmware`: test cycle, board detection, analog/counter expectations, output ordinals that must match `getBoardMeta*` and the QC harness.
 - [Configuration Storage](docs/AI/configuration_storage.md) - Storage manager, INT_FLASH/MFS/SD backends, double-copy settings write, extra flash pages piggybacked on the settings sector.
+- [Firmware Flash Usage](docs/firmware-flash-usage.md) - uaefi121 measurements, feature-removal tradeoffs, flash-region accounting, and reproducible size comparisons.
 - [Hellen Board Mapping](docs/hellen-board-mapping.md) - Connector-pin -> hellen-one module -> STM32 pin mapping chain: meta headers (H144_/MM100_ namespaces), connector YAMLs + PinoutLogic codegen, resistor-based board ID; also how to recover the mapping from module schematic PDFs (pdftotext + Altium hidden-text artifacts).
+- [Connector Artwork](docs/imagegen.md) - Photo-to-drawing workflow and shared pin coordinates. Image generation does not reliably honor requested canvas dimensions or pixel positions; align the export and measure the final terminal centers before updating YAML.
+- [Connector Placement Overlays](docs/AI/connector-placement-overlays.md) - Add connector context in unused image space while preserving the canvas and terminal pixels so YAML coordinates stay valid; remeasure coordinates if they change.
 - [Hardware Re-init & requiresPowerCycle](docs/hardware-reinit-and-power-cycle.md) - How Burn applies settings live (activeConfiguration diff, applyNewHardwareSettings stop/start), and the annotated list of reboot-only settings.
 - [Board Configuration Override Hooks](docs/board-configuration-override-hooks.md) - custom_board_DefaultConfiguration vs ConfigOverrides vs fix_configuration vs validateConfig vs OnConfigurationChange: lifecycle timelines and decision guide.
 - [Sensor Rate-of-Change Handling](docs/sensor-rate-of-change-filtering.md) - per-sensor inventory of low-pass cutoffs, ExpAverage smoothing, slew limiting and rate-based control inputs; notably there are NO rate-of-change plausibility warnings anywhere.
 - [Java Gradle Structure Review](docs/java-gradle-structure-review.md) - Gradle subproject inventory, dependency graph, and known structural issues in `java_console/` + `java_tools/`.
+- [Java Frontend App](docs/AI/frontend-app.md) - Console startup, ECU connection and data flow, main user workflows, and module boundaries.
+- [TunerStudio User Folders](docs/AI/tunerstudio-user-folders.md) - Every read/write of `~/.efiAnalytics` and TunerStudio project folders: plugin install, ecuDef cache priming and fallback, project auto-creation, post-migration check, plugin tune/log access.
+- [Console Pinout Tab](docs/AI/pinout-tab.md) - Connector YAML packaging, cache validation, pin rendering, tune assignments, and Tuning navigation.
+- [PatchCordHelper Pinout Tool](docs/AI/pinout-helper.md) - Patchcord wiring matches, assembly steps, connector images, and generated instructions.
 - [Java Connectivity & UI Unit Testing](docs/java-connectivity-ui-unit-testing.md) - Test approach for the console connectivity/flashing/session layer and Swing UI: established fake/seam patterns and a refactoring-cost-ordered test backlog.
 
 ### Console Swing invariant: one glass pane per frame
 
 A `JFrame` has exactly one glass pane (`JFrame.setGlassPane` delegates to `getRootPane().setGlassPane`). In the console TWO subsystems both grab the main frame's glass pane: `MainFrame`'s `FrameOverlay`s (config error, unsaved-tune, firmware-update prompts) and `TabbedPanel.installGlassPane()` (the loading/updating/critical-error `statusGlassPane`). They only coexist because `installGlassPane` runs once early (on the tabbedPane's `SHOWING_CHANGED` `invokeLater`) and `showOverlay` save/restores `previousGlassPane`. Any `FrameOverlay` shown *during* start-up races that install and gets silently replaced by the invisible status pane while `activeOverlay` still points at the orphan - the overlay is logically "up" but never on screen (issue #10219, config-error overlay shown at connect time). If you add or move a start-up overlay, make it displacement-aware: re-assert when `frame.getGlassPane() != yourOverlay` (see `ConfigErrorOverlayController`'s `displaced` predicate). A single glass-pane arbiter would remove the whole class of bug.
+
+### Swing startup readiness in tests
+
+An enabled control can be a transient state between startup operations. In
+`LLMTab`, opening a saved account enables controls before an `invokeLater`
+starts model loading and disables them again. Separate EDT calls to observe
+enabled and `doClick()` can therefore lose the click. The cancellation test
+hit this in CI check 113887619777; wait for the fake transport's initial model
+request plus enabled controls before clicking. That report was attached to
+the Windows check suite, but its failing XML and logs came from the Linux
+console workflow (run 37950058647); inspect the producing workflow rather
+than inferring the host from the report association.
+
+### Java tests run headless on CI
+
+The console workflow's `./gradlew test` step runs on Ubuntu without
+`xvfb-run`, so Java reports `GraphicsEnvironment.isHeadless()`; a Windows
+desktop run is not headless. Drag and drop setup differs: headless Swing
+installs no `DropTarget` (`getDropTarget()` returns null after
+`setTransferHandler`), and `JList.setDragEnabled(true)` throws
+`HeadlessException`. A synthetic mouse press on a `JTree` throws too: its
+look and feel reads the toolkit's menu shortcut key, so send test clicks to a
+plain component when only the press itself matters. Guard such calls, and
+reproduce CI locally with `JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew :ui:test`.
+`Component.dispatchEvent` does not deliver key or mouse events to a component that is not
+displayed (key events are retargeted to the absent focus owner), so a test can silently exercise
+nothing. Invoke the component's own listeners or bound actions directly (see
+`SettingsSearchPopupTest.theTabBarBoxOpensTheSearchWithWhatWasTyped`).
+
+### Option-pane dialogs keep their first size
+
+`JOptionPane.showConfirmDialog` sizes its dialog once and does not grow it. If the content's
+preferred size then increases (a row shown, a taller preview), `GridBagLayout` is short of space and
+drops every row to its minimum size: a `JScrollPane` collapses to about one row. Keep such content's
+preferred size constant while it is edited: give scroll panes a minimum equal to their preferred
+size, reserve fixed-size slots for changing content, and switch alternatives with `CardLayout`
+rather than `setVisible` (see `CustomIndicatorDialog`, `contentKeepsItsSizeWhileEditing`).
+
+### Swing clicks on drag-enabled components
+
+AWT sends no `MOUSE_CLICKED` once the pointer moved between press and
+release, and `DragSource.getDragThreshold()` can be as small as 2 px
+(measured on a Windows desktop), so on a drag-enabled `JList` a slightly
+moving click starts drag and drop and never reaches the component as a
+click. Act on release within a few pixels of the press, and treat a drag
+dropped back on its origin row as a click (see `LogViewerPanel.rowMouse`
+and `dropOnList`).
+
+### Native Swing screenshots under WSLg
+
+Xvfb without a window manager verifies shaped-window input but cannot reveal
+compositor decorations. Under WSLg, Java Robot screen capture may return black
+even while the windows are visible on Windows; capture the Windows desktop to
+inspect those artifacts. Use the console's FlatLaf theme as well as the default
+theme when testing detached windows.
 
 ### Key Concepts
 
@@ -206,12 +379,29 @@ A `JFrame` has exactly one glass pane (`JFrame.setGlassPane` delegates to `getRo
 - **Calibration Compatibility**: Maintaining [compatibility with older tunes](docs/calibration-compatibility.md) when adding new parameters.
 - **ChibiOS RTOS**: Real-time operating system foundation
 - **Config validate vs fix separation**: `validateConfigOnStartUpOrBurn()` is read-only validation; ALL configuration mutation on startup/burn belongs in `applyDefaultsOrFixAfterBurn()` (returns true if it changed anything). Board-specific fixes go in the `custom_board_fix_configuration` override (same changed-flag contract); `custom_board_validateConfig` must never mutate config.
+- **`engineConfiguration` vs `config` is a RAM cost, not a naming choice**: `activeConfiguration` is a full RAM copy of `engine_configuration_s` (about 4 KB, main SRAM on every STM32 board) kept only so burn can diff hardware settings. A field belongs in `engine_configuration_s` only if something reads its previous value: `activeConfiguration.X`, `previousConfiguration->X`, `isConfigurationChanged(X)`, or a `RegisteredOutputPin` offset into it. Pure calibration (curves, tables, display strings) goes in the outer `persistent_config_s` (`config->X`), typically via a module `*_tables.txt` fragment included near the end of `rusefi_config.txt`; a module's `*_engineConfiguration.txt` fragment should hold only the hardware/enable part. Grep those four patterns before moving a field either way.
 - **No sensor has a value during init**: `initNewSensors()` only *subscribes* sensors to the ADC — the first sample arrives on a later slow-ADC callback. `initSensors()` runs a few instructions later on the same thread, so `Sensor::get()` on any ADC-backed sensor is still invalid for every `init*()` function. Code that needs a real reading at start-up must defer to the slow callback and latch there (worked example: `updateFixedBaroFromMap()` in `controllers/sensors/impl/map.cpp`). A `Sensor::get(...).value_or(someDefault)` at init time does not "read the sensor, with a fallback" — it latches the default, every single boot; that was issue #9744.
 - **Engine modules**: Engine-asynchronous control logic derives from `EngineModule` and registers in the `type_list` in `firmware/controllers/algo/engine.h`. Before creating a module or making one compile-time optional, search the codebase for `[tag:disable_engine_module]` and read those comments — they document the module lifecycle and the TS-page guard-flag rules (a module that owns a TunerStudio page must have its `EFI_*` flag declared in the board `prepend.txt`, never in `board.mk` or `efifeatures.h`).
+
+The files in `controllers/modules/generated/` currently contain TODO placeholders
+for module-list generation: setting `MODULES_INCLUDE`/`MODULES_LIST` in a module's
+makefile does not update them during `make`. Register new shared modules directly
+in `engine.h` (include and type-list entry), as rolling launch and burst knock do;
+use the module makefile for compiler include paths and source files.
 
 #### Generated configuration layout
 
 **Custom gauge lists and shared templates:** `TUNING_SECTION_FILE` overrides the inherited `[Tuning]` layout independently of `GAUGES_DECLARATIONS_FILE`. Hiding menu entries does not remove their page definitions. Guard optional shared gauge references with the matching `ts_show_*` flag in every include (boost curves and secondary panels included); keep `IniReferenceValidator` strict. Adding a declaration cannot repair a reference when `ignore_gauges.txt` subsequently removes that declaration.
+
+For resizable TunerStudio table dialogs using `border` layout, place the main
+table in `Center` and the settings/status panel in `East`. `West` keeps the
+table's preferred width, leaving an empty center instead of expanding the table
+when the window is widened (see the VE blend dialogs).
+
+For Lambda/AFR views of a target adder, use one table editor and one display
+alias per native table, switching its units and scale like the main target
+table. Separate Lambda and AFR editors over overlapping calibration storage
+can leave duplicate controls overlaid in TunerStudio.
 
 - `firmware/integration/rusefi_config.txt` defines the parameters stored in persistent configuration (both "configuration", ie which pins do what, and the "calibration" or "tune", like the VE table, timing, etc.). This is the primary input that describes the main `engine_configuration_s` struct and the top-level persistent config layout.
 - `firmware/integration/config_page_*.txt` files define additional TunerStudio memory pages, each containing its own struct (e.g. `page2_s`, `page3_s`, `page4_s`). These pages hold data that lives outside the main configuration image — for example, high-speed scatter offsets (`page2_s` / TS page 2), long-term fuel trim tables (`page3_s` / TS page 3), and secondary VE tables with blend controls (`page4_s` / TS page 4). The struct and file numbers match the TunerStudio page numbers.
@@ -220,7 +410,7 @@ A `JFrame` has exactly one glass pane (`JFrame.setGlassPane` delegates to `getRo
   - C/C++ headers in `firmware/controllers/generated/` — the main config produces `engine_configuration_generated_structures.h`, while each config page produces a corresponding `page_N_generated.h`.
   - Along with `firmware/tunerstudio/tunerstudio.template.ini`, generates the ini file used by TunerStudio to communicate with the ECU. All tuner-adjustable parameters **MUST** appear in these input files to be useful.
 - `firmware/integration/LiveData.yaml` defines objects processed by the same tool to be transmitted from the ECU about the current state of the world. For example sensors, output values, and intermediate calculations useful for logging.
-- **Sharing string constants between .txt / .ini / Java** (`VariableRegistry`): a quoted `#define NAME "value"` in a definition/prepend `.txt` becomes a `public static final String` in the generated `VariableRegistryValues.java`, and can be referenced as `@@NAME@@` (verbatim, keeps quotes) or `@#NAME#@` (quotes stripped) in the `.txt` struct definitions and `tunerstudio.template.ini`. Use `@#NAME#@` where a bare identifier is needed — struct/bit field names and `{ }` indicator expressions (see `OUTPUT_CHANNEL_SD_*`). Put such defines in `firmware/integration/rusefi_config_shared.txt`: it is the only prepend read by *both* the main config pipeline (`gen_config_common.sh` — template .ini + `VariableRegistryValues.java`) and the LiveData pipeline (`LiveData.yaml` `prepend:` entries — `output_channels.txt` and friends). Comments (the `;text` part) stay templated in generated C headers and are expanded only for TS output, so don't expect `@@...@@` in comments to resolve in `*_generated.h`.
+- **Sharing string constants between .txt / .ini / Java** (`VariableRegistry`): a quoted `#define NAME "value"` in a definition/prepend `.txt` becomes a `public static final String` in the generated `VariableRegistryValues.java`, and can be referenced as `@@NAME@@` (verbatim, keeps quotes) or `@#NAME#@` (quotes stripped) in the `.txt` struct definitions and `tunerstudio.template.ini`. Use `@#NAME#@` where a bare identifier is needed — struct/bit field names and `{ }` indicator expressions (see `OUTPUT_CHANNEL_SD_*`). Put such defines in `firmware/integration/rusefi_config_shared.txt`: it is the shared prepend read by *both* the main config pipeline (`gen_config_common.sh` — template .ini + `VariableRegistryValues.java`) and the LiveData pipeline (`LiveData.yaml` `prepend:` entries — `output_channels.txt` and friends). A board `prepend.txt` is also read by both, ahead of the shared file, and the first definition wins (`[tag:live_data_board_prepend]`): the LiveData pipeline sees it only through the exported `BOARD_DIR` (firmware `make`, and `gen_config.sh` per board), so a standalone `gen_config_board.sh` run reuses whatever live-data fragments are on disk. Generated live-data outputs and `VariableRegistryValues.java` are shared files: the last board generated leaves its values there (`gen_config.sh` resets live data to the board-less default at the end; the main-pipeline Java file still keeps the last board's values). Comments (the `;text` part) stay templated in generated C headers and are expanded only for TS output, so don't expect `@@...@@` in comments to resolve in `*_generated.h`.
 
 A new `rusefi_config.txt` field must not go in before existing ones. The ECU loads its stored tune as raw bytes with no per-field migration (only TunerStudio maps by name), and while the structure size stays the same, padding absorbing the new field, the old tune is accepted and read shifted. The fork's `servoThrottleLostRequestIdle`, inserted before `servoGovernorMinRequest`, made the bench read the minimum request from a padding byte (0, then 10 after the boot migration), so the servo governor stayed engaged at idle (2026-10-21). Put new fields into padding or `unused` space so every existing offset holds, with 0 meaning the old behaviour; `ServoGovernor.configLayout` shows the offset check. See docs/calibration-compatibility.md.
 
@@ -279,14 +469,90 @@ Any code reachable from a unit-test build (`unit_tests/` itself, plus firmware s
 
 ## Source Control Hygiene
 
-- **Never commit or push — only a human does either.** Both `git commit` and `git push` (to any remote, any branch) are reserved for the human. Leave changes uncommitted in the working tree and summarize what changed; the human commits and pushes.
+- **Commit; push only on the human's OK.** The user dropped the fork's never-commit rule on 2026-11-22: commit each finished, verified unit of work (TDB coverage and fix as separate commits), but ask before any `git push`, to any remote or branch.
 - **Git add is allowed; stage new files immediately**: When you create a new source file (C/C++ headers/sources, Java/Kotlin sources, unit tests, scripts, build files, resources, docs, etc.), run `git add <path>` as part of the same change so it shows up in `git status` / `git diff` and is not lost on the next clean or branch switch.
-- Do not stage build artifacts or generated files (see "Do not attempt to commit any generated files" above), IDE-local files, or user-specific configs.
+- Do not stage build artifacts or generated files (see "Do not attempt to commit any generated files" above), IDE-local files, or user-specific configs. `docs/report.md` is tracked and committed in the fork although upstream's `.gitignore` lists `report.md`: ignore rules do not apply to a tracked file, so `git add docs/report.md` works as usual.
+
+### Merging upstream rusefi/rusefi
+
+No `upstream` remote is configured: fetch with `git fetch --no-tags https://github.com/rusefi/rusefi.git +refs/heads/master:refs/remotes/upstream/master`, and `git merge-tree --write-tree --name-only HEAD upstream/master` lists the conflicts without touching the tree. The build-regenerated files block a merge: reset them first, the next build regenerates them from the merged inputs (unit tests from clean, since the config layout usually moves). Learned in the 2026-11-22 merge (1074 upstream commits):
+- A merge moves the submodule pointers but not their checkouts: run `git submodule update --init` for `firmware/ChibiOS`, `firmware/ext/openblt`, `firmware/libfirmware`, `luaaa` and `wideband_firmware` afterwards. A stale `libfirmware` shows as `-Werror=float-conversion` errors in `rusefi/scaled_channel.h`.
+- Upstream builds with `-Werror=float-conversion`: a double literal assigned to a float (`= 0.04`) or an implicit float-to-int (`int x = std::round(f)`) is an error in fork code too. Write `0.04f` and cast explicitly.
+- An upstream config-layout change bumps `FLASH_DATA_VERSION` and the persistent size, so on its first boot every ECU logs "Resetting due to version mismatch but preserving engine type" and comes up on its board defaults and engine preset (`engineType` sits at offset 0 and survives). Hand-set tune values are gone and must be set again; a preset change in the same merge reaches the board without `set engine_type`.
+- Where both sides fixed the same bug, take upstream's form and drop the fork's duplicate test when upstream's covers it: it keeps the next merge small.
 
 ## Coding Style
 
 - Always use curly brackets for `if` statements, even for single-line blocks.
 - Reflection is prohibited in Java unit tests — add an explicit `...ForUnitTest`/`...ForTests` seam on the production class or widen a member to package-private instead (see [Java Connectivity & UI Unit Testing](docs/java-connectivity-ui-unit-testing.md)).
+
+### Documentation cross-reference tags
+
+Use searchable comment tags to connect pieces of a non-obvious invariant,
+workaround, protocol, or coordinated change that ordinary symbol references
+do not reveal. A tag can link firmware, Java, build/config inputs, tests, and
+documentation, or separated stages within one file.
+
+- **Syntax and names:** For new topics use `[tag:lower_snake_case]`, with a
+  descriptive name for the specific relationship. Put the literal marker in
+  the file's normal comment syntax (`//`, `/* */`, `#`, `!`, or `;` as applicable).
+  These are search anchors; they do not enforce consistency by themselves.
+- **Reuse before inventing:** Search for an existing topic and reuse its exact
+  spelling, including case and separators. Existing names such as
+  `[tag:lambdaTable]`, `[tag:QC_firmware]`, and `[tag:multi-step-lua-alloc]`, and
+  the legacy `search:openblt_version` marker remain valid. Adding a differently
+  spelled alias splits the search results. If a rename is necessary, update
+  all source, test, documentation, and tooling references together; follow the
+  generated-file rules below for generated copies.
+- **Explain the connection:** At least one tagged comment must explain the
+  shared rule, why it exists, and what breaks if the pieces diverge. At each
+  other site, briefly explain its role or point to that explanation by
+  file/symbol. A bare tag or issue number is insufficient; an issue link can
+  supplement the explanation. Keep one main explanation and short references
+  rather than duplicating a long account at every site.
+- **Cover the relevant pieces:** Place the same marker next to each independently
+  maintained part that must be reviewed together, including existing regression
+  tests that protect the rule. Add it to related documentation when useful.
+  Tag the relevant test or block rather than an entire unrelated suite; adding
+  a tag alone does not require a new test.
+- **Keep topics focused:** Prefer a specific invariant over a broad feature
+  label. Existing broad groups such as `[tag:offline_tune]` can be reused, but
+  introduce a narrower topic when a distinct relationship needs its own search
+  results. Avoid tagging every call site or routine code whose relationship
+  is already clear from symbols.
+- **Maintain the whole group:** Before changing tagged behavior, read all hits
+  and check whether the linked code, tests, and explanations still agree.
+  Preserve meaningful markers when moving code and remove obsolete references
+  when their relationship disappears.
+- **Generated files:** Add or edit tags in generator/template inputs. Generated
+  copies are useful for tracing output, but repeated hits are not independently
+  maintained links. Do not hand-edit or stage generated outputs.
+- **INI templates and flash limits:** Keep comments and tags minimal in all
+  `.ini` templates and included fragments to conserve microcontroller flash.
+  Avoid verbose explanations, repeated comments, and redundant tags; keep
+  detailed rationale in source code or documentation. This limit takes
+  precedence over the tag-coverage guidance above.
+
+Search from the repository root with a fixed string (the brackets are literal):
+
+```bash
+rg -n --hidden -F --glob '!.git/**' '[tag:ts_page_table]' .
+rg -n -F 'search:openblt_version' firmware CLAUDE.md .claude
+```
+
+For a shorter source review, add `--glob '!firmware/tunerstudio/generated/**'`
+to the first command. Good worked examples are `[tag:disable_engine_module]`
+(main explanation in `firmware/controllers/core/engine_module.h`) and
+`[tag:ts_page_table]` (firmware identifiers/sizes, Java generator, board flags,
+INI template, and generator tests).
+
+For user-visible diagnostics that identify a tune setting, follow
+`[tag:user_facing_ini_labels]`: use the corresponding human-readable .ini field
+label, with setting/dialog context for ambiguous labels, so the user can find
+the control. The main explanation is in `firmware/controllers/core/error_handling.h`;
+issue [#10363](https://github.com/rusefi/rusefi/issues/10363) links the
+`accelEnrichmentMode` diagnostic to its "Accel Enrichment Mode" label in
+`firmware/tunerstudio/tunerstudio.template.ini`.
 
 ## Embedded Code Practices
 
@@ -321,12 +587,79 @@ Build commands, host callback tests, and hardware checks: [H7 ADC mux](docs/h7-a
 
 ## Console keyboard shortcuts
 
+Console calibration dialogs use ScrollablePanel, which tracks viewport width
+but not height. A table can therefore retain its preferred height inside a
+much taller viewport. Space-dependent table UI must consult the outer
+JViewport extent (and table offset within its view), not just the table's own
+height; re-evaluate after ancestor resize/layout as well as local resize.
+
 - Whenever Console keyboard shortcuts are added, changed, or removed, update the user-facing legend in `java_console/ui/src/main/java/com/rusefi/ui/console/ShortcutsDialog.java` in the same change. Describe the action, focus/context restrictions, and relevant modifiers; keep the corresponding button/menu tooltips and accelerators consistent with the legend.
+
+## Console theme files
+
+The console's FlatLaf look is defined in `java_console/ui/src/main/resources/com/rusefi/ui/theme/`
+(`[tag:console_theme]`, registered in `UiHelper.configureLaf()`): `FlatLaf.properties` for
+sizes/shapes shared by all themes, `FlatLightLaf.properties` and `FlatDarkLaf.properties` for
+palette variables and colour keys. Do not put colour keys in the shared file: FlatLaf's built-in
+`FlatLightLaf.properties` assigns most of them and wins. Add new look settings there rather than
+as `UIManager.put` calls, so they follow the active theme.
+Users pick the theme in File > Appearance (Light, Dark, Follow system; `ConsoleTheme`,
+`[tag:console_dark_mode]`). It is read once in `UiHelper.configureLaf()` and applies on the next
+start, because many panels read their colours when they are built; `-Dconsole.theme=dark|light`
+overrides the saved choice. Every new colour key goes into both theme files (`ThemeParityTest` checks
+equal key sets and contrast). `LightThemeSnapshotTest` pins every resolved light colour, so a
+refactor of the theme files must leave it green; an intended light change updates
+`light-theme-snapshot.txt` from the copy the failing run writes to `ui/build/console-theme/`.
+FlatLaf's Linux defaults make `TitlePane.closeHoverForeground` and
+`TitlePane.closePressedForeground` aliases of `TitlePane.foreground`; on other
+platforms they remain stock white. `LightThemeSnapshotTest` derives the Linux
+expectations from the pinned title colour and omits these aliases from its
+replacement snapshot, so the same baseline works across platforms.
+`tint()` mixes with white and glows on dark backgrounds: the dark file uses `shade()` instead.
+Hard-coded `Color` values in `ui/src/main/java` are counted by `HardcodedColorRatchetTest`
+(`[tag:fixed_color]`): take colours from the theme, or mark one that must look the same in every
+theme with that tag and a reason; lower `hardcoded-colors-baseline.txt` when removing them.
+Colours inside images are invisible to that test: load the `icons/tuning/*48.png` icons through
+`TuningIcons.load`, which lightens them in the dark theme (`TuningIconsTest` checks their contrast).
+Java's logical `Font.MONOSPACED` renders as Courier New on Windows; use `ConsoleFonts.mono()` for
+monospaced console text. Toolbar controls share `JoinedButtons.HEIGHT` so a row lines up.
+For a rounded panel, set a `FlatLineBorder` with an arc: `FlatPanelUI` then paints the background
+rounded too. Do not also set `FlatClientProperties.STYLE` (`arc`) on the panel, because applying a
+style drops a border set earlier (see `WizardStyle.styleRounded`).
+On Windows 10+ FlatLaf resizes custom-decorated windows through its native window border,
+which it skips for `setUndecorated(true)` windows; its Swing resizer is only installed when
+the native border is unsupported. An undecorated FlatLaf dialog is therefore a fixed size on
+Windows: leave it decorated and let FlatLaf apply the decorations (`DetachedPanelTitleBar`).
 
 ## Java Version Constants
 
+TunerStudio's bundled runtime is Java 8. Gradle's Java 11 toolchain with
+source/targetCompatibility=8 still permits newer JDK API calls, producing
+Java 8 bytecode that crashes at runtime. The INI module uses --release 8 and
+has a java8Test task; pass -Pjava8Executable=<TunerStudio runtime8/bin/java.exe>
+to test with the installed runtime. The plugin launcher compares both exact
+file size and timestamp against the server, so a locally rebuilt cached body
+JAR is replaced on the next online plugin launch until the fix is published.
+
+Java sources are compiled as UTF-8 via `options.encoding` in the root `build.gradle`
+(`[tag:java_source_encoding]`, guarded by `SourceEncodingTest`). Without it, Windows
+builds garble non-ASCII literals. On a Windows checkout, `SensorLoggerTest` (temp
+directory still locked at cleanup), `FirmwareSourceCodeDownloaderTest` (two
+rollback-failure cases that expect an `IOException` Windows does not raise) and
+`CalibrationPanelWorkspaceTest` fail independently of the change being tested.
+`ConsoleThemeTest` asserts light-theme colours but `UiHelper.configureLaf()` honours the saved
+console theme, so with "Follow system" on a Windows desktop in dark mode it fails; run the Java
+tests with `-Dconsole.theme=light` (e.g. in `JAVA_TOOL_OPTIONS`) to pin the theme.
+
 - When modifying Java code (`java_console/`, `java_tools/`), bump `UiVersion.CONSOLE_VERSION` in `java_tools/version/src/main/java/com/rusefi/UiVersion.java` to the current date in `YYYYMMDD` format as part of the same change (no-op if it already shows today's date).
 - `Autoupdate.AUTOUPDATE_VERSION` in `java_console/autoupdate/src/main/java/com/rusefi/autoupdate/Autoupdate.java` is a separate, manually managed version for the updater executable. Bump it (same `YYYYMMDD` format) only when the change affects updater behavior, i.e. code that runs inside `rusefi_autoupdate.exe`.
+
+The standalone updater overwrites its own JAR during extraction. Classes first
+used after that point can fail to load even though they are packaged correctly.
+Installed launchers use `installation.properties` and bypass the default launcher
+lookup, so they do not necessarily preload the same classes as extracted bundles
+(#10368: `OsUtil`). Resolve launch-time dependencies before extraction; test in a
+fresh JVM so earlier tests cannot hide lazy-loading failures.
 
 ## MCP Servers
 
@@ -336,6 +669,20 @@ rusEFI provides two MCP (Model Context Protocol) servers for LLM-driven tooling 
 - **`:mcp_can`** (`java_console/mcp_can`) — `CanSnifferMcp`: read-only CAN bus sniffing via PCAN (default) or built-in SLCAN (`--backend slcan`, optional `--port`), with connect, read packets, wait for packet, and status tools. Entry point: `com.rusefi.mcp.CanSnifferMcp`.
 
 ## Serial Connectivity
+
+`LinkManager.close()` disconnects but is also used before reconnecting the same
+manager; it is not terminal disposal. Discovery creates disposable managers
+through `BinaryProtocolExecutor`, so per-manager workers must release idle
+threads without shutting down the reusable communication executor. A daemon
+thread still consumes native resources and can exhaust macOS's thread limit.
+See `LinkManagerThreadLifecycleTest` for repeated-probe and worker-restart coverage.
+
+Console output channels are polled selectively: only names subscribed through
+`SensorCentral.addListener` (active tokens) are requested. Subscribe with the
+output channel name (`GaugeModel.getChannel()`), never the gauge name; a
+gauge-name subscription requests nothing and the widget only appears to work
+while another widget polls the same channel. `GaugesPanelLayoutTest.hasDemand`
+checks the requested set.
 
 All rusEFI serial connections use the USB CDC (Communications Device Class) profile. Baud rate is irrelevant and never a concern — the USB serial profile handles throughput natively regardless of any baud rate setting in host software or code.
 
@@ -381,7 +728,7 @@ Region assignment on F7: nocache = `MPU_REGION_6` (`mcuconf.h`), guard = `MPU_RE
 
 ## OpenBLT Bootloader Version Marker ("BLxx")
 
-The OpenBLT bootloader binary carries no version of its own; rusEFI stamps an ASCII marker (currently `BL08`, historically `BL07`/`BL06` etc.) into the third *reserved* DWORD of the bootloader's vector table, at flash address `0x08000024`. To bump the version, use the `/bump-blt-version` skill (`.claude/skills/bump-blt-version/SKILL.md`) - it walks through both edits and the consistency check. The version is defined in **two places that MUST be bumped together** (both are tagged with the grep marker `search:openblt_version`):
+The OpenBLT bootloader binary carries no version of its own; rusEFI stamps an ASCII marker (currently `BL10`, historically `BL07`/`BL06` etc.) into the third *reserved* DWORD of the bootloader's vector table, at flash address `0x08000024`. To bump the version, use the `/bump-blt-version` skill (`.claude/skills/bump-blt-version/SKILL.md`) - it walks through both edits and the consistency check. The version is defined in **two places that MUST be bumped together** (both are tagged with the grep marker `search:openblt_version`):
 
 1. `firmware/bin/set_bl_bin_version.sh` - a `printf | dd` that patches the ASCII bytes into the composite `rusefi.bin` (`$(DBIN)`) at offset `0x24`. Invoked from `firmware/bundle.mk` (`.h2d-sentinel` rule) only when `USE_OPENBLT=yes`, *after* hex2dfu has merged bootloader + firmware. So the marker is a post-build patch on the deliverable, not part of the compiled bootloader.
 2. `BLT_CURRENT_VERSION` in `firmware/hw_layer/ports/mpu_util.h` - the same four bytes as a little-endian u32 (`0x37304C42` = 'B','L','0','7'), compiled into the **application** firmware.
@@ -405,3 +752,34 @@ Gotchas:
 See also .junie/guidelines.md file
 
 Pixi's Windows m2-bash can report OSTYPE=cygwin while uname -s reports MSYS_NT. Platform checks based on uname must include MSYS as well as CYGWIN and MINGW.
+
+### WeAct SLCAN discovery after binary HELLO
+
+Live WeAct V1.0.0.6_4fa52575 can discard the V query when CR/V/CR follows
+binary TS HELLO in a single write, returning only BELL. Separate the CR
+and V writes with a bounded separator-response read; this restored live
+detection in 8/8 scans versus 0/8 for the combined write.
+
+### WeAct console ISO-TP arbitration retries
+
+WeAct USB2CANFDV1 defaults to one-shot CAN TX. On a live M74.9 bus, a
+request or flow-control frame could disappear despite a complete USB write;
+the console then received only four TS body bytes and timed out. Configure
+`A1` while CAN is closed, before `O`, for a recognized WeAct version. Keep
+this vendor command out of generic Lawicel setup. A fixed 20 ms host delay
+improved but did not eliminate failures. Do not replay whole tune-write or
+burn requests to compensate: controller arbitration retries address the
+unsent CAN frame. WeAct can acknowledge setup commands even though CANable
+2 omits them; both support the existing V-response setup barrier.
+
+
+- MinGW/COFF weak fallback definitions must be visible in the calling
+  translation unit. A separate weak definition does not resolve an ordinary
+  external reference; weakening only the caller can produce a successful
+  link with a call to address zero. Keep the board-hook fallback bodies in
+  shared include fragments: Windows callers include them locally, while
+  ELF/ARM keeps them in separate translation units for LTO-safe overrides.
+  Keep public declarations strong so board implementations stay strong.
+  Validate both default and override targets with
+  `python3 simulator/tests/test_board_hook_linkage.py`; linking alone is
+  insufficient evidence for the Windows fallback path.

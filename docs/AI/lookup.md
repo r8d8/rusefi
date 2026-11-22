@@ -11,7 +11,7 @@ iterate all), mutability, naming universe, and flash layout.
 | driven by | `ConfigDefinition` (`-field_lookup_file`, see `gen_config_common.sh`) | `LiveDataProcessor` | `LiveDataProcessor` (same pass as output lookup) |
 | input | `rusefi_config.txt` ts-fields (`engine_configuration_s` / `persistent_config_s`) | `LiveData.yaml` (output_channels + every live-data module struct) | `LiveData.yaml` (same walk) |
 | generated file | `firmware/controllers/lua/generated/value_lookup_table_generated.cpp` (+ dead switch variant, see below) | `firmware/controllers/lua/generated/output_lookup_generated.cpp` | `firmware/console/binary/generated/log_fields_generated.h` |
-| shape | `const ConfigParameter allParameters[]` = `{djb2 hash, getter lambda, setter lambda}`, sorted by unsigned hash; binary search at runtime (`value_lookup.cpp`) | `getOutputValueByHash(int)` — one big `switch` on djb2 hash | `static const constinit MLG::Entries::Field fields[]` — address/scale/type/name/units/digits/category baked `consteval` |
+| shape | `const ConfigParameter allParameters[]` = `{djb2 hash, getter lambda, setter lambda}`, sorted by unsigned hash; binary search at runtime (`value_lookup.cpp`). Setters for integer storage (including `scaled_channel<T, 1, 1>`) write `static_cast<T>(value)`; float, bit and float-scaled `scaled_channel` storage take the float as is (`GetConfigValueConsumer.getSetterValue`, test `tableSettersCastIntegerStorage`) | `getOutputValueByHash(int)` — one big `switch` on djb2 hash | `static const constinit MLG::Entries::Field fields[]` — address/scale/type/name/units/digits/category baked `consteval` |
 | direction | name -> value, **read-write** | name -> value, **read-only** | no lookup: iterated in order to emit .mlg header + records |
 | key | exact struct field name (dotted path for nested, case-insensitive djb2 `djb2lowerCase`) | same | **human gauge name** = first line of the field's `;comment`, <= 34 chars (`MSQ_LENGTH_LIMIT`) |
 | consumers | Lua `getCalibration`/`setCalibration` (`lua_hooks.cpp`), console `get_value`/`set` (`settings.cpp`) | Lua `getOutput` (`lua_hooks.cpp`) | SD `.mlg` logger (`mmc_card.cpp` -> `binary_mlg_logging.cpp`), unit-test logger CSV/NDJSON via `MLG::forEachField` |
@@ -60,6 +60,31 @@ iterate all), mutability, naming universe, and flash layout.
 
 ## Sharp edges
 
+- **TunerStudio exposure does not imply SD logging.** `LiveDataProcessor` registers
+  `SdCardFieldsContent` only for entries with `constexpr:`. An entry with only
+  `engineModule:` generates output lookups but no SD fields; an entry with neither
+  still generates TunerStudio channels and datalog entries.
+  [tag:ltft_sd_state] The LTFT fragment maps all 13 channels through its generated
+  state subobject, guarded by `EFI_LTFT_CONTROL`.
+  When mapping a module with multiple inheritance, use its generated state
+  subobject as the expression: bit offsets are relative to that state, not the
+  complete module. Keep the expression guarded by the module's feature flag.
+- **SD and Lua can have different storage requirements.** [tag:live_data_sd_mapping]
+  When an entry has both `constexpr:` and `engineModule:`, the former supplies SD
+  addresses and the latter supplies runtime Lua lookups. The optional
+  `sd_conditional_compilation:` adds a restriction to the common
+  `conditional_compilation:` for SD only. Throttle model, HPFP, A/C and misfire
+  use `EFI_PROD_CODE` here because their mockable modules live in heap storage
+  on hosts. Their Lua lookups continue to follow module replacements.
+  `LiveDataSdCoverageTest` checks the 19 added fragment mappings;
+  `unitTestLog.stableLiveDataMappings` checks emitted host values, and
+  `unitTestLog.sdMappingsPreserveMockedLuaLookups` checks runtime lookup behavior.
+  TCU, wideband diagnostics and the example fragment have no SD mapping.
+  TCU selects its controller at runtime; wideband state needs timeout/permission
+  refresh independently of TunerStudio reads before a direct mapping is useful.
+  STFT input errors and its enum state/bin fields are mapped. Enums are written
+  as their underlying numeric values. Existing `FULL_SD_LOGS` gates still apply
+  to A/C and antilag.
 - **Dead generated file**: `value_lookup_generated.cpp` (switch-based getter + string-compare
   setter) is still emitted by `GetConfigValueConsumer` (first `-field_lookup_file` argument)
   but is NOT in any `.mk` — only the table variant + `value_lookup.cpp` are compiled. Both

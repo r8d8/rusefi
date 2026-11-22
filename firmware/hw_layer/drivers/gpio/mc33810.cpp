@@ -495,13 +495,13 @@ int Mc33810::chip_init()
 		uint16_t nomi_current = 0x0a;	// default = 5.5 A
 		float nomi = engineConfiguration->mc33810Nomi;
 		if ((nomi >= 3.0) && (nomi <= 10.75)) {
-			nomi_current = (nomi - 3.0) / 0.25;
+			nomi_current = static_cast<uint16_t>((nomi - 3.0) / 0.25);
 		}
 
 		uint16_t maxi_current = 0x08;	// default = 14.0 A
 		float maxi = engineConfiguration->mc33810Maxi;
 		if ((maxi >= 6.0) && (maxi <= 21.0)) {
-			maxi_current = maxi - 6.0;
+			maxi_current = static_cast<uint16_t>(maxi - 6.0);
 		}
 		uint16_t dac_cmd =
 			// Table 12. Nominal Current DAC Select
@@ -539,6 +539,10 @@ int Mc33810::chip_init()
 			goto err_exit;
 		}
 	}
+
+	spark_fired_mask = 0x00;
+	spark_fault_mask = 0x00;
+	coil_state = COIL_IDLE;
 
 	/* n. set EN pin low - active */
 	if (cfg->en.port) {
@@ -651,6 +655,7 @@ void Mc33810::ign_event(size_t pin, int value)
 
 		active_coil_idx = idx;
 		coil_state = COIL_WAIT_SPARK_START;
+		spark_fired_mask |= BIT(pin);
 	}
 }
 
@@ -809,14 +814,18 @@ brain_pin_diag_e Mc33810::getDiag(size_t pin)
 			if (val & BIT(2))
 				diag |= PIN_OVERLOAD;
 
-			/* no SPKDUR detected */
-			if (spark_fault_mask & BIT(pin))
-				diag |= PIN_OPEN;
+			/* SPKDUR based checks make sense only once the coil has fired:
+			 * before the first spark sparkDuration is still zero */
+			if (spark_fired_mask & BIT(pin)) {
+				/* no SPKDUR detected */
+				if (spark_fault_mask & BIT(pin))
+					diag |= PIN_OPEN;
 
-			/* too short spark time means there is oscilation on coil,
-			 * that usualy because of open secondary (disconnected spark plug) */
-			if (sparkDuration[pin - MC33810_IGN_OUTPUTS] < 0.150)
-				diag |= PIN_OPEN;
+				/* too short spark time means there is oscilation on coil,
+				 * that usualy because of open secondary (disconnected spark plug) */
+				if (sparkDuration[pin - MC33810_IGN_OUTPUTS] < 0.150)
+					diag |= PIN_OPEN;
+			}
 		}
 	}
 	/* convert to some common enum? */

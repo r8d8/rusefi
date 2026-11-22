@@ -45,7 +45,8 @@ public class IniFileReader {
                 veAnalyzeMaps,
                 lambdaTargetTables,
                 veAnalyzeFilters,
-                eventTriggers);
+                eventTriggers,
+                requiresPowerCycle);
     }
     private static final Logging log = Logging.getLogging(IniFileReader.class);
     public static final String RUSEFI_INI_PREFIX = "rusefi";
@@ -58,6 +59,8 @@ public class IniFileReader {
     private static final String FIELD_TYPE_BITS = "bits";
 
     private final Map<String, List<String>> defines = new TreeMap<>();
+    /** [ConstantsExtensions] {@code requiresPowerCycle = name}: settings applied only after a restart. */
+    private final List<String> requiresPowerCycle = new ArrayList<>();
 
     private String dialogId;
     private String dialogUiName;
@@ -159,8 +162,9 @@ public class IniFileReader {
         if (fieldsOfCurrentDialog.isEmpty() && commandsOfCurrentDialog.isEmpty()
                 && panelsOfCurrentDialog.isEmpty() && indicatorsOfCurrentDialog.isEmpty()
                 && readoutsOfCurrentDialog.isEmpty() && gaugeNamesOfCurrentDialog.isEmpty()
-                && settingSelectorsOfCurrentDialog.isEmpty())
+                && settingSelectorsOfCurrentDialog.isEmpty() && orderedEntriesOfCurrentDialog.isEmpty()) {
             return;
+        }
         if (dialogUiName == null)
             dialogUiName = dialogId;
         // Store dialogs by their key (dialogId), not by UI name, for easier panel resolution
@@ -312,8 +316,19 @@ public class IniFileReader {
 
 
             switch (first) {
+                case "defaultValue":
+                    handleDefaultValue(list);
+                    break;
+                case "requiresPowerCycle":
+                    if (list.size() >= 2) {
+                        requiresPowerCycle.add(list.get(1));
+                    }
+                    break;
                 case "field":
-                    handleField(list);
+                    handleField(list, false);
+                    break;
+                case "runtimeValue":
+                    handleField(list, true);
                     break;
                 case "commandButton":
                     handleCommand(list);
@@ -399,10 +414,10 @@ public class IniFileReader {
                 FieldType scalarType = FieldType.parseTs(list.get(2));
                 String unit = list.size() > 4 ? list.get(4) : "";
                 int offset = Integer.parseInt(list.get(3));
-                // Output channel format: name = scalar, type, offset, units, multiplier, digits
+                // Output channel format: name = scalar, type, offset, units, scale, translate
                 double multiplier = list.size() > 5 ? IniField.parseDouble(list.get(5)) : 1.0;
-                double digits = list.size() > 6 ? IniField.parseDouble(list.get(6)) : 0.0;
-                allOutputChannels.put(name, new ScalarIniField(name, offset, unit, scalarType, multiplier, "0", digits));
+                double translate = list.size() > 6 ? IniField.parseDouble(list.get(6)) : 0.0;
+                allOutputChannels.put(name, new ScalarIniField(name, offset, unit, scalarType, multiplier, "0", translate));
                 break;
             }
             case FIELD_TYPE_BITS: {
@@ -434,11 +449,15 @@ public class IniFileReader {
 
     /**
      * Parse [PcVariables] section fields. These are TunerStudio-local variables (no ECU offset).
-     * We only handle 'bits' type for now
+     * We only handle 'bits' and 'array' types for now
      */
     private void handlePcVariableDefinition(LinkedList<String> list, RawIniFile.Line line) {
         if (list.size() < 4)
             return;
+        if (FIELD_TYPE_ARRAY.equals(list.get(1))) {
+            handlePcVariableArray(list);
+            return;
+        }
         if (!FIELD_TYPE_BITS.equals(list.get(1)))
             return;
 
@@ -461,6 +480,51 @@ public class IniFileReader {
 
         // Store in secondary fields so they're findable via findIniField() but don't conflict with real config fields
         secondaryIniFields.put(field.getName(), field);
+    }
+
+    /**
+     * PcVariables array format: name = array, S08, [10], "unit", scale, translate, min, max, digits
+     * Curves and tables use such arrays as axis bins (#10626).
+     */
+    private void handlePcVariableArray(LinkedList<String> list) {
+        // same layout as a [Constants] array, without the offset
+        LinkedList<String> withOffset = new LinkedList<>(list);
+        withOffset.add(3, "0");
+        PcVariableArrayIniField field;
+        try {
+            field = new PcVariableArrayIniField((ArrayIniField) ArrayIniField.parse(withOffset));
+        } catch (RuntimeException e) {
+            log.warn("Skipping PC variable array " + list + ": " + e);
+            return;
+        }
+        // same place as 'bits' PC variables: findable via findIniField() without mixing with config fields
+        secondaryIniFields.put(field.getName(), field);
+    }
+
+    /**
+     * [ConstantsExtensions] format: defaultValue = name, value value value
+     * Only the values of PC variable arrays are used.
+     */
+    private void handleDefaultValue(LinkedList<String> list) {
+        if (list.size() < 3) {
+            return;
+        }
+        IniField field = secondaryIniFields.get(list.get(1));
+        if (!(field instanceof PcVariableArrayIniField)) {
+            return;
+        }
+        double[] values = new double[list.size() - 2];
+        try {
+            for (int i = 0; i < values.length; i++) {
+                values[i] = Double.parseDouble(list.get(i + 2));
+            }
+        } catch (NumberFormatException e) {
+            log.warn("Skipping defaultValue " + list + ": " + e);
+            return;
+        }
+        if (!((PcVariableArrayIniField) field).setDefaultValues(values)) {
+            log.warn("Skipping defaultValue with unexpected length " + list);
+        }
     }
 
     private void handleConstantFieldDefinition(LinkedList<String> list, RawIniFile.Line line) {
@@ -521,14 +585,18 @@ public class IniFileReader {
         orderedEntriesOfCurrentDialog.add(new DialogModel.DialogEntry(DialogModel.DialogEntry.Kind.COMMAND, cmd));
     }
 
-    private void handleField(LinkedList<String> list) {
-        list.removeFirst(); // "field"
+    private void handleField(LinkedList<String> list, boolean runtimeValue) {
+        list.removeFirst(); // "field" or "runtimeValue"
 
         String uiFieldName = list.isEmpty() ? "" : list.removeFirst();
 
         String key = list.isEmpty() ? null : list.removeFirst();
 
-        if (key == null || uiFieldName.startsWith("!")) {
+        if (runtimeValue && (dialogId == null || key == null || key.isEmpty())) {
+            return;
+        }
+
+        if (!runtimeValue && (key == null || uiFieldName.startsWith("!"))) {
             key = uiFieldName;
         }
 
@@ -546,7 +614,14 @@ public class IniFileReader {
             }
         }
 
-        registerUiField(key, uiFieldName, enableExpression, visibleExpression);
+        if (runtimeValue) {
+            // Runtime channels are read-only and must not enter the editable constants list.
+            orderedEntriesOfCurrentDialog.add(new DialogModel.DialogEntry(
+                DialogModel.DialogEntry.Kind.RUNTIME_VALUE,
+                new DialogModel.Field(key, uiFieldName, enableExpression, visibleExpression)));
+        } else {
+            registerUiField(key, uiFieldName, enableExpression, visibleExpression);
+        }
         log.debug("IniFileModel: Field label=[" + uiFieldName + "] : key=[" + key + "]");
     }
 

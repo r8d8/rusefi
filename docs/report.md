@@ -2077,3 +2077,60 @@ Not this change: coil 2 (PF15) was silent on the same bench. The stored tune had
 and `trailingCoilPins[0]` = PF15 (97), and the console's `pins` listed PF15 as "Trail 1" beside coil 1 on PD15:
 the firmware side was fine. The D2 (PF15) -> plant A1 (PA1) jumper had never been fitted (clearwater
 simulation/hitl/bench_hcu.md, 2026-10-28: "Jumper not fitted yet"); the user fitted it on 2026-11-18.
+
+## 2026-11-22 - Upstream rusEFI master merged into the fork
+
+User decision 2026-11-22: merge upstream, and the fork's no-commit rule is dropped (commit allowed,
+push on the user's OK; CLAUDE.md Source Control Hygiene). Merged rusefi/rusefi master 01582c52f26
+(2026-11-22) into claude/eloquent-goodall-kb9nve: 1074 upstream commits since the merge base
+47fca3d51be (2026-10-02) against the fork's 78 (76 + the 2026-11-18 cranking-fuel pair, committed
+first as 4f87b5f8fb1 coverage / e26c44abf41 fix).
+
+Conflicts, 12, and how each was resolved:
+
+| file | resolution |
+|------|------------|
+| `CLAUDE.md` | both new paragraphs kept. Upstream's 187e7e0f480 made `docs/report.md` a local, ignored commit-message draft; the fork keeps its tracked, append-only report (it records the DLE preset changes for the stored tunes) |
+| `docs/report.md` | deleted upstream, kept |
+| `hellen154hyundai/board.mk` | the fork's `EFI_LOGIC_ANALYZER=FALSE` kept (upstream only added blank lines) |
+| `output_channels.txt` | the servo throttle channels after the dash bits, before upstream's new transmission fields and its RAW section; `engine` / `sdCardMode` where upstream moved them |
+| `tunerstudio.cpp`, `tunerstudio_impl.h` | upstream's `handleWriteChunkFrame()` (cd271f93864, 2026-11-08: a count beyond the payload -> `TS_RESPONSE_UNDERRUN`) replaces the fork's `contentSize` argument, a fix of the same bug (HZ-29 audit). The fork's `shortChunkWriteIsRefused` is dropped: upstream's `writeChunkCountBeyondPayload` asserts the same (refused, tune untouched, a full frame written) |
+| `default_base_engine.cpp` | both: the fork's servo throttle defaults and upstream's `transmissionSlipMinVss` |
+| `bench_test.cpp` | both: upstream's `resetSavedBenchTestPinStates()` and the fork's `isX14ReconfiguringEngine()`; upstream added no X14 command, so the engine-turning interlock list stands |
+| `can_verbose.cpp` | the fork's saturating `packTemperature()` kept |
+| `init_tps.cpp` | both includes; the servo / PWM TPS branch bypasses upstream's new TPS smoothing, which filters the analog TPS |
+| `test_start_stop.cpp` | both sides' tests |
+| `simulator_tune.msq` | upstream's (generated) |
+
+Follow-on fixes for upstream's changes:
+
+| change | why |
+|--------|-----|
+| float literals (`0.04f`) and explicit casts in `dle_twin.cpp`, `default_base_engine.cpp`, `servo_throttle.cpp` and the DLE / servo throttle tests | upstream builds with `-Werror=float-conversion`; same values |
+| `test_tunerstudio.cpp`: `handleWriteChunkCommand()` without `contentSize` | the API above |
+| `ServoThrottleCan.stopMessageWhileRunStaysZero` counts the stop lines by draining `loggingSendOutputData()` | upstream's #9626 (d283b94adf4) removed `priv::LoggingTestSink` |
+| `git submodule update` for ChibiOS, OpenBLT, libfirmware (moved by the merge), luaaa, wideband_firmware (stale) | a stale libfirmware fails as float-conversion errors in `scaled_channel.h` |
+
+Configuration layout: upstream moved it. uaEFI: `engine_configuration_s` 4292 -> 4192 B,
+`persistent_config_s` 16824 -> 17732 B, signature 3773879296 -> 2719445755, `FLASH_DATA_VERSION`
+260908 -> 261107; 882 of 1111 `engine_configuration_s` fields have a new offset. On its first boot
+with a merged image every ECU logs "Resetting due to version mismatch but preserving engine type"
+(`flash_main.cpp`) and comes up on its board defaults and its engine preset (`engineType` is at
+offset 0 in both layouts). Every hand-set value is gone: the HITL bench and the CW1.0 / CW1.1 tunes
+have to be set again after the reflash. The DLE presets' own values (the 5 / 10 mg cranking base
+included) arrive with the reset, without `set engine_type`. The fork's `ServoGovernor.configLayout`
+checks only offsets inside its own block and passes.
+
+Flash: upstream stopped embedding the TunerStudio INI image in the USB drive on F4 (59664c92a4f /
+92168f76ddd, `EFI_EMBED_INI_MSD` FALSE in `stm32f4ems/efifeatures.h`), about 100 KB. TunerStudio on
+an F4 board now takes the .ini from the firmware bundle, not the ECU's drive.
+
+Validation: unit tests from clean, all 1996 / 1996 (GCC 13, WSL, 8 jobs; 1479 before the merge).
+Firmware (local GCC 14.2, clean builds, application image): uaEFI F4 flash0 646676 B of 736 KB,
+106988 B free (3936 B on 2026-11-03); HITL Nucleo F429 flash0 510328 B of 768 KB. Both with 10
+warnings, all in upstream files (sign-compare, unused-parameter, the RWX segment). Not run: the clang
+unit-test build, the simulator, the other boards (CI on the push), hardware.
+
+Open: the reflash of the HITL bench and of the aircraft ECUs, then their tunes by hand (the user's
+call; flash the complete image, `bin/compile.sh <meta-info> bin`, on OpenBLT boards); a HITL pass
+with the merged image; push (the user's OK).

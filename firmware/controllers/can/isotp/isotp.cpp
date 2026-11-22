@@ -89,11 +89,11 @@ void IsoTpBase::sendFlowControl(can_sysinterval_t timeout) {
 	sendFrame(header, nullptr, 0, timeout);
 }
 
-// returns the number of copied bytes
+// Returns copied bytes, or -1 when a broken packet has been discarded.
 int CanStreamerState::receiveFrame(const CANRxFrame &rxmsg, uint8_t *destinationBuff, int availableAtBuffer, can_sysinterval_t timeout) {
 	if (rxmsg.DLC < 1 + isoHeaderByteIndex)
 		return 0;
-	engine->pauseCANdueToSerial = true;
+	engine->pauseCANdueToSerialUntil = getTimeNowNt() + MS2NT(CAN_SERIAL_PAUSE_MS);
 	int frameType = (rxmsg.data8[isoHeaderByteIndex] >> 4) & 0xf;
 	if (engineConfiguration->verboseIsoTp) {
 	  efiPrintf("receiveFrame frameType=%d", frameType);
@@ -127,9 +127,10 @@ int CanStreamerState::receiveFrame(const CANRxFrame &rxmsg, uint8_t *destination
 		break;
 	case ISO_TP_FRAME_CONSECUTIVE:
 		frameIdx = rxmsg.data8[isoHeaderByteIndex] & 0xf;
-		if (this->waitingForNumBytes < 0 || this->waitingForFrameIndex != frameIdx) {
-			// todo: that's an abnormal situation, and we probably should react?
-			return 0;
+		if (this->waitingForNumBytes <= 0 || this->waitingForFrameIndex != frameIdx) {
+			// Do not retain payload from a packet with a missing or stale frame.
+			reset();
+			return -1;
 		}
 		numBytesAvailable = minI(this->waitingForNumBytes, 7 - isoHeaderByteIndex);
 		srcBuf = rxmsg.data8 + 1 + isoHeaderByteIndex;
@@ -151,10 +152,10 @@ TODO: refactor into child class if we ever choose to revive this logic
 		uint32_t crc = crc32((void *) srcBuf, numBytesAvailable);
 		// we need a separate buffer for crc because srcBuf may not be word-aligned for direct copy
 		uint8_t crcBuffer[sizeof(uint32_t)];
-		*(uint32_t *) (crcBuffer) = SWAP_UINT32(crc);
+		*(uint32_t *) (crcBuffer) = wireBe32(crc);
 
 		// now set the packet size
-		*(uint16_t *) shortCrcPacketStagingArea = SWAP_UINT16(numBytesAvailable);
+		*(uint16_t *) shortCrcPacketStagingArea = wireBe16(numBytesAvailable);
 		// copy the data
 		if (numBytesAvailable > 0)
 			memcpy(shortCrcPacketStagingArea + sizeof(uint16_t), srcBuf, numBytesAvailable);
@@ -193,6 +194,7 @@ void CanStreamerState::reset() {
   waitingForNumBytes = 0;
   waitingForFrameIndex = 0;
   isComplete = false;
+  rxFifoBuf.clear();
 }
 
 int CanStreamerState::sendDataTimeout(const uint8_t *txbuf, int numBytes, can_sysinterval_t timeout) {
@@ -205,6 +207,16 @@ int CanStreamerState::sendDataTimeout(const uint8_t *txbuf, int numBytes, can_sy
 	if (numBytes < 1)
 		return 0;
 
+	/* Keep the periodic board CAN broadcasts quiet while a serial session is
+	 * active. The pause is normally extended on RX (see receiveFrame), but
+	 * the console sends the next request only after our response arrives: if
+	 * the response stalls (TX mailboxes contended with the flood), the
+	 * RX-side pause lapses, the flood resumes at full rate and the stall
+	 * becomes permanent - the console times out and restarts, and every
+	 * cycle dies the same way. Extend the pause on TX too so the bus stays
+	 * free until the whole response is out. */
+	engine->pauseCANdueToSerialUntil = getTimeNowNt() + MS2NT(CAN_SERIAL_PAUSE_MS);
+
 	// 1 frame
 	if (numBytes <= 7 - (int)isoHeaderByteIndex) {
 		IsoTpFrameHeader header;
@@ -214,6 +226,10 @@ int CanStreamerState::sendDataTimeout(const uint8_t *txbuf, int numBytes, can_sy
 	}
 
 	// multiple frames
+
+	// Discard stale acknowledgements before FF, never after transmit returns:
+	// the CAN reader may queue our reply while transmit is still completing.
+	rxTransport->prepareFlowControlWait();
 
 	// send the first header frame (FF)
 	IsoTpFrameHeader header;
@@ -233,14 +249,16 @@ int CanStreamerState::sendDataTimeout(const uint8_t *txbuf, int numBytes, can_sy
 	{
 		CANRxFrame rxmsg;
 		for (size_t numFcReceived = 0; ; numFcReceived++) {
-			if (rxTransport->receive(&rxmsg, timeout) != CAN_MSG_OK) {
+			if (rxTransport->receiveFlowControl(&rxmsg, timeout) != CAN_MSG_OK) {
 #ifdef SERIAL_CAN_DEBUG
 				PRINT("*** ERROR: CAN Flow Control frame not received" PRINT_EOL);
 #endif /* SERIAL_CAN_DEBUG */
 				//warning(ObdCode::CUSTOM_ERR_CAN_COMMUNICATION, "CAN Flow Control frame not received");
 				return 0;
 			}
-			receiveFrame(rxmsg, nullptr, 0, timeout);
+			if (rxmsg.DLC < 3) {
+				return 0;
+			}
 			uint8_t frameType = (rxmsg.data8[isoHeaderByteIndex] >> 4) & 0xf;
 			uint8_t flowStatus = rxmsg.data8[isoHeaderByteIndex] & 0xf;
 			// if something is not ok
@@ -272,6 +290,10 @@ int CanStreamerState::sendDataTimeout(const uint8_t *txbuf, int numBytes, can_sy
 	int idx = 1;
 	while (numBytes > 0) {
 		int len = minI(numBytes, 7 - isoHeaderByteIndex);
+		// keep the broadcast pause alive through the whole burst (a 1 KB
+		// response is ~150 frames; without this the pause can lapse mid-burst
+		// and the flood steals the TX mailboxes)
+		engine->pauseCANdueToSerialUntil = getTimeNowNt() + MS2NT(CAN_SERIAL_PAUSE_MS);
 		// send the consecutive frames
 		header.frameType = ISO_TP_FRAME_CONSECUTIVE;
 		header.index = ((idx++) & 0x0f);

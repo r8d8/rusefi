@@ -1,0 +1,5 @@
+#define BURST_KNOCK_RPM_SIZE 8
+#define BURST_KNOCK_TPS_RATE_SIZE 8
+
+bit burstKnockEnabled,"enabled","disabled";Pull ignition timing while the TPS acceleration-enrichment threshold is exceeded, then decay the retard to zero. This uses the TPS delta and lookback, not acoustic knock detection.
+uint8_t autoscale burstKnockDecayTime;Linear decay time measured from the last above-threshold TPS sample. Zero removes retard as soon as the transient ends.;"s", 0.1, 0, 0, 10, 1

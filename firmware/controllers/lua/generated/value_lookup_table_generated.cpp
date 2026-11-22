@@ -12,73 +12,82 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->wwaeBeta = value; } },
 	{ 0x004782E3, // fanOffTemperature
 		[]() -> float { return engineConfiguration->fanOffTemperature; },
-		[](float value) { engineConfiguration->fanOffTemperature = value; } },
+		[](float value) { engineConfiguration->fanOffTemperature = static_cast<int16_t>(value); } },
 	{ 0x005F310E, // verboseCanBaseAddress
 		[]() -> float { return engineConfiguration->verboseCanBaseAddress; },
-		[](float value) { engineConfiguration->verboseCanBaseAddress = value; } },
+		[](float value) { engineConfiguration->verboseCanBaseAddress = static_cast<uint32_t>(value); } },
 	{ 0x008F4350, // mapErrorDetectionTooLow
 		[]() -> float { return engineConfiguration->mapErrorDetectionTooLow; },
 		[](float value) { engineConfiguration->mapErrorDetectionTooLow = value; } },
 	{ 0x00B315F6, // useIdleTimingPidControl
 		[]() -> float { return engineConfiguration->useIdleTimingPidControl; },
-		[](float value) { engineConfiguration->useIdleTimingPidControl = value; } },
+		[](float value) { engineConfiguration->useIdleTimingPidControl = value != 0; } },
 	{ 0x00D2AD58, // useHbridgesToDriveIdleStepper
 		[]() -> float { return engineConfiguration->useHbridgesToDriveIdleStepper; },
-		[](float value) { engineConfiguration->useHbridgesToDriveIdleStepper = value; } },
+		[](float value) { engineConfiguration->useHbridgesToDriveIdleStepper = value != 0; } },
 	{ 0x0131398B, // wastegatePositionClosedVoltage
 		[]() -> float { return engineConfiguration->wastegatePositionClosedVoltage; },
 		[](float value) { engineConfiguration->wastegatePositionClosedVoltage = value; } },
 	{ 0x01C23879, // idleTimingPid.periodMs
 		[]() -> float { return engineConfiguration->idleTimingPid.periodMs; },
-		[](float value) { engineConfiguration->idleTimingPid.periodMs = value; } },
+		[](float value) { engineConfiguration->idleTimingPid.periodMs = static_cast<int16_t>(value); } },
 	{ 0x01D476BD, // acIdleRpmTarget
 		[]() -> float { return engineConfiguration->acIdleRpmTarget; },
-		[](float value) { engineConfiguration->acIdleRpmTarget = value; } },
+		[](float value) { engineConfiguration->acIdleRpmTarget = static_cast<int16_t>(value); } },
 	{ 0x024A5591, // rotationalIdleController.auto_engage
 		[]() -> float { return engineConfiguration->rotationalIdleController.auto_engage; },
-		[](float value) { engineConfiguration->rotationalIdleController.auto_engage = value; } },
+		[](float value) { engineConfiguration->rotationalIdleController.auto_engage = value != 0; } },
 	{ 0x024ECFB7, // twoStroke
 		[]() -> float { return engineConfiguration->twoStroke; },
-		[](float value) { engineConfiguration->twoStroke = value; } },
+		[](float value) { engineConfiguration->twoStroke = value != 0; } },
 	{ 0x028E2E1A, // hondaK
 		[]() -> float { return engineConfiguration->hondaK; },
-		[](float value) { engineConfiguration->hondaK = value; } },
+		[](float value) { engineConfiguration->hondaK = value != 0; } },
 	{ 0x02CBEC44, // engineSnifferRpmThreshold
 		[]() -> float { return engineConfiguration->engineSnifferRpmThreshold; },
-		[](float value) { engineConfiguration->engineSnifferRpmThreshold = value; } },
+		[](float value) { engineConfiguration->engineSnifferRpmThreshold = static_cast<uint16_t>(value); } },
 	{ 0x02D2795B, // finalIgnitionCutPercentBeforeLaunch
 		[]() -> float { return engineConfiguration->finalIgnitionCutPercentBeforeLaunch; },
-		[](float value) { engineConfiguration->finalIgnitionCutPercentBeforeLaunch = value; } },
+		[](float value) { engineConfiguration->finalIgnitionCutPercentBeforeLaunch = static_cast<int8_t>(value); } },
 	{ 0x02E00318, // multisparkSparkDuration
 		[]() -> float { return engineConfiguration->multisparkSparkDuration; },
 		[](float value) { engineConfiguration->multisparkSparkDuration = value; } },
 	{ 0x030AF6DB, // sdLogStartRpm
 		[]() -> float { return engineConfiguration->sdLogStartRpm; },
-		[](float value) { engineConfiguration->sdLogStartRpm = value; } },
+		[](float value) { engineConfiguration->sdLogStartRpm = static_cast<uint16_t>(value); } },
 	{ 0x03833937, // tachPulseDuractionMs
 		[]() -> float { return engineConfiguration->tachPulseDuractionMs; },
 		[](float value) { engineConfiguration->tachPulseDuractionMs = value; } },
+	{ 0x03AD76C8, // smAccumulatorDownshiftThreshold
+		[]() -> float { return engineConfiguration->smAccumulatorDownshiftThreshold; },
+		[](float value) { engineConfiguration->smAccumulatorDownshiftThreshold = static_cast<int8_t>(value); } },
 	{ 0x03C02AE0, // idleReturnTargetRampDuration
 		[]() -> float { return engineConfiguration->idleReturnTargetRampDuration; },
 		[](float value) { engineConfiguration->idleReturnTargetRampDuration = value; } },
 	{ 0x0415D2EA, // tpsAccelFractionDivisor
 		[]() -> float { return engineConfiguration->tpsAccelFractionDivisor; },
 		[](float value) { engineConfiguration->tpsAccelFractionDivisor = value; } },
+	{ 0x04D6DEC3, // fan1AcPressureOff
+		[]() -> float { return engineConfiguration->fan1AcPressureOff; },
+		[](float value) { engineConfiguration->fan1AcPressureOff = static_cast<uint16_t>(value); } },
+	{ 0x05046431, // fuelPumpControl.pFactor
+		[]() -> float { return engineConfiguration->fuelPumpControl.pFactor; },
+		[](float value) { engineConfiguration->fuelPumpControl.pFactor = value; } },
 	{ 0x0517613B, // wizardIgnitionOutputs
 		[]() -> float { return config->wizardIgnitionOutputs; },
-		[](float value) { config->wizardIgnitionOutputs = value; } },
+		[](float value) { config->wizardIgnitionOutputs = value != 0; } },
 	{ 0x05E84CBE, // tachPulseDurationAsDutyCycle
 		[]() -> float { return engineConfiguration->tachPulseDurationAsDutyCycle; },
-		[](float value) { engineConfiguration->tachPulseDurationAsDutyCycle = value; } },
+		[](float value) { engineConfiguration->tachPulseDurationAsDutyCycle = value != 0; } },
 	{ 0x066A7A87, // alternator_iTermMax
 		[]() -> float { return engineConfiguration->alternator_iTermMax; },
-		[](float value) { engineConfiguration->alternator_iTermMax = value; } },
+		[](float value) { engineConfiguration->alternator_iTermMax = static_cast<int16_t>(value); } },
 	{ 0x066A7B85, // alternator_iTermMin
 		[]() -> float { return engineConfiguration->alternator_iTermMin; },
-		[](float value) { engineConfiguration->alternator_iTermMin = value; } },
+		[](float value) { engineConfiguration->alternator_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x07103ADA, // idleReturnTargetRamp
 		[]() -> float { return engineConfiguration->idleReturnTargetRamp; },
-		[](float value) { engineConfiguration->idleReturnTargetRamp = value; } },
+		[](float value) { engineConfiguration->idleReturnTargetRamp = value != 0; } },
 	{ 0x071ED0D3, // applyNonlinearBelowPulse
 		[]() -> float { return engineConfiguration->applyNonlinearBelowPulse; },
 		[](float value) { engineConfiguration->applyNonlinearBelowPulse = value; } },
@@ -87,70 +96,76 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->fuelLevelUpdatePeriodSec = value; } },
 	{ 0x0811AF43, // useCompensatedMap
 		[]() -> float { return engineConfiguration->useCompensatedMap; },
-		[](float value) { engineConfiguration->useCompensatedMap = value; } },
+		[](float value) { engineConfiguration->useCompensatedMap = value != 0; } },
 	{ 0x09A736B3, // devBit0
 		[]() -> float { return engineConfiguration->devBit0; },
-		[](float value) { engineConfiguration->devBit0 = value; } },
+		[](float value) { engineConfiguration->devBit0 = value != 0; } },
 	{ 0x09A736B4, // devBit1
 		[]() -> float { return engineConfiguration->devBit1; },
-		[](float value) { engineConfiguration->devBit1 = value; } },
+		[](float value) { engineConfiguration->devBit1 = value != 0; } },
 	{ 0x09A736B5, // devBit2
 		[]() -> float { return engineConfiguration->devBit2; },
-		[](float value) { engineConfiguration->devBit2 = value; } },
+		[](float value) { engineConfiguration->devBit2 = value != 0; } },
 	{ 0x09A736B6, // devBit3
 		[]() -> float { return engineConfiguration->devBit3; },
-		[](float value) { engineConfiguration->devBit3 = value; } },
+		[](float value) { engineConfiguration->devBit3 = value != 0; } },
 	{ 0x09A736B7, // devBit4
 		[]() -> float { return engineConfiguration->devBit4; },
-		[](float value) { engineConfiguration->devBit4 = value; } },
+		[](float value) { engineConfiguration->devBit4 = value != 0; } },
 	{ 0x09A736B8, // devBit5
 		[]() -> float { return engineConfiguration->devBit5; },
-		[](float value) { engineConfiguration->devBit5 = value; } },
+		[](float value) { engineConfiguration->devBit5 = value != 0; } },
 	{ 0x09A736B9, // devBit6
 		[]() -> float { return engineConfiguration->devBit6; },
-		[](float value) { engineConfiguration->devBit6 = value; } },
+		[](float value) { engineConfiguration->devBit6 = value != 0; } },
 	{ 0x09A736BA, // devBit7
 		[]() -> float { return engineConfiguration->devBit7; },
-		[](float value) { engineConfiguration->devBit7 = value; } },
+		[](float value) { engineConfiguration->devBit7 = value != 0; } },
 	{ 0x0A0E2C96, // coastingFuelCutRpmLow
 		[]() -> float { return engineConfiguration->coastingFuelCutRpmLow; },
-		[](float value) { engineConfiguration->coastingFuelCutRpmLow = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutRpmLow = static_cast<int16_t>(value); } },
 	{ 0x0A3E83E3, // byFirmwareVersion
 		[]() -> float { return engineConfiguration->byFirmwareVersion; },
-		[](float value) { engineConfiguration->byFirmwareVersion = value; } },
+		[](float value) { engineConfiguration->byFirmwareVersion = static_cast<int>(value); } },
 	{ 0x0A524E8E, // baroSensor.highValue
 		[]() -> float { return engineConfiguration->baroSensor.highValue; },
 		[](float value) { engineConfiguration->baroSensor.highValue = value; } },
 	{ 0x0AA2A39C, // can1ListenMode
 		[]() -> float { return engineConfiguration->can1ListenMode; },
-		[](float value) { engineConfiguration->can1ListenMode = value; } },
+		[](float value) { engineConfiguration->can1ListenMode = value != 0; } },
 	{ 0x0AF0D407, // dynoCarCargoMassKg
 		[]() -> float { return config->dynoCarCargoMassKg; },
-		[](float value) { config->dynoCarCargoMassKg = value; } },
+		[](float value) { config->dynoCarCargoMassKg = static_cast<int16_t>(value); } },
 	{ 0x0BBAE37D, // etb.pFactor
 		[]() -> float { return engineConfiguration->etb.pFactor; },
 		[](float value) { engineConfiguration->etb.pFactor = value; } },
 	{ 0x0C0556CE, // useFixedBaroCorrFromMap
 		[]() -> float { return engineConfiguration->useFixedBaroCorrFromMap; },
-		[](float value) { engineConfiguration->useFixedBaroCorrFromMap = value; } },
+		[](float value) { engineConfiguration->useFixedBaroCorrFromMap = value != 0; } },
 	{ 0x0C2798B9, // rotationalIdleController.auto_engage_clt_enable
 		[]() -> float { return engineConfiguration->rotationalIdleController.auto_engage_clt_enable; },
-		[](float value) { engineConfiguration->rotationalIdleController.auto_engage_clt_enable = value; } },
+		[](float value) { engineConfiguration->rotationalIdleController.auto_engage_clt_enable = value != 0; } },
+	{ 0x0C7839C8, // gearDetectionUseOutputShaftSpeed
+		[]() -> float { return engineConfiguration->gearDetectionUseOutputShaftSpeed; },
+		[](float value) { engineConfiguration->gearDetectionUseOutputShaftSpeed = value != 0; } },
+	{ 0x0C790B04, // ossFilterReciprocal
+		[]() -> float { return engineConfiguration->ossFilterReciprocal; },
+		[](float value) { engineConfiguration->ossFilterReciprocal = static_cast<uint8_t>(value); } },
 	{ 0x0CED367E, // useSeparateAdvanceForIdle
 		[]() -> float { return engineConfiguration->useSeparateAdvanceForIdle; },
-		[](float value) { engineConfiguration->useSeparateAdvanceForIdle = value; } },
+		[](float value) { engineConfiguration->useSeparateAdvanceForIdle = value != 0; } },
 	{ 0x0D2787B8, // dynoCarGearFinalDrive
 		[]() -> float { return config->dynoCarGearFinalDrive; },
 		[](float value) { config->dynoCarGearFinalDrive = value; } },
 	{ 0x0D58D771, // launchCorrectionsEndRpm
 		[]() -> float { return engineConfiguration->launchCorrectionsEndRpm; },
-		[](float value) { engineConfiguration->launchCorrectionsEndRpm = value; } },
+		[](float value) { engineConfiguration->launchCorrectionsEndRpm = static_cast<uint16_t>(value); } },
 	{ 0x0EA8DABA, // enableCanVss
 		[]() -> float { return engineConfiguration->enableCanVss; },
-		[](float value) { engineConfiguration->enableCanVss = value; } },
+		[](float value) { engineConfiguration->enableCanVss = value != 0; } },
 	{ 0x0F7DE662, // enableAemXSeries
 		[]() -> float { return engineConfiguration->enableAemXSeries; },
-		[](float value) { engineConfiguration->enableAemXSeries = value; } },
+		[](float value) { engineConfiguration->enableAemXSeries = value != 0; } },
 	{ 0x0FB0A6E6, // maxInjectorDutySustainedTimeout
 		[]() -> float { return engineConfiguration->maxInjectorDutySustainedTimeout; },
 		[](float value) { engineConfiguration->maxInjectorDutySustainedTimeout = value; } },
@@ -171,85 +186,91 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->egoValueShift = value; } },
 	{ 0x1107D6FE, // isMapAveragingEnabled
 		[]() -> float { return engineConfiguration->isMapAveragingEnabled; },
-		[](float value) { engineConfiguration->isMapAveragingEnabled = value; } },
+		[](float value) { engineConfiguration->isMapAveragingEnabled = value != 0; } },
 	{ 0x112E58A6, // vvtActivationDelayMs
 		[]() -> float { return engineConfiguration->vvtActivationDelayMs; },
-		[](float value) { engineConfiguration->vvtActivationDelayMs = value; } },
+		[](float value) { engineConfiguration->vvtActivationDelayMs = static_cast<uint16_t>(value); } },
+	{ 0x11751046, // fan2AcPressureOn
+		[]() -> float { return engineConfiguration->fan2AcPressureOn; },
+		[](float value) { engineConfiguration->fan2AcPressureOn = static_cast<uint16_t>(value); } },
 	{ 0x11AD3273, // canSleepPeriodMs
 		[]() -> float { return engineConfiguration->canSleepPeriodMs; },
-		[](float value) { engineConfiguration->canSleepPeriodMs = value; } },
+		[](float value) { engineConfiguration->canSleepPeriodMs = static_cast<int>(value); } },
 	{ 0x11C860B1, // acPressureEnableHyst
 		[]() -> float { return engineConfiguration->acPressureEnableHyst; },
 		[](float value) { engineConfiguration->acPressureEnableHyst = value; } },
 	{ 0x11CD084A, // minimumIgnitionTiming
 		[]() -> float { return engineConfiguration->minimumIgnitionTiming; },
-		[](float value) { engineConfiguration->minimumIgnitionTiming = value; } },
+		[](float value) { engineConfiguration->minimumIgnitionTiming = static_cast<int8_t>(value); } },
 	{ 0x1221305F, // kLineDoHondaSend
 		[]() -> float { return engineConfiguration->kLineDoHondaSend; },
-		[](float value) { engineConfiguration->kLineDoHondaSend = value; } },
+		[](float value) { engineConfiguration->kLineDoHondaSend = value != 0; } },
 	{ 0x1241D06E, // camDecoder2jzPrecision
 		[]() -> float { return engineConfiguration->camDecoder2jzPrecision; },
-		[](float value) { engineConfiguration->camDecoder2jzPrecision = value; } },
+		[](float value) { engineConfiguration->camDecoder2jzPrecision = static_cast<uint8_t>(value); } },
 	{ 0x1275609E, // mapErrorDetectionTooHigh
 		[]() -> float { return engineConfiguration->mapErrorDetectionTooHigh; },
 		[](float value) { engineConfiguration->mapErrorDetectionTooHigh = value; } },
+	{ 0x129CDC7E, // smShiftLatchTimeMs
+		[]() -> float { return engineConfiguration->smShiftLatchTimeMs; },
+		[](float value) { engineConfiguration->smShiftLatchTimeMs = static_cast<uint16_t>(value); } },
 	{ 0x139C62E3, // coastingFuelCutVssLow
 		[]() -> float { return engineConfiguration->coastingFuelCutVssLow; },
-		[](float value) { engineConfiguration->coastingFuelCutVssLow = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutVssLow = static_cast<uint8_t>(value); } },
 	{ 0x13EFFC0D, // hpfpPumpVolume
 		[]() -> float { return engineConfiguration->hpfpPumpVolume; },
 		[](float value) { engineConfiguration->hpfpPumpVolume = value; } },
 	{ 0x14192CAA, // stepperDcInvertedPins
 		[]() -> float { return engineConfiguration->stepperDcInvertedPins; },
-		[](float value) { engineConfiguration->stepperDcInvertedPins = value; } },
+		[](float value) { engineConfiguration->stepperDcInvertedPins = value != 0; } },
 	{ 0x145B2D61, // ltitSmoothingIntensity
 		[]() -> float { return engineConfiguration->ltitSmoothingIntensity; },
 		[](float value) { engineConfiguration->ltitSmoothingIntensity = value; } },
 	{ 0x145DD579, // ltitStableRpmThreshold
 		[]() -> float { return engineConfiguration->ltitStableRpmThreshold; },
-		[](float value) { engineConfiguration->ltitStableRpmThreshold = value; } },
+		[](float value) { engineConfiguration->ltitStableRpmThreshold = static_cast<uint8_t>(value); } },
 	{ 0x14A57F91, // wizardFiringOrder
 		[]() -> float { return config->wizardFiringOrder; },
-		[](float value) { config->wizardFiringOrder = value; } },
+		[](float value) { config->wizardFiringOrder = value != 0; } },
 	{ 0x14A5E899, // wizardVeTable
 		[]() -> float { return config->wizardVeTable; },
-		[](float value) { config->wizardVeTable = value; } },
+		[](float value) { config->wizardVeTable = value != 0; } },
 	{ 0x1535AD96, // compressionRatio
 		[]() -> float { return engineConfiguration->compressionRatio; },
 		[](float value) { engineConfiguration->compressionRatio = value; } },
 	{ 0x169D3BC9, // mc33_i_hold
 		[]() -> float { return engineConfiguration->mc33_i_hold; },
-		[](float value) { engineConfiguration->mc33_i_hold = value; } },
+		[](float value) { engineConfiguration->mc33_i_hold = static_cast<uint16_t>(value); } },
 	{ 0x16A172E3, // mc33_i_peak
 		[]() -> float { return engineConfiguration->mc33_i_peak; },
-		[](float value) { engineConfiguration->mc33_i_peak = value; } },
+		[](float value) { engineConfiguration->mc33_i_peak = static_cast<uint16_t>(value); } },
 	{ 0x16D8CD4B, // auxFrequencyFilter
 		[]() -> float { return engineConfiguration->auxFrequencyFilter; },
 		[](float value) { engineConfiguration->auxFrequencyFilter = value; } },
 	{ 0x171FBE29, // trigger.customSkippedToothCount
 		[]() -> float { return engineConfiguration->trigger.customSkippedToothCount; },
-		[](float value) { engineConfiguration->trigger.customSkippedToothCount = value; } },
+		[](float value) { engineConfiguration->trigger.customSkippedToothCount = static_cast<int>(value); } },
 	{ 0x17CF6199, // etbRevLimitRange
 		[]() -> float { return engineConfiguration->etbRevLimitRange; },
-		[](float value) { engineConfiguration->etbRevLimitRange = value; } },
+		[](float value) { engineConfiguration->etbRevLimitRange = static_cast<uint16_t>(value); } },
 	{ 0x17EBAF7A, // etbRevLimitStart
 		[]() -> float { return engineConfiguration->etbRevLimitStart; },
-		[](float value) { engineConfiguration->etbRevLimitStart = value; } },
+		[](float value) { engineConfiguration->etbRevLimitStart = static_cast<uint16_t>(value); } },
 	{ 0x17F66ED9, // idleTimingPid.maxValue
 		[]() -> float { return engineConfiguration->idleTimingPid.maxValue; },
-		[](float value) { engineConfiguration->idleTimingPid.maxValue = value; } },
+		[](float value) { engineConfiguration->idleTimingPid.maxValue = static_cast<int16_t>(value); } },
 	{ 0x17F770DD, // multisparkMaxSparkingAngle
 		[]() -> float { return engineConfiguration->multisparkMaxSparkingAngle; },
-		[](float value) { engineConfiguration->multisparkMaxSparkingAngle = value; } },
+		[](float value) { engineConfiguration->multisparkMaxSparkingAngle = static_cast<uint8_t>(value); } },
 	{ 0x183C570E, // iat.config.bias_resistor
 		[]() -> float { return engineConfiguration->iat.config.bias_resistor; },
 		[](float value) { engineConfiguration->iat.config.bias_resistor = value; } },
 	{ 0x19407A1C, // ltitIgnitionOffSaveDelay
 		[]() -> float { return engineConfiguration->ltitIgnitionOffSaveDelay; },
-		[](float value) { engineConfiguration->ltitIgnitionOffSaveDelay = value; } },
+		[](float value) { engineConfiguration->ltitIgnitionOffSaveDelay = static_cast<uint8_t>(value); } },
 	{ 0x19F6F409, // useInjectorFlowLinearizationTable
 		[]() -> float { return engineConfiguration->useInjectorFlowLinearizationTable; },
-		[](float value) { engineConfiguration->useInjectorFlowLinearizationTable = value; } },
+		[](float value) { engineConfiguration->useInjectorFlowLinearizationTable = value != 0; } },
 	{ 0x1A0478D9, // hpfpPidI
 		[]() -> float { return engineConfiguration->hpfpPidI; },
 		[](float value) { engineConfiguration->hpfpPidI = value; } },
@@ -258,40 +279,46 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->hpfpPidP = value; } },
 	{ 0x1A80CD9B, // injectorFlowAsMassFlow
 		[]() -> float { return engineConfiguration->injectorFlowAsMassFlow; },
-		[](float value) { engineConfiguration->injectorFlowAsMassFlow = value; } },
+		[](float value) { engineConfiguration->injectorFlowAsMassFlow = value != 0; } },
 	{ 0x1A892144, // allowIdenticalPps
 		[]() -> float { return engineConfiguration->allowIdenticalPps; },
-		[](float value) { engineConfiguration->allowIdenticalPps = value; } },
+		[](float value) { engineConfiguration->allowIdenticalPps = value != 0; } },
 	{ 0x1B18E259, // twoWireBatchIgnition
 		[]() -> float { return engineConfiguration->twoWireBatchIgnition; },
-		[](float value) { engineConfiguration->twoWireBatchIgnition = value; } },
+		[](float value) { engineConfiguration->twoWireBatchIgnition = value != 0; } },
 	{ 0x1B3FB0E6, // ppsExpAverageAlpha
 		[]() -> float { return engineConfiguration->ppsExpAverageAlpha; },
 		[](float value) { engineConfiguration->ppsExpAverageAlpha = value; } },
 	{ 0x1BC65308, // engineSnifferFocusOnInputs
 		[]() -> float { return engineConfiguration->engineSnifferFocusOnInputs; },
-		[](float value) { engineConfiguration->engineSnifferFocusOnInputs = value; } },
+		[](float value) { engineConfiguration->engineSnifferFocusOnInputs = value != 0; } },
 	{ 0x1C0C1A99, // canInputBCM
 		[]() -> float { return engineConfiguration->canInputBCM; },
-		[](float value) { engineConfiguration->canInputBCM = value; } },
+		[](float value) { engineConfiguration->canInputBCM = value != 0; } },
 	{ 0x1CCA25D8, // acDelay
 		[]() -> float { return engineConfiguration->acDelay; },
 		[](float value) { engineConfiguration->acDelay = value; } },
 	{ 0x1D938FAC, // ltitStableTime
 		[]() -> float { return engineConfiguration->ltitStableTime; },
-		[](float value) { engineConfiguration->ltitStableTime = value; } },
+		[](float value) { engineConfiguration->ltitStableTime = static_cast<uint8_t>(value); } },
+	{ 0x1DFCB724, // secondaryFpActivationRpm
+		[]() -> float { return engineConfiguration->secondaryFpActivationRpm; },
+		[](float value) { engineConfiguration->secondaryFpActivationRpm = static_cast<uint16_t>(value); } },
+	{ 0x1DFCBFAC, // secondaryFpActivationTps
+		[]() -> float { return engineConfiguration->secondaryFpActivationTps; },
+		[](float value) { engineConfiguration->secondaryFpActivationTps = static_cast<uint8_t>(value); } },
 	{ 0x1E92674F, // flexSensorInverted
 		[]() -> float { return engineConfiguration->flexSensorInverted; },
-		[](float value) { engineConfiguration->flexSensorInverted = value; } },
+		[](float value) { engineConfiguration->flexSensorInverted = value != 0; } },
 	{ 0x1FE54276, // hpfpPid_iTermMax
 		[]() -> float { return engineConfiguration->hpfpPid_iTermMax; },
-		[](float value) { engineConfiguration->hpfpPid_iTermMax = value; } },
+		[](float value) { engineConfiguration->hpfpPid_iTermMax = static_cast<int16_t>(value); } },
 	{ 0x1FE54374, // hpfpPid_iTermMin
 		[]() -> float { return engineConfiguration->hpfpPid_iTermMin; },
-		[](float value) { engineConfiguration->hpfpPid_iTermMin = value; } },
+		[](float value) { engineConfiguration->hpfpPid_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x210E4FB0, // wizardMapSensorType
 		[]() -> float { return config->wizardMapSensorType; },
-		[](float value) { config->wizardMapSensorType = value; } },
+		[](float value) { config->wizardMapSensorType = value != 0; } },
 	{ 0x227D9D56, // mc33_hpfp_i_hold
 		[]() -> float { return engineConfiguration->mc33_hpfp_i_hold; },
 		[](float value) { engineConfiguration->mc33_hpfp_i_hold = value; } },
@@ -300,34 +327,37 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->mc33_hpfp_i_peak = value; } },
 	{ 0x22B69232, // silentTriggerError
 		[]() -> float { return engineConfiguration->silentTriggerError; },
-		[](float value) { engineConfiguration->silentTriggerError = value; } },
+		[](float value) { engineConfiguration->silentTriggerError = value != 0; } },
 	{ 0x22FB3313, // useIdleAdvanceWhileCoasting
 		[]() -> float { return engineConfiguration->useIdleAdvanceWhileCoasting; },
-		[](float value) { engineConfiguration->useIdleAdvanceWhileCoasting = value; } },
+		[](float value) { engineConfiguration->useIdleAdvanceWhileCoasting = value != 0; } },
 	{ 0x231F1EB3, // dynoCarGearRatio
 		[]() -> float { return config->dynoCarGearRatio; },
 		[](float value) { config->dynoCarGearRatio = value; } },
 	{ 0x2373C3F7, // camDecoder2jzPosition
 		[]() -> float { return engineConfiguration->camDecoder2jzPosition; },
-		[](float value) { engineConfiguration->camDecoder2jzPosition = value; } },
+		[](float value) { engineConfiguration->camDecoder2jzPosition = static_cast<uint16_t>(value); } },
 	{ 0x238F2ADA, // minimumBoostClosedLoopMap
 		[]() -> float { return engineConfiguration->minimumBoostClosedLoopMap; },
-		[](float value) { engineConfiguration->minimumBoostClosedLoopMap = value; } },
+		[](float value) { engineConfiguration->minimumBoostClosedLoopMap = static_cast<uint16_t>(value); } },
+	{ 0x23C7EB20, // smRelatchOnClutchDown
+		[]() -> float { return engineConfiguration->smRelatchOnClutchDown; },
+		[](float value) { engineConfiguration->smRelatchOnClutchDown = value != 0; } },
 	{ 0x23CD1635, // modeledFlowIdle
 		[]() -> float { return engineConfiguration->modeledFlowIdle; },
-		[](float value) { engineConfiguration->modeledFlowIdle = value; } },
+		[](float value) { engineConfiguration->modeledFlowIdle = value != 0; } },
 	{ 0x23D3F773, // dfcoRetardDeg
 		[]() -> float { return engineConfiguration->dfcoRetardDeg; },
-		[](float value) { engineConfiguration->dfcoRetardDeg = value; } },
+		[](float value) { engineConfiguration->dfcoRetardDeg = static_cast<uint8_t>(value); } },
 	{ 0x23E28193, // rotationalIdleController.auto_engage_clt
 		[]() -> float { return engineConfiguration->rotationalIdleController.auto_engage_clt; },
-		[](float value) { engineConfiguration->rotationalIdleController.auto_engage_clt = value; } },
+		[](float value) { engineConfiguration->rotationalIdleController.auto_engage_clt = static_cast<int8_t>(value); } },
 	{ 0x24CBD269, // multisparkDwell
 		[]() -> float { return engineConfiguration->multisparkDwell; },
 		[](float value) { engineConfiguration->multisparkDwell = value; } },
 	{ 0x2545E989, // tpsErrorDetectionTooLow
 		[]() -> float { return engineConfiguration->tpsErrorDetectionTooLow; },
-		[](float value) { engineConfiguration->tpsErrorDetectionTooLow = value; } },
+		[](float value) { engineConfiguration->tpsErrorDetectionTooLow = static_cast<int16_t>(value); } },
 	{ 0x25805887, // auxTempSensor1.config.resistance_1
 		[]() -> float { return engineConfiguration->auxTempSensor1.config.resistance_1; },
 		[](float value) { engineConfiguration->auxTempSensor1.config.resistance_1 = value; } },
@@ -339,49 +369,58 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxTempSensor1.config.resistance_3 = value; } },
 	{ 0x2668EA06, // startCrankingDuration
 		[]() -> float { return engineConfiguration->startCrankingDuration; },
-		[](float value) { engineConfiguration->startCrankingDuration = value; } },
+		[](float value) { engineConfiguration->startCrankingDuration = static_cast<uint16_t>(value); } },
+	{ 0x27079685, // secondaryFpRpmHysteresis
+		[]() -> float { return engineConfiguration->secondaryFpRpmHysteresis; },
+		[](float value) { engineConfiguration->secondaryFpRpmHysteresis = static_cast<uint16_t>(value); } },
 	{ 0x27852573, // mc33_hpfp_max_hold
 		[]() -> float { return engineConfiguration->mc33_hpfp_max_hold; },
-		[](float value) { engineConfiguration->mc33_hpfp_max_hold = value; } },
+		[](float value) { engineConfiguration->mc33_hpfp_max_hold = static_cast<uint8_t>(value); } },
 	{ 0x27A379D5, // triggerEventsTimeoutMs
 		[]() -> float { return engineConfiguration->triggerEventsTimeoutMs; },
 		[](float value) { engineConfiguration->triggerEventsTimeoutMs = value; } },
 	{ 0x27B3DC6C, // vvlController.fuelAdderPercent
 		[]() -> float { return engineConfiguration->vvlController.fuelAdderPercent; },
-		[](float value) { engineConfiguration->vvlController.fuelAdderPercent = value; } },
+		[](float value) { engineConfiguration->vvlController.fuelAdderPercent = static_cast<int8_t>(value); } },
 	{ 0x27C95005, // useLinearIatSensor
 		[]() -> float { return engineConfiguration->useLinearIatSensor; },
-		[](float value) { engineConfiguration->useLinearIatSensor = value; } },
+		[](float value) { engineConfiguration->useLinearIatSensor = value != 0; } },
+	{ 0x27D2CABA, // fuelPumpAggressiveRelief
+		[]() -> float { return engineConfiguration->fuelPumpAggressiveRelief; },
+		[](float value) { engineConfiguration->fuelPumpAggressiveRelief = value != 0; } },
 	{ 0x27F938DC, // tChargeAirDecrLimit
 		[]() -> float { return engineConfiguration->tChargeAirDecrLimit; },
 		[](float value) { engineConfiguration->tChargeAirDecrLimit = value; } },
 	{ 0x280B2CE0, // usescriptTableForCanSniffingFiltering
 		[]() -> float { return engineConfiguration->usescriptTableForCanSniffingFiltering; },
-		[](float value) { engineConfiguration->usescriptTableForCanSniffingFiltering = value; } },
+		[](float value) { engineConfiguration->usescriptTableForCanSniffingFiltering = value != 0; } },
+	{ 0x28BCCAD3, // smTransientHoldTimeMs
+		[]() -> float { return engineConfiguration->smTransientHoldTimeMs; },
+		[](float value) { engineConfiguration->smTransientHoldTimeMs = static_cast<uint16_t>(value); } },
 	{ 0x28DB322D, // useSeparateAdvanceForCranking
 		[]() -> float { return engineConfiguration->useSeparateAdvanceForCranking; },
-		[](float value) { engineConfiguration->useSeparateAdvanceForCranking = value; } },
+		[](float value) { engineConfiguration->useSeparateAdvanceForCranking = value != 0; } },
 	{ 0x2B4F3D65, // multisparkMaxExtraSparkCount
 		[]() -> float { return engineConfiguration->multisparkMaxExtraSparkCount; },
-		[](float value) { engineConfiguration->multisparkMaxExtraSparkCount = value; } },
+		[](float value) { engineConfiguration->multisparkMaxExtraSparkCount = static_cast<uint8_t>(value); } },
 	{ 0x2B5628EA, // wizardPanelToShow
 		[]() -> float { return engineConfiguration->wizardPanelToShow; },
-		[](float value) { engineConfiguration->wizardPanelToShow = value; } },
+		[](float value) { engineConfiguration->wizardPanelToShow = static_cast<int>(value); } },
 	{ 0x2BC460A0, // auxTempSensor2.config.bias_resistor
 		[]() -> float { return engineConfiguration->auxTempSensor2.config.bias_resistor; },
 		[](float value) { engineConfiguration->auxTempSensor2.config.bias_resistor = value; } },
 	{ 0x2C4BC6A6, // ltitCorrectionRate
 		[]() -> float { return engineConfiguration->ltitCorrectionRate; },
-		[](float value) { engineConfiguration->ltitCorrectionRate = value; } },
+		[](float value) { engineConfiguration->ltitCorrectionRate = static_cast<uint8_t>(value); } },
 	{ 0x2C8F1064, // startRequestPinInverted
 		[]() -> float { return engineConfiguration->startRequestPinInverted; },
-		[](float value) { engineConfiguration->startRequestPinInverted = value; } },
+		[](float value) { engineConfiguration->startRequestPinInverted = value != 0; } },
 	{ 0x2D0833DA, // invertVvtControlIntake
 		[]() -> float { return engineConfiguration->invertVvtControlIntake; },
-		[](float value) { engineConfiguration->invertVvtControlIntake = value; } },
+		[](float value) { engineConfiguration->invertVvtControlIntake = value != 0; } },
 	{ 0x2D17A09C, // sparkHardwareLatencyCorrection
 		[]() -> float { return engineConfiguration->sparkHardwareLatencyCorrection; },
-		[](float value) { engineConfiguration->sparkHardwareLatencyCorrection = value; } },
+		[](float value) { engineConfiguration->sparkHardwareLatencyCorrection = static_cast<uint8_t>(value); } },
 	{ 0x2D908238, // lowPressureFuel.value1
 		[]() -> float { return engineConfiguration->lowPressureFuel.value1; },
 		[](float value) { engineConfiguration->lowPressureFuel.value1 = value; } },
@@ -390,40 +429,43 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->lowPressureFuel.value2 = value; } },
 	{ 0x2E5EA578, // boostPid.minValue
 		[]() -> float { return engineConfiguration->boostPid.minValue; },
-		[](float value) { engineConfiguration->boostPid.minValue = value; } },
+		[](float value) { engineConfiguration->boostPid.minValue = static_cast<int16_t>(value); } },
 	{ 0x2EEEB992, // alwaysWriteSdCard
 		[]() -> float { return engineConfiguration->alwaysWriteSdCard; },
-		[](float value) { engineConfiguration->alwaysWriteSdCard = value; } },
+		[](float value) { engineConfiguration->alwaysWriteSdCard = value != 0; } },
+	{ 0x2F2D5394, // rollingLaunchFuelAdderPercent
+		[]() -> float { return engineConfiguration->rollingLaunchFuelAdderPercent; },
+		[](float value) { engineConfiguration->rollingLaunchFuelAdderPercent = static_cast<uint8_t>(value); } },
 	{ 0x2F60E557, // etbWastegatePid.offset
 		[]() -> float { return engineConfiguration->etbWastegatePid.offset; },
-		[](float value) { engineConfiguration->etbWastegatePid.offset = value; } },
+		[](float value) { engineConfiguration->etbWastegatePid.offset = static_cast<int16_t>(value); } },
 	{ 0x2FABF3C7, // alternatorPwmFrequency
 		[]() -> float { return engineConfiguration->alternatorPwmFrequency; },
-		[](float value) { engineConfiguration->alternatorPwmFrequency = value; } },
+		[](float value) { engineConfiguration->alternatorPwmFrequency = static_cast<int>(value); } },
 	{ 0x32098D0B, // useRawOutputToDriveIdleStepper
 		[]() -> float { return engineConfiguration->useRawOutputToDriveIdleStepper; },
-		[](float value) { engineConfiguration->useRawOutputToDriveIdleStepper = value; } },
+		[](float value) { engineConfiguration->useRawOutputToDriveIdleStepper = value != 0; } },
 	{ 0x32202244, // overrideVvtTriggerGaps
 		[]() -> float { return engineConfiguration->overrideVvtTriggerGaps; },
-		[](float value) { engineConfiguration->overrideVvtTriggerGaps = value; } },
+		[](float value) { engineConfiguration->overrideVvtTriggerGaps = value != 0; } },
 	{ 0x333450CA, // fan1PwmEnabled
 		[]() -> float { return engineConfiguration->fan1PwmEnabled; },
-		[](float value) { engineConfiguration->fan1PwmEnabled = value; } },
+		[](float value) { engineConfiguration->fan1PwmEnabled = value != 0; } },
 	{ 0x339F36EC, // wastegatePositionOpenedVoltage
 		[]() -> float { return engineConfiguration->wastegatePositionOpenedVoltage; },
 		[](float value) { engineConfiguration->wastegatePositionOpenedVoltage = value; } },
 	{ 0x33BAB9C5, // misfireConsecutiveCount
 		[]() -> float { return engineConfiguration->misfireConsecutiveCount; },
-		[](float value) { engineConfiguration->misfireConsecutiveCount = value; } },
+		[](float value) { engineConfiguration->misfireConsecutiveCount = static_cast<uint8_t>(value); } },
 	{ 0x33EC0817, // fan2OnTemperature
 		[]() -> float { return engineConfiguration->fan2OnTemperature; },
-		[](float value) { engineConfiguration->fan2OnTemperature = value; } },
+		[](float value) { engineConfiguration->fan2OnTemperature = static_cast<int16_t>(value); } },
 	{ 0x34004D60, // lambdaProtectionRestoreRpm
 		[]() -> float { return engineConfiguration->lambdaProtectionRestoreRpm; },
 		[](float value) { engineConfiguration->lambdaProtectionRestoreRpm = value; } },
 	{ 0x340055E8, // lambdaProtectionRestoreTps
 		[]() -> float { return engineConfiguration->lambdaProtectionRestoreTps; },
-		[](float value) { engineConfiguration->lambdaProtectionRestoreTps = value; } },
+		[](float value) { engineConfiguration->lambdaProtectionRestoreTps = static_cast<uint8_t>(value); } },
 	{ 0x345ADC7D, // compressorDischargeTemperature.config.resistance_1
 		[]() -> float { return engineConfiguration->compressorDischargeTemperature.config.resistance_1; },
 		[](float value) { engineConfiguration->compressorDischargeTemperature.config.resistance_1 = value; } },
@@ -435,46 +477,49 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->compressorDischargeTemperature.config.resistance_3 = value; } },
 	{ 0x35397794, // knockDetectionUseDoubleFrequency
 		[]() -> float { return engineConfiguration->knockDetectionUseDoubleFrequency; },
-		[](float value) { engineConfiguration->knockDetectionUseDoubleFrequency = value; } },
+		[](float value) { engineConfiguration->knockDetectionUseDoubleFrequency = value != 0; } },
 	{ 0x3545F3DB, // knockSuppressMinTps
 		[]() -> float { return engineConfiguration->knockSuppressMinTps; },
-		[](float value) { engineConfiguration->knockSuppressMinTps = value; } },
+		[](float value) { engineConfiguration->knockSuppressMinTps = static_cast<uint8_t>(value); } },
 	{ 0x35735F30, // maxInjectorDutyInstant
 		[]() -> float { return engineConfiguration->maxInjectorDutyInstant; },
-		[](float value) { engineConfiguration->maxInjectorDutyInstant = value; } },
+		[](float value) { engineConfiguration->maxInjectorDutyInstant = static_cast<uint8_t>(value); } },
 	{ 0x35DA0F69, // dynoSaeTemperatureC
 		[]() -> float { return config->dynoSaeTemperatureC; },
-		[](float value) { config->dynoSaeTemperatureC = value; } },
+		[](float value) { config->dynoSaeTemperatureC = static_cast<int8_t>(value); } },
 	{ 0x35EE5CDC, // launchRpmThreshold
 		[]() -> float { return engineConfiguration->launchRpmThreshold; },
-		[](float value) { engineConfiguration->launchRpmThreshold = value; } },
+		[](float value) { engineConfiguration->launchRpmThreshold = static_cast<uint16_t>(value); } },
 	{ 0x37063022, // enableExtendedCanBroadcast
 		[]() -> float { return engineConfiguration->enableExtendedCanBroadcast; },
-		[](float value) { engineConfiguration->enableExtendedCanBroadcast = value; } },
+		[](float value) { engineConfiguration->enableExtendedCanBroadcast = value != 0; } },
 	{ 0x378A7FBD, // referenceVeForGenerator
 		[]() -> float { return engineConfiguration->referenceVeForGenerator; },
 		[](float value) { engineConfiguration->referenceVeForGenerator = value; } },
 	{ 0x37AF7C24, // useMetricOnInterface
 		[]() -> float { return engineConfiguration->useMetricOnInterface; },
-		[](float value) { engineConfiguration->useMetricOnInterface = value; } },
+		[](float value) { engineConfiguration->useMetricOnInterface = value != 0; } },
 	{ 0x38047502, // useCltBasedRpmLimit
 		[]() -> float { return engineConfiguration->useCltBasedRpmLimit; },
-		[](float value) { engineConfiguration->useCltBasedRpmLimit = value; } },
+		[](float value) { engineConfiguration->useCltBasedRpmLimit = value != 0; } },
+	{ 0x380C80FE, // useEngineStateMachine
+		[]() -> float { return engineConfiguration->useEngineStateMachine; },
+		[](float value) { engineConfiguration->useEngineStateMachine = value != 0; } },
 	{ 0x384E5610, // mc33_hpfp_i_hold_off
 		[]() -> float { return engineConfiguration->mc33_hpfp_i_hold_off; },
-		[](float value) { engineConfiguration->mc33_hpfp_i_hold_off = value; } },
+		[](float value) { engineConfiguration->mc33_hpfp_i_hold_off = static_cast<uint8_t>(value); } },
 	{ 0x38AF03E1, // consumeObdSensors
 		[]() -> float { return engineConfiguration->consumeObdSensors; },
-		[](float value) { engineConfiguration->consumeObdSensors = value; } },
+		[](float value) { engineConfiguration->consumeObdSensors = value != 0; } },
 	{ 0x390E6271, // useNoiselessTriggerDecoder
 		[]() -> float { return engineConfiguration->useNoiselessTriggerDecoder; },
-		[](float value) { engineConfiguration->useNoiselessTriggerDecoder = value; } },
+		[](float value) { engineConfiguration->useNoiselessTriggerDecoder = value != 0; } },
 	{ 0x39E7093F, // boostPid.iFactor
 		[]() -> float { return engineConfiguration->boostPid.iFactor; },
 		[](float value) { engineConfiguration->boostPid.iFactor = value; } },
 	{ 0x3A9AEC85, // fan1MaxPwm
 		[]() -> float { return engineConfiguration->fan1MaxPwm; },
-		[](float value) { engineConfiguration->fan1MaxPwm = value; } },
+		[](float value) { engineConfiguration->fan1MaxPwm = static_cast<uint8_t>(value); } },
 	{ 0x3AA3D233, // turbochargerFilter
 		[]() -> float { return engineConfiguration->turbochargerFilter; },
 		[](float value) { engineConfiguration->turbochargerFilter = value; } },
@@ -483,82 +528,88 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->driveWheelRevPerKm = value; } },
 	{ 0x3B2634C3, // fan1MinPwm
 		[]() -> float { return engineConfiguration->fan1MinPwm; },
-		[](float value) { engineConfiguration->fan1MinPwm = value; } },
-	{ 0x3B344893, // enableFan2WithAc
-		[]() -> float { return engineConfiguration->enableFan2WithAc; },
-		[](float value) { engineConfiguration->enableFan2WithAc = value; } },
+		[](float value) { engineConfiguration->fan1MinPwm = static_cast<uint8_t>(value); } },
 	{ 0x3B630B12, // camSyncOnSecondCrankRevolution
 		[]() -> float { return engineConfiguration->camSyncOnSecondCrankRevolution; },
-		[](float value) { engineConfiguration->camSyncOnSecondCrankRevolution = value; } },
+		[](float value) { engineConfiguration->camSyncOnSecondCrankRevolution = value != 0; } },
 	{ 0x3BA8D7F8, // dynoCarWheelTireWidthMm
 		[]() -> float { return config->dynoCarWheelTireWidthMm; },
-		[](float value) { config->dynoCarWheelTireWidthMm = value; } },
+		[](float value) { config->dynoCarWheelTireWidthMm = static_cast<int16_t>(value); } },
 	{ 0x3C0BA76A, // speedometerPulsePerKm
 		[]() -> float { return engineConfiguration->speedometerPulsePerKm; },
-		[](float value) { engineConfiguration->speedometerPulsePerKm = value; } },
+		[](float value) { engineConfiguration->speedometerPulsePerKm = static_cast<uint16_t>(value); } },
 	{ 0x3D1EC2E0, // hpfpTargetDecay
 		[]() -> float { return engineConfiguration->hpfpTargetDecay; },
-		[](float value) { engineConfiguration->hpfpTargetDecay = value; } },
+		[](float value) { engineConfiguration->hpfpTargetDecay = static_cast<uint16_t>(value); } },
 	{ 0x3D53CEB6, // stft.startupDelay
 		[]() -> float { return engineConfiguration->stft.startupDelay; },
-		[](float value) { engineConfiguration->stft.startupDelay = value; } },
+		[](float value) { engineConfiguration->stft.startupDelay = static_cast<uint8_t>(value); } },
 	{ 0x3E8E0D44, // devBit01
 		[]() -> float { return engineConfiguration->devBit01; },
-		[](float value) { engineConfiguration->devBit01 = value; } },
+		[](float value) { engineConfiguration->devBit01 = value != 0; } },
 	{ 0x3E931DCD, // ltitEnabled
 		[]() -> float { return engineConfiguration->ltitEnabled; },
-		[](float value) { engineConfiguration->ltitEnabled = value; } },
+		[](float value) { engineConfiguration->ltitEnabled = value != 0; } },
 	{ 0x3F0B3F1F, // etbJamTimeout
 		[]() -> float { return engineConfiguration->etbJamTimeout; },
 		[](float value) { engineConfiguration->etbJamTimeout = value; } },
+	{ 0x3F1A9854, // speedometerBenchTestFrequency
+		[]() -> float { return engineConfiguration->speedometerBenchTestFrequency; },
+		[](float value) { engineConfiguration->speedometerBenchTestFrequency = static_cast<uint16_t>(value); } },
 	{ 0x3F379163, // useAdvanceCorrectionsForCranking
 		[]() -> float { return engineConfiguration->useAdvanceCorrectionsForCranking; },
-		[](float value) { engineConfiguration->useAdvanceCorrectionsForCranking = value; } },
+		[](float value) { engineConfiguration->useAdvanceCorrectionsForCranking = value != 0; } },
 	{ 0x3F717241, // idleIncrementalPidCic
 		[]() -> float { return engineConfiguration->idleIncrementalPidCic; },
-		[](float value) { engineConfiguration->idleIncrementalPidCic = value; } },
+		[](float value) { engineConfiguration->idleIncrementalPidCic = value != 0; } },
 	{ 0x3FAE1B0F, // luaCanRxWorkaround
 		[]() -> float { return engineConfiguration->luaCanRxWorkaround; },
-		[](float value) { engineConfiguration->luaCanRxWorkaround = value; } },
+		[](float value) { engineConfiguration->luaCanRxWorkaround = value != 0; } },
 	{ 0x3FE73783, // nitrousDeactivationRpm
 		[]() -> float { return engineConfiguration->nitrousDeactivationRpm; },
-		[](float value) { engineConfiguration->nitrousDeactivationRpm = value; } },
+		[](float value) { engineConfiguration->nitrousDeactivationRpm = static_cast<uint16_t>(value); } },
 	{ 0x40141893, // dwellDutyModeEnabled
 		[]() -> float { return engineConfiguration->dwellDutyModeEnabled; },
-		[](float value) { engineConfiguration->dwellDutyModeEnabled = value; } },
+		[](float value) { engineConfiguration->dwellDutyModeEnabled = value != 0; } },
+	{ 0x40171864, // fan2AcPressureOff
+		[]() -> float { return engineConfiguration->fan2AcPressureOff; },
+		[](float value) { engineConfiguration->fan2AcPressureOff = static_cast<uint16_t>(value); } },
 	{ 0x4038D9D5, // fan2OffTemperature
 		[]() -> float { return engineConfiguration->fan2OffTemperature; },
-		[](float value) { engineConfiguration->fan2OffTemperature = value; } },
+		[](float value) { engineConfiguration->fan2OffTemperature = static_cast<int16_t>(value); } },
 	{ 0x406F272C, // invertCamVVTSignal
 		[]() -> float { return engineConfiguration->invertCamVVTSignal; },
-		[](float value) { engineConfiguration->invertCamVVTSignal = value; } },
+		[](float value) { engineConfiguration->invertCamVVTSignal = value != 0; } },
 	{ 0x4075B92B, // rethrowHardFault
 		[]() -> float { return engineConfiguration->rethrowHardFault; },
-		[](float value) { engineConfiguration->rethrowHardFault = value; } },
+		[](float value) { engineConfiguration->rethrowHardFault = value != 0; } },
 	{ 0x40EE2398, // nitrousMinimumClt
 		[]() -> float { return engineConfiguration->nitrousMinimumClt; },
-		[](float value) { engineConfiguration->nitrousMinimumClt = value; } },
+		[](float value) { engineConfiguration->nitrousMinimumClt = static_cast<int16_t>(value); } },
 	{ 0x40EE6C6C, // nitrousMinimumTps
 		[]() -> float { return engineConfiguration->nitrousMinimumTps; },
-		[](float value) { engineConfiguration->nitrousMinimumTps = value; } },
+		[](float value) { engineConfiguration->nitrousMinimumTps = static_cast<int>(value); } },
 	{ 0x414387AD, // rpmSoftLimitFuelAdded
 		[]() -> float { return engineConfiguration->rpmSoftLimitFuelAdded; },
 		[](float value) { engineConfiguration->rpmSoftLimitFuelAdded = value; } },
 	{ 0x416AD6B7, // isDoubleSolenoidIdle
 		[]() -> float { return engineConfiguration->isDoubleSolenoidIdle; },
-		[](float value) { engineConfiguration->isDoubleSolenoidIdle = value; } },
+		[](float value) { engineConfiguration->isDoubleSolenoidIdle = value != 0; } },
 	{ 0x427C5C90, // fan1SoftStartSec
 		[]() -> float { return engineConfiguration->fan1SoftStartSec; },
 		[](float value) { engineConfiguration->fan1SoftStartSec = value; } },
 	{ 0x429CB6ED, // tpsAccelFractionPeriod
 		[]() -> float { return engineConfiguration->tpsAccelFractionPeriod; },
-		[](float value) { engineConfiguration->tpsAccelFractionPeriod = value; } },
+		[](float value) { engineConfiguration->tpsAccelFractionPeriod = static_cast<int16_t>(value); } },
 	{ 0x434CD837, // mc33_t_min_boost
 		[]() -> float { return engineConfiguration->mc33_t_min_boost; },
-		[](float value) { engineConfiguration->mc33_t_min_boost = value; } },
+		[](float value) { engineConfiguration->mc33_t_min_boost = static_cast<uint16_t>(value); } },
+	{ 0x43D215F6, // burstKnockEnabled
+		[]() -> float { return engineConfiguration->burstKnockEnabled; },
+		[](float value) { engineConfiguration->burstKnockEnabled = value != 0; } },
 	{ 0x44408E26, // hpfpPeakPos
 		[]() -> float { return engineConfiguration->hpfpPeakPos; },
-		[](float value) { engineConfiguration->hpfpPeakPos = value; } },
+		[](float value) { engineConfiguration->hpfpPeakPos = static_cast<int16_t>(value); } },
 	{ 0x444CDDAA, // idleStepperReactionTime
 		[]() -> float { return engineConfiguration->idleStepperReactionTime; },
 		[](float value) { engineConfiguration->idleStepperReactionTime = value; } },
@@ -568,42 +619,51 @@ const ConfigParameter allParameters[] = {
 	{ 0x44B1AD2E, // cel_iat_min_v
 		[]() -> float { return config->cel_iat_min_v; },
 		[](float value) { config->cel_iat_min_v = value; } },
+	{ 0x44DE0F0A, // rollingLaunchMinArmRpm
+		[]() -> float { return engineConfiguration->rollingLaunchMinArmRpm; },
+		[](float value) { engineConfiguration->rollingLaunchMinArmRpm = static_cast<uint16_t>(value); } },
 	{ 0x44ECC622, // kickStartCranking
 		[]() -> float { return engineConfiguration->kickStartCranking; },
-		[](float value) { engineConfiguration->kickStartCranking = value; } },
+		[](float value) { engineConfiguration->kickStartCranking = value != 0; } },
 	{ 0x452B3507, // enableStagedInjection
 		[]() -> float { return engineConfiguration->enableStagedInjection; },
-		[](float value) { engineConfiguration->enableStagedInjection = value; } },
+		[](float value) { engineConfiguration->enableStagedInjection = value != 0; } },
 	{ 0x45616B27, // tpsDecelEnleanmentMultiplier
 		[]() -> float { return engineConfiguration->tpsDecelEnleanmentMultiplier; },
 		[](float value) { engineConfiguration->tpsDecelEnleanmentMultiplier = value; } },
 	{ 0x45C567F3, // etbWastegatePid.periodMs
 		[]() -> float { return engineConfiguration->etbWastegatePid.periodMs; },
-		[](float value) { engineConfiguration->etbWastegatePid.periodMs = value; } },
+		[](float value) { engineConfiguration->etbWastegatePid.periodMs = static_cast<int16_t>(value); } },
 	{ 0x4621B792, // rpmHardLimit
 		[]() -> float { return engineConfiguration->rpmHardLimit; },
-		[](float value) { engineConfiguration->rpmHardLimit = value; } },
+		[](float value) { engineConfiguration->rpmHardLimit = static_cast<uint16_t>(value); } },
 	{ 0x467B8467, // mc33_hvolt
 		[]() -> float { return engineConfiguration->mc33_hvolt; },
-		[](float value) { engineConfiguration->mc33_hvolt = value; } },
+		[](float value) { engineConfiguration->mc33_hvolt = static_cast<uint8_t>(value); } },
+	{ 0x46BA8093, // smHotTempThreshold
+		[]() -> float { return engineConfiguration->smHotTempThreshold; },
+		[](float value) { engineConfiguration->smHotTempThreshold = static_cast<int16_t>(value); } },
 	{ 0x46D9E33F, // enableKline
 		[]() -> float { return engineConfiguration->enableKline; },
-		[](float value) { engineConfiguration->enableKline = value; } },
+		[](float value) { engineConfiguration->enableKline = value != 0; } },
 	{ 0x47740543, // misfireWindowEnd
 		[]() -> float { return engineConfiguration->misfireWindowEnd; },
 		[](float value) { engineConfiguration->misfireWindowEnd = value; } },
 	{ 0x48465A5D, // trigger.customTotalToothCount
 		[]() -> float { return engineConfiguration->trigger.customTotalToothCount; },
-		[](float value) { engineConfiguration->trigger.customTotalToothCount = value; } },
+		[](float value) { engineConfiguration->trigger.customTotalToothCount = static_cast<int>(value); } },
 	{ 0x4919BBAA, // launchTimingRetard
 		[]() -> float { return engineConfiguration->launchTimingRetard; },
 		[](float value) { engineConfiguration->launchTimingRetard = value; } },
 	{ 0x4975FEA9, // ALSEtbAdd
 		[]() -> float { return engineConfiguration->ALSEtbAdd; },
-		[](float value) { engineConfiguration->ALSEtbAdd = value; } },
+		[](float value) { engineConfiguration->ALSEtbAdd = static_cast<int>(value); } },
+	{ 0x49D120E3, // smShiftMinVss
+		[]() -> float { return engineConfiguration->smShiftMinVss; },
+		[](float value) { engineConfiguration->smShiftMinVss = static_cast<uint16_t>(value); } },
 	{ 0x4BD172A4, // coastingFuelCutRpmHigh
 		[]() -> float { return engineConfiguration->coastingFuelCutRpmHigh; },
-		[](float value) { engineConfiguration->coastingFuelCutRpmHigh = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutRpmHigh = static_cast<int16_t>(value); } },
 	{ 0x4BE4D4FA, // afr.value1
 		[]() -> float { return engineConfiguration->afr.value1; },
 		[](float value) { engineConfiguration->afr.value1 = value; } },
@@ -612,7 +672,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->afr.value2 = value; } },
 	{ 0x4C67ACFF, // mc33_t_bypass
 		[]() -> float { return engineConfiguration->mc33_t_bypass; },
-		[](float value) { engineConfiguration->mc33_t_bypass = value; } },
+		[](float value) { engineConfiguration->mc33_t_bypass = static_cast<uint16_t>(value); } },
 	{ 0x4CB28E47, // noFuelTrimAfterDfcoTime
 		[]() -> float { return engineConfiguration->noFuelTrimAfterDfcoTime; },
 		[](float value) { engineConfiguration->noFuelTrimAfterDfcoTime = value; } },
@@ -624,22 +684,25 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->tpsAccelEnrichmentThreshold = value; } },
 	{ 0x4E98D891, // fan1PwmFrequency
 		[]() -> float { return engineConfiguration->fan1PwmFrequency; },
-		[](float value) { engineConfiguration->fan1PwmFrequency = value; } },
+		[](float value) { engineConfiguration->fan1PwmFrequency = static_cast<uint16_t>(value); } },
 	{ 0x4EDA3A9E, // warningPeriod
 		[]() -> float { return engineConfiguration->warningPeriod; },
-		[](float value) { engineConfiguration->warningPeriod = value; } },
+		[](float value) { engineConfiguration->warningPeriod = static_cast<int16_t>(value); } },
+	{ 0x50B34AE4, // coastingFuelCutRequiresGear
+		[]() -> float { return engineConfiguration->coastingFuelCutRequiresGear; },
+		[](float value) { engineConfiguration->coastingFuelCutRequiresGear = value != 0; } },
 	{ 0x513152C4, // overrideTriggerGaps
 		[]() -> float { return engineConfiguration->overrideTriggerGaps; },
-		[](float value) { engineConfiguration->overrideTriggerGaps = value; } },
+		[](float value) { engineConfiguration->overrideTriggerGaps = value != 0; } },
 	{ 0x5345BBED, // fan1ExtraIdle
 		[]() -> float { return engineConfiguration->fan1ExtraIdle; },
-		[](float value) { engineConfiguration->fan1ExtraIdle = value; } },
+		[](float value) { engineConfiguration->fan1ExtraIdle = static_cast<uint8_t>(value); } },
 	{ 0x53F2CD25, // maxIdleVss
 		[]() -> float { return engineConfiguration->maxIdleVss; },
-		[](float value) { engineConfiguration->maxIdleVss = value; } },
+		[](float value) { engineConfiguration->maxIdleVss = static_cast<uint8_t>(value); } },
 	{ 0x544D38CE, // pidExtraForLowRpm
 		[]() -> float { return engineConfiguration->pidExtraForLowRpm; },
-		[](float value) { engineConfiguration->pidExtraForLowRpm = value; } },
+		[](float value) { engineConfiguration->pidExtraForLowRpm = static_cast<int16_t>(value); } },
 	{ 0x54BEB286, // boostPid.pFactor
 		[]() -> float { return engineConfiguration->boostPid.pFactor; },
 		[](float value) { engineConfiguration->boostPid.pFactor = value; } },
@@ -654,22 +717,25 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->ltft.maxAdd = value; } },
 	{ 0x559496FE, // boostPid.offset
 		[]() -> float { return engineConfiguration->boostPid.offset; },
-		[](float value) { engineConfiguration->boostPid.offset = value; } },
+		[](float value) { engineConfiguration->boostPid.offset = static_cast<int16_t>(value); } },
 	{ 0x5621E5C6, // widebandOnSecondBus
 		[]() -> float { return engineConfiguration->widebandOnSecondBus; },
-		[](float value) { engineConfiguration->widebandOnSecondBus = value; } },
+		[](float value) { engineConfiguration->widebandOnSecondBus = value != 0; } },
+	{ 0x56756B60, // burstKnockDecayTime
+		[]() -> float { return engineConfiguration->burstKnockDecayTime; },
+		[](float value) { engineConfiguration->burstKnockDecayTime = value; } },
 	{ 0x567CD1D4, // lambdaProtectionEnable
 		[]() -> float { return engineConfiguration->lambdaProtectionEnable; },
-		[](float value) { engineConfiguration->lambdaProtectionEnable = value; } },
+		[](float value) { engineConfiguration->lambdaProtectionEnable = value != 0; } },
 	{ 0x56BCF84E, // triggerCompCenterVolt
 		[]() -> float { return engineConfiguration->triggerCompCenterVolt; },
 		[](float value) { engineConfiguration->triggerCompCenterVolt = value; } },
 	{ 0x57504D0E, // fan2ExtraIdle
 		[]() -> float { return engineConfiguration->fan2ExtraIdle; },
-		[](float value) { engineConfiguration->fan2ExtraIdle = value; } },
+		[](float value) { engineConfiguration->fan2ExtraIdle = static_cast<uint8_t>(value); } },
 	{ 0x5779159C, // tunerStudioSerialSpeed
 		[]() -> float { return engineConfiguration->tunerStudioSerialSpeed; },
-		[](float value) { engineConfiguration->tunerStudioSerialSpeed = value; } },
+		[](float value) { engineConfiguration->tunerStudioSerialSpeed = static_cast<uint32_t>(value); } },
 	{ 0x57A62A37, // acPressure.v1
 		[]() -> float { return engineConfiguration->acPressure.v1; },
 		[](float value) { engineConfiguration->acPressure.v1 = value; } },
@@ -678,97 +744,97 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->acPressure.v2 = value; } },
 	{ 0x57AB178D, // vvtControlMinClt
 		[]() -> float { return engineConfiguration->vvtControlMinClt; },
-		[](float value) { engineConfiguration->vvtControlMinClt = value; } },
+		[](float value) { engineConfiguration->vvtControlMinClt = static_cast<int16_t>(value); } },
 	{ 0x57AB57D9, // vvtControlMinRpm
 		[]() -> float { return engineConfiguration->vvtControlMinRpm; },
-		[](float value) { engineConfiguration->vvtControlMinRpm = value; } },
+		[](float value) { engineConfiguration->vvtControlMinRpm = static_cast<int16_t>(value); } },
 	{ 0x57DA1407, // flexFuelTransientComp
 		[]() -> float { return engineConfiguration->flexFuelTransientComp; },
-		[](float value) { engineConfiguration->flexFuelTransientComp = value; } },
+		[](float value) { engineConfiguration->flexFuelTransientComp = value != 0; } },
 	{ 0x57E5FA20, // baroSensor.lowValue
 		[]() -> float { return engineConfiguration->baroSensor.lowValue; },
 		[](float value) { engineConfiguration->baroSensor.lowValue = value; } },
 	{ 0x5892C771, // useBiQuadOnAuxSpeedSensors
 		[]() -> float { return engineConfiguration->useBiQuadOnAuxSpeedSensors; },
-		[](float value) { engineConfiguration->useBiQuadOnAuxSpeedSensors = value; } },
+		[](float value) { engineConfiguration->useBiQuadOnAuxSpeedSensors = value != 0; } },
 	{ 0x58D2D95F, // idlePidDeactivationTpsThreshold
 		[]() -> float { return engineConfiguration->idlePidDeactivationTpsThreshold; },
-		[](float value) { engineConfiguration->idlePidDeactivationTpsThreshold = value; } },
+		[](float value) { engineConfiguration->idlePidDeactivationTpsThreshold = static_cast<int16_t>(value); } },
 	{ 0x5912A71E, // hpfpMinAngle
 		[]() -> float { return engineConfiguration->hpfpMinAngle; },
-		[](float value) { engineConfiguration->hpfpMinAngle = value; } },
+		[](float value) { engineConfiguration->hpfpMinAngle = static_cast<uint8_t>(value); } },
 	{ 0x594AD2A0, // kLineBaudRate
 		[]() -> float { return engineConfiguration->kLineBaudRate; },
-		[](float value) { engineConfiguration->kLineBaudRate = value; } },
+		[](float value) { engineConfiguration->kLineBaudRate = static_cast<uint16_t>(value); } },
 	{ 0x59CA8AEA, // primingDelay
 		[]() -> float { return engineConfiguration->primingDelay; },
 		[](float value) { engineConfiguration->primingDelay = value; } },
 	{ 0x59F24CE1, // dynoSaeRelativeHumidity
 		[]() -> float { return config->dynoSaeRelativeHumidity; },
-		[](float value) { config->dynoSaeRelativeHumidity = value; } },
+		[](float value) { config->dynoSaeRelativeHumidity = static_cast<uint8_t>(value); } },
 	{ 0x59F6F0D0, // knockBankCyl1
 		[]() -> float { return engineConfiguration->knockBankCyl1; },
-		[](float value) { engineConfiguration->knockBankCyl1 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl1 = value != 0; } },
 	{ 0x59F6F0D1, // knockBankCyl2
 		[]() -> float { return engineConfiguration->knockBankCyl2; },
-		[](float value) { engineConfiguration->knockBankCyl2 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl2 = value != 0; } },
 	{ 0x59F6F0D2, // knockBankCyl3
 		[]() -> float { return engineConfiguration->knockBankCyl3; },
-		[](float value) { engineConfiguration->knockBankCyl3 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl3 = value != 0; } },
 	{ 0x59F6F0D3, // knockBankCyl4
 		[]() -> float { return engineConfiguration->knockBankCyl4; },
-		[](float value) { engineConfiguration->knockBankCyl4 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl4 = value != 0; } },
 	{ 0x59F6F0D4, // knockBankCyl5
 		[]() -> float { return engineConfiguration->knockBankCyl5; },
-		[](float value) { engineConfiguration->knockBankCyl5 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl5 = value != 0; } },
 	{ 0x59F6F0D5, // knockBankCyl6
 		[]() -> float { return engineConfiguration->knockBankCyl6; },
-		[](float value) { engineConfiguration->knockBankCyl6 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl6 = value != 0; } },
 	{ 0x59F6F0D6, // knockBankCyl7
 		[]() -> float { return engineConfiguration->knockBankCyl7; },
-		[](float value) { engineConfiguration->knockBankCyl7 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl7 = value != 0; } },
 	{ 0x59F6F0D7, // knockBankCyl8
 		[]() -> float { return engineConfiguration->knockBankCyl8; },
-		[](float value) { engineConfiguration->knockBankCyl8 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl8 = value != 0; } },
 	{ 0x59F6F0D8, // knockBankCyl9
 		[]() -> float { return engineConfiguration->knockBankCyl9; },
-		[](float value) { engineConfiguration->knockBankCyl9 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl9 = value != 0; } },
 	{ 0x5A477E01, // useLambdaOnInterface
 		[]() -> float { return engineConfiguration->useLambdaOnInterface; },
-		[](float value) { engineConfiguration->useLambdaOnInterface = value; } },
+		[](float value) { engineConfiguration->useLambdaOnInterface = value != 0; } },
 	{ 0x5AD38C0E, // ALSMaxCLT
 		[]() -> float { return engineConfiguration->ALSMaxCLT; },
-		[](float value) { engineConfiguration->ALSMaxCLT = value; } },
+		[](float value) { engineConfiguration->ALSMaxCLT = static_cast<int8_t>(value); } },
 	{ 0x5AD3CC5A, // ALSMaxRPM
 		[]() -> float { return engineConfiguration->ALSMaxRPM; },
-		[](float value) { engineConfiguration->ALSMaxRPM = value; } },
+		[](float value) { engineConfiguration->ALSMaxRPM = static_cast<int16_t>(value); } },
 	{ 0x5AD3D4E2, // ALSMaxTPS
 		[]() -> float { return engineConfiguration->ALSMaxTPS; },
-		[](float value) { engineConfiguration->ALSMaxTPS = value; } },
+		[](float value) { engineConfiguration->ALSMaxTPS = static_cast<uint8_t>(value); } },
 	{ 0x5B5ED44C, // ALSMinCLT
 		[]() -> float { return engineConfiguration->ALSMinCLT; },
-		[](float value) { engineConfiguration->ALSMinCLT = value; } },
+		[](float value) { engineConfiguration->ALSMinCLT = static_cast<int8_t>(value); } },
 	{ 0x5B5F1498, // ALSMinRPM
 		[]() -> float { return engineConfiguration->ALSMinRPM; },
-		[](float value) { engineConfiguration->ALSMinRPM = value; } },
+		[](float value) { engineConfiguration->ALSMinRPM = static_cast<int16_t>(value); } },
 	{ 0x5BB4DE18, // skippedWheelOnCam
 		[]() -> float { return engineConfiguration->skippedWheelOnCam; },
-		[](float value) { engineConfiguration->skippedWheelOnCam = value; } },
+		[](float value) { engineConfiguration->skippedWheelOnCam = value != 0; } },
 	{ 0x5BD0F3F8, // verboseVVTDecoding
 		[]() -> float { return engineConfiguration->verboseVVTDecoding; },
-		[](float value) { engineConfiguration->verboseVVTDecoding = value; } },
+		[](float value) { engineConfiguration->verboseVVTDecoding = value != 0; } },
 	{ 0x5BE1CFFA, // dynoCarWheelDiaInch
 		[]() -> float { return config->dynoCarWheelDiaInch; },
-		[](float value) { config->dynoCarWheelDiaInch = value; } },
+		[](float value) { config->dynoCarWheelDiaInch = static_cast<int8_t>(value); } },
 	{ 0x5BF17269, // injector.flow
 		[]() -> float { return engineConfiguration->injector.flow; },
 		[](float value) { engineConfiguration->injector.flow = value; } },
 	{ 0x5BF99E53, // etbWastegatePid.maxValue
 		[]() -> float { return engineConfiguration->etbWastegatePid.maxValue; },
-		[](float value) { engineConfiguration->etbWastegatePid.maxValue = value; } },
+		[](float value) { engineConfiguration->etbWastegatePid.maxValue = static_cast<int16_t>(value); } },
 	{ 0x5C336230, // externalRusEfiGdiModule
 		[]() -> float { return engineConfiguration->externalRusEfiGdiModule; },
-		[](float value) { engineConfiguration->externalRusEfiGdiModule = value; } },
+		[](float value) { engineConfiguration->externalRusEfiGdiModule = value != 0; } },
 	{ 0x5C65BC53, // idleParkNeutralOffset
 		[]() -> float { return engineConfiguration->idleParkNeutralOffset; },
 		[](float value) { engineConfiguration->idleParkNeutralOffset = value; } },
@@ -777,34 +843,37 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->knockSpectrumSensitivity = value; } },
 	{ 0x5D279540, // idleRpmPid.periodMs
 		[]() -> float { return engineConfiguration->idleRpmPid.periodMs; },
-		[](float value) { engineConfiguration->idleRpmPid.periodMs = value; } },
+		[](float value) { engineConfiguration->idleRpmPid.periodMs = static_cast<int16_t>(value); } },
 	{ 0x5D47C2C0, // mafFilterParameter
 		[]() -> float { return engineConfiguration->mafFilterParameter; },
-		[](float value) { engineConfiguration->mafFilterParameter = value; } },
+		[](float value) { engineConfiguration->mafFilterParameter = static_cast<uint16_t>(value); } },
+	{ 0x5D6B3DB7, // smAccumulatorDecayRate
+		[]() -> float { return engineConfiguration->smAccumulatorDecayRate; },
+		[](float value) { engineConfiguration->smAccumulatorDecayRate = value; } },
 	{ 0x5D8A4452, // maxAcClt
 		[]() -> float { return engineConfiguration->maxAcClt; },
-		[](float value) { engineConfiguration->maxAcClt = value; } },
+		[](float value) { engineConfiguration->maxAcClt = static_cast<int16_t>(value); } },
 	{ 0x5D8A849E, // maxAcRpm
 		[]() -> float { return engineConfiguration->maxAcRpm; },
 		[](float value) { engineConfiguration->maxAcRpm = value; } },
 	{ 0x5D8A8D26, // maxAcTps
 		[]() -> float { return engineConfiguration->maxAcTps; },
-		[](float value) { engineConfiguration->maxAcTps = value; } },
+		[](float value) { engineConfiguration->maxAcTps = static_cast<uint8_t>(value); } },
 	{ 0x5D95A7C0, // coastingFuelCutEnabled
 		[]() -> float { return engineConfiguration->coastingFuelCutEnabled; },
-		[](float value) { engineConfiguration->coastingFuelCutEnabled = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutEnabled = value != 0; } },
 	{ 0x5D9CB572, // iatSensorPulldown
 		[]() -> float { return engineConfiguration->iatSensorPulldown; },
-		[](float value) { engineConfiguration->iatSensorPulldown = value; } },
+		[](float value) { engineConfiguration->iatSensorPulldown = value != 0; } },
 	{ 0x5DDEB4C0, // acrDisablePhase
 		[]() -> float { return engineConfiguration->acrDisablePhase; },
-		[](float value) { engineConfiguration->acrDisablePhase = value; } },
+		[](float value) { engineConfiguration->acrDisablePhase = static_cast<uint16_t>(value); } },
 	{ 0x5E2B1633, // sdLogStopRpm
 		[]() -> float { return engineConfiguration->sdLogStopRpm; },
-		[](float value) { engineConfiguration->sdLogStopRpm = value; } },
+		[](float value) { engineConfiguration->sdLogStopRpm = static_cast<uint16_t>(value); } },
 	{ 0x5E2E6F31, // etb.periodMs
 		[]() -> float { return engineConfiguration->etb.periodMs; },
-		[](float value) { engineConfiguration->etb.periodMs = value; } },
+		[](float value) { engineConfiguration->etb.periodMs = static_cast<int16_t>(value); } },
 	{ 0x5EC7643D, // tChargeAirFlowMax
 		[]() -> float { return engineConfiguration->tChargeAirFlowMax; },
 		[](float value) { engineConfiguration->tChargeAirFlowMax = value; } },
@@ -813,34 +882,34 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->afrExpAverageAlpha = value; } },
 	{ 0x60121CA8, // fuelClosedLoopCorrectionEnabled
 		[]() -> float { return engineConfiguration->fuelClosedLoopCorrectionEnabled; },
-		[](float value) { engineConfiguration->fuelClosedLoopCorrectionEnabled = value; } },
+		[](float value) { engineConfiguration->fuelClosedLoopCorrectionEnabled = value != 0; } },
 	{ 0x605F896E, // displayLogicLevelsInEngineSniffer
 		[]() -> float { return engineConfiguration->displayLogicLevelsInEngineSniffer; },
-		[](float value) { engineConfiguration->displayLogicLevelsInEngineSniffer = value; } },
+		[](float value) { engineConfiguration->displayLogicLevelsInEngineSniffer = value != 0; } },
 	{ 0x61C08B0D, // mapSyncThreshold
 		[]() -> float { return engineConfiguration->mapSyncThreshold; },
-		[](float value) { engineConfiguration->mapSyncThreshold = value; } },
+		[](float value) { engineConfiguration->mapSyncThreshold = static_cast<uint8_t>(value); } },
 	{ 0x61F0F3E0, // enableVerboseCanTx
 		[]() -> float { return engineConfiguration->enableVerboseCanTx; },
-		[](float value) { engineConfiguration->enableVerboseCanTx = value; } },
+		[](float value) { engineConfiguration->enableVerboseCanTx = value != 0; } },
 	{ 0x626E5D5F, // maxInjectorDutySustained
 		[]() -> float { return engineConfiguration->maxInjectorDutySustained; },
-		[](float value) { engineConfiguration->maxInjectorDutySustained = value; } },
+		[](float value) { engineConfiguration->maxInjectorDutySustained = static_cast<uint8_t>(value); } },
 	{ 0x62DE5746, // nitrousMinimumVehicleSpeed
 		[]() -> float { return engineConfiguration->nitrousMinimumVehicleSpeed; },
-		[](float value) { engineConfiguration->nitrousMinimumVehicleSpeed = value; } },
+		[](float value) { engineConfiguration->nitrousMinimumVehicleSpeed = static_cast<uint16_t>(value); } },
 	{ 0x6338D2D0, // etbNeutralPosition
 		[]() -> float { return engineConfiguration->etbNeutralPosition; },
-		[](float value) { engineConfiguration->etbNeutralPosition = value; } },
+		[](float value) { engineConfiguration->etbNeutralPosition = static_cast<uint8_t>(value); } },
 	{ 0x633CA12E, // vvlController.minimumClt
 		[]() -> float { return engineConfiguration->vvlController.minimumClt; },
-		[](float value) { engineConfiguration->vvlController.minimumClt = value; } },
+		[](float value) { engineConfiguration->vvlController.minimumClt = static_cast<int16_t>(value); } },
 	{ 0x633CEA02, // vvlController.minimumTps
 		[]() -> float { return engineConfiguration->vvlController.minimumTps; },
-		[](float value) { engineConfiguration->vvlController.minimumTps = value; } },
+		[](float value) { engineConfiguration->vvlController.minimumTps = static_cast<int>(value); } },
 	{ 0x63B83DEB, // stft.maxOverrunLoad
 		[]() -> float { return engineConfiguration->stft.maxOverrunLoad; },
-		[](float value) { engineConfiguration->stft.maxOverrunLoad = value; } },
+		[](float value) { engineConfiguration->stft.maxOverrunLoad = static_cast<uint16_t>(value); } },
 	{ 0x63F06A30, // dfcoDelay
 		[]() -> float { return engineConfiguration->dfcoDelay; },
 		[](float value) { engineConfiguration->dfcoDelay = value; } },
@@ -850,6 +919,12 @@ const ConfigParameter allParameters[] = {
 	{ 0x65385A65, // idleRpmPid.iFactor
 		[]() -> float { return engineConfiguration->idleRpmPid.iFactor; },
 		[](float value) { engineConfiguration->idleRpmPid.iFactor = value; } },
+	{ 0x657D6CEC, // rollingLaunchMaxRpm
+		[]() -> float { return engineConfiguration->rollingLaunchMaxRpm; },
+		[](float value) { engineConfiguration->rollingLaunchMaxRpm = static_cast<uint16_t>(value); } },
+	{ 0x6608C697, // rollingLaunchMinVss
+		[]() -> float { return engineConfiguration->rollingLaunchMinVss; },
+		[](float value) { engineConfiguration->rollingLaunchMinVss = static_cast<uint16_t>(value); } },
 	{ 0x67E03C99, // iacByTpsDecayTime
 		[]() -> float { return engineConfiguration->iacByTpsDecayTime; },
 		[](float value) { engineConfiguration->iacByTpsDecayTime = value; } },
@@ -858,7 +933,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->etbWastegatePid.pFactor = value; } },
 	{ 0x6874BE97, // idleTimingPid.minValue
 		[]() -> float { return engineConfiguration->idleTimingPid.minValue; },
-		[](float value) { engineConfiguration->idleTimingPid.minValue = value; } },
+		[](float value) { engineConfiguration->idleTimingPid.minValue = static_cast<int16_t>(value); } },
 	{ 0x68B249FA, // rpmHardLimitHyst
 		[]() -> float { return engineConfiguration->rpmHardLimitHyst; },
 		[](float value) { engineConfiguration->rpmHardLimitHyst = value; } },
@@ -867,28 +942,31 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->lambdaProtectionMinRpm = value; } },
 	{ 0x68D30A68, // lambdaProtectionMinTps
 		[]() -> float { return engineConfiguration->lambdaProtectionMinTps; },
-		[](float value) { engineConfiguration->lambdaProtectionMinTps = value; } },
+		[](float value) { engineConfiguration->lambdaProtectionMinTps = static_cast<uint8_t>(value); } },
 	{ 0x690C7ED2, // stoichRatioPrimary
 		[]() -> float { return engineConfiguration->stoichRatioPrimary; },
 		[](float value) { engineConfiguration->stoichRatioPrimary = value; } },
+	{ 0x69498B25, // fuelPumpControl.dFactor
+		[]() -> float { return engineConfiguration->fuelPumpControl.dFactor; },
+		[](float value) { engineConfiguration->fuelPumpControl.dFactor = value; } },
 	{ 0x6A13E74D, // analogInputDividerCoefficient
 		[]() -> float { return engineConfiguration->analogInputDividerCoefficient; },
 		[](float value) { engineConfiguration->analogInputDividerCoefficient = value; } },
 	{ 0x6D139D71, // ALSMaxDuration
 		[]() -> float { return engineConfiguration->ALSMaxDuration; },
-		[](float value) { engineConfiguration->ALSMaxDuration = value; } },
+		[](float value) { engineConfiguration->ALSMaxDuration = static_cast<int16_t>(value); } },
 	{ 0x6D936172, // stftIgnoreErrorMagnitude
 		[]() -> float { return engineConfiguration->stftIgnoreErrorMagnitude; },
-		[](float value) { engineConfiguration->stftIgnoreErrorMagnitude = value; } },
+		[](float value) { engineConfiguration->stftIgnoreErrorMagnitude = value != 0; } },
 	{ 0x6E409B31, // vvlController.deactivationRpmWindow
 		[]() -> float { return engineConfiguration->vvlController.deactivationRpmWindow; },
-		[](float value) { engineConfiguration->vvlController.deactivationRpmWindow = value; } },
+		[](float value) { engineConfiguration->vvlController.deactivationRpmWindow = static_cast<uint16_t>(value); } },
 	{ 0x6E4ECC18, // alternatorControl.iFactor
 		[]() -> float { return engineConfiguration->alternatorControl.iFactor; },
 		[](float value) { engineConfiguration->alternatorControl.iFactor = value; } },
 	{ 0x6EA7BAE4, // startButtonSuppressOnStartUpMs
 		[]() -> float { return engineConfiguration->startButtonSuppressOnStartUpMs; },
-		[](float value) { engineConfiguration->startButtonSuppressOnStartUpMs = value; } },
+		[](float value) { engineConfiguration->startButtonSuppressOnStartUpMs = static_cast<uint16_t>(value); } },
 	{ 0x70000A71, // etb.dFactor
 		[]() -> float { return engineConfiguration->etb.dFactor; },
 		[](float value) { engineConfiguration->etb.dFactor = value; } },
@@ -900,10 +978,10 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->stft.maxIdleRegionRpm = value; } },
 	{ 0x7226D263, // kLinePeriodUs
 		[]() -> float { return engineConfiguration->kLinePeriodUs; },
-		[](float value) { engineConfiguration->kLinePeriodUs = value; } },
+		[](float value) { engineConfiguration->kLinePeriodUs = static_cast<int16_t>(value); } },
 	{ 0x7247B1CF, // isInjectionEnabled
 		[]() -> float { return engineConfiguration->isInjectionEnabled; },
-		[](float value) { engineConfiguration->isInjectionEnabled = value; } },
+		[](float value) { engineConfiguration->isInjectionEnabled = value != 0; } },
 	{ 0x72665394, // misfireWobbleAlphaFall
 		[]() -> float { return engineConfiguration->misfireWobbleAlphaFall; },
 		[](float value) { engineConfiguration->misfireWobbleAlphaFall = value; } },
@@ -912,37 +990,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->misfireWobbleAlphaRise = value; } },
 	{ 0x72CA0A17, // cltSensorPulldown
 		[]() -> float { return engineConfiguration->cltSensorPulldown; },
-		[](float value) { engineConfiguration->cltSensorPulldown = value; } },
+		[](float value) { engineConfiguration->cltSensorPulldown = value != 0; } },
 	{ 0x733EDF32, // acIdleExtraOffset
 		[]() -> float { return engineConfiguration->acIdleExtraOffset; },
-		[](float value) { engineConfiguration->acIdleExtraOffset = value; } },
+		[](float value) { engineConfiguration->acIdleExtraOffset = static_cast<uint8_t>(value); } },
 	{ 0x735BCBA0, // idleRpmPid.maxValue
 		[]() -> float { return engineConfiguration->idleRpmPid.maxValue; },
-		[](float value) { engineConfiguration->idleRpmPid.maxValue = value; } },
+		[](float value) { engineConfiguration->idleRpmPid.maxValue = static_cast<int16_t>(value); } },
 	{ 0x73F51DF6, // stoichRatioSecondary
 		[]() -> float { return engineConfiguration->stoichRatioSecondary; },
 		[](float value) { engineConfiguration->stoichRatioSecondary = value; } },
 	{ 0x7462A591, // etb.maxValue
 		[]() -> float { return engineConfiguration->etb.maxValue; },
-		[](float value) { engineConfiguration->etb.maxValue = value; } },
+		[](float value) { engineConfiguration->etb.maxValue = static_cast<int16_t>(value); } },
 	{ 0x7475B468, // maxAcPressure
 		[]() -> float { return engineConfiguration->maxAcPressure; },
-		[](float value) { engineConfiguration->maxAcPressure = value; } },
+		[](float value) { engineConfiguration->maxAcPressure = static_cast<uint16_t>(value); } },
 	{ 0x74B6522F, // mapCamDetectionAnglePosition
 		[]() -> float { return engineConfiguration->mapCamDetectionAnglePosition; },
 		[](float value) { engineConfiguration->mapCamDetectionAnglePosition = value; } },
 	{ 0x74FA1BBA, // idlePidRpmUpperLimit
 		[]() -> float { return engineConfiguration->idlePidRpmUpperLimit; },
-		[](float value) { engineConfiguration->idlePidRpmUpperLimit = value; } },
+		[](float value) { engineConfiguration->idlePidRpmUpperLimit = static_cast<int16_t>(value); } },
 	{ 0x759393AD, // knockFrequency
 		[]() -> float { return engineConfiguration->knockFrequency; },
 		[](float value) { engineConfiguration->knockFrequency = value; } },
+	{ 0x759424B1, // transmissionSlipDetectionEnabled
+		[]() -> float { return engineConfiguration->transmissionSlipDetectionEnabled; },
+		[](float value) { engineConfiguration->transmissionSlipDetectionEnabled = value != 0; } },
 	{ 0x7601F5E2, // referenceTorqueForGenerator
 		[]() -> float { return engineConfiguration->referenceTorqueForGenerator; },
 		[](float value) { engineConfiguration->referenceTorqueForGenerator = value; } },
 	{ 0x7632E2B7, // alternatorControl.offset
 		[]() -> float { return engineConfiguration->alternatorControl.offset; },
-		[](float value) { engineConfiguration->alternatorControl.offset = value; } },
+		[](float value) { engineConfiguration->alternatorControl.offset = static_cast<int16_t>(value); } },
 	{ 0x768D5308, // auxTempSensor2.config.resistance_1
 		[]() -> float { return engineConfiguration->auxTempSensor2.config.resistance_1; },
 		[](float value) { engineConfiguration->auxTempSensor2.config.resistance_1 = value; } },
@@ -955,18 +1036,21 @@ const ConfigParameter allParameters[] = {
 	{ 0x76979FAF, // knockRetardAggression
 		[]() -> float { return engineConfiguration->knockRetardAggression; },
 		[](float value) { engineConfiguration->knockRetardAggression = value; } },
+	{ 0x770574D4, // tpsExpAverageResetThreshold
+		[]() -> float { return engineConfiguration->tpsExpAverageResetThreshold; },
+		[](float value) { engineConfiguration->tpsExpAverageResetThreshold = value; } },
 	{ 0x770A1D9B, // isTuningDetectorEnabled
 		[]() -> float { return engineConfiguration->isTuningDetectorEnabled; },
-		[](float value) { engineConfiguration->isTuningDetectorEnabled = value; } },
+		[](float value) { engineConfiguration->isTuningDetectorEnabled = value != 0; } },
 	{ 0x7711EC9C, // tcuEnabled
 		[]() -> float { return engineConfiguration->tcuEnabled; },
-		[](float value) { engineConfiguration->tcuEnabled = value; } },
+		[](float value) { engineConfiguration->tcuEnabled = value != 0; } },
 	{ 0x77EE9248, // fuelLevelHighThresholdVoltage
 		[]() -> float { return engineConfiguration->fuelLevelHighThresholdVoltage; },
 		[](float value) { engineConfiguration->fuelLevelHighThresholdVoltage = value; } },
 	{ 0x783740EE, // etbFreq
 		[]() -> float { return engineConfiguration->etbFreq; },
-		[](float value) { engineConfiguration->etbFreq = value; } },
+		[](float value) { engineConfiguration->etbFreq = static_cast<int16_t>(value); } },
 	{ 0x79081019, // dfcoRetardRampInTime
 		[]() -> float { return engineConfiguration->dfcoRetardRampInTime; },
 		[](float value) { engineConfiguration->dfcoRetardRampInTime = value; } },
@@ -978,13 +1062,13 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->highPressureFuel.v2 = value; } },
 	{ 0x79CB1D16, // rusefiVerbose29b
 		[]() -> float { return engineConfiguration->rusefiVerbose29b; },
-		[](float value) { engineConfiguration->rusefiVerbose29b = value; } },
+		[](float value) { engineConfiguration->rusefiVerbose29b = value != 0; } },
 	{ 0x7A17F506, // isFasterEngineSpinUpEnabled
 		[]() -> float { return engineConfiguration->isFasterEngineSpinUpEnabled; },
-		[](float value) { engineConfiguration->isFasterEngineSpinUpEnabled = value; } },
+		[](float value) { engineConfiguration->isFasterEngineSpinUpEnabled = value != 0; } },
 	{ 0x7A6D85CA, // mainRelayDisableTime
 		[]() -> float { return engineConfiguration->mainRelayDisableTime; },
-		[](float value) { engineConfiguration->mainRelayDisableTime = value; } },
+		[](float value) { engineConfiguration->mainRelayDisableTime = static_cast<uint8_t>(value); } },
 	{ 0x7B6CCD27, // airByRpmTaper
 		[]() -> float { return engineConfiguration->airByRpmTaper; },
 		[](float value) { engineConfiguration->airByRpmTaper = value; } },
@@ -999,7 +1083,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->throttlePedalWOTVoltage = value; } },
 	{ 0x7D6FB26D, // canWriteEnabled
 		[]() -> float { return engineConfiguration->canWriteEnabled; },
-		[](float value) { engineConfiguration->canWriteEnabled = value; } },
+		[](float value) { engineConfiguration->canWriteEnabled = value != 0; } },
 	{ 0x7E19E062, // tChargeAirCoefMax
 		[]() -> float { return engineConfiguration->tChargeAirCoefMax; },
 		[](float value) { engineConfiguration->tChargeAirCoefMax = value; } },
@@ -1008,10 +1092,10 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->tChargeAirCoefMin = value; } },
 	{ 0x7E888448, // triggerSimulatorRpm
 		[]() -> float { return engineConfiguration->triggerSimulatorRpm; },
-		[](float value) { engineConfiguration->triggerSimulatorRpm = value; } },
+		[](float value) { engineConfiguration->triggerSimulatorRpm = static_cast<uint16_t>(value); } },
 	{ 0x7F568EFC, // stepper_dc_use_two_wires
 		[]() -> float { return engineConfiguration->stepper_dc_use_two_wires; },
-		[](float value) { engineConfiguration->stepper_dc_use_two_wires = value; } },
+		[](float value) { engineConfiguration->stepper_dc_use_two_wires = value != 0; } },
 	{ 0x8009A1AC, // etbSplit
 		[]() -> float { return engineConfiguration->etbSplit; },
 		[](float value) { engineConfiguration->etbSplit = value; } },
@@ -1026,49 +1110,58 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->acLowRpmLimit = value; } },
 	{ 0x80A0FC44, // calibrationBirthday
 		[]() -> float { return engineConfiguration->calibrationBirthday; },
-		[](float value) { engineConfiguration->calibrationBirthday = value; } },
+		[](float value) { engineConfiguration->calibrationBirthday = static_cast<int>(value); } },
+	{ 0x80A80665, // fuelPumpControl.periodMs
+		[]() -> float { return engineConfiguration->fuelPumpControl.periodMs; },
+		[](float value) { engineConfiguration->fuelPumpControl.periodMs = static_cast<int16_t>(value); } },
 	{ 0x80FE0418, // throttlePedalUpVoltage
 		[]() -> float { return engineConfiguration->throttlePedalUpVoltage; },
 		[](float value) { engineConfiguration->throttlePedalUpVoltage = value; } },
+	{ 0x81A9340A, // fuelPumpReliefMaxInjectedMass
+		[]() -> float { return engineConfiguration->fuelPumpReliefMaxInjectedMass; },
+		[](float value) { engineConfiguration->fuelPumpReliefMaxInjectedMass = static_cast<uint16_t>(value); } },
 	{ 0x81D50266, // tcuInputSpeedSensorTeeth
 		[]() -> float { return engineConfiguration->tcuInputSpeedSensorTeeth; },
-		[](float value) { engineConfiguration->tcuInputSpeedSensorTeeth = value; } },
+		[](float value) { engineConfiguration->tcuInputSpeedSensorTeeth = static_cast<uint8_t>(value); } },
 	{ 0x81F85BC4, // totalGearsCount
 		[]() -> float { return engineConfiguration->totalGearsCount; },
-		[](float value) { engineConfiguration->totalGearsCount = value; } },
+		[](float value) { engineConfiguration->totalGearsCount = static_cast<uint8_t>(value); } },
 	{ 0x8226FC59, // boostCutPressureHyst
 		[]() -> float { return engineConfiguration->boostCutPressureHyst; },
 		[](float value) { engineConfiguration->boostCutPressureHyst = value; } },
 	{ 0x828DF753, // stepperForceParkingEveryRestart
 		[]() -> float { return engineConfiguration->stepperForceParkingEveryRestart; },
-		[](float value) { engineConfiguration->stepperForceParkingEveryRestart = value; } },
+		[](float value) { engineConfiguration->stepperForceParkingEveryRestart = value != 0; } },
 	{ 0x82B6C006, // useIacTableForCoasting
 		[]() -> float { return engineConfiguration->useIacTableForCoasting; },
-		[](float value) { engineConfiguration->useIacTableForCoasting = value; } },
+		[](float value) { engineConfiguration->useIacTableForCoasting = value != 0; } },
 	{ 0x8307A61B, // disableEtbWhenEngineStopped
 		[]() -> float { return engineConfiguration->disableEtbWhenEngineStopped; },
-		[](float value) { engineConfiguration->disableEtbWhenEngineStopped = value; } },
+		[](float value) { engineConfiguration->disableEtbWhenEngineStopped = value != 0; } },
 	{ 0x832FEE31, // lambdaProtectionMinLoad
 		[]() -> float { return engineConfiguration->lambdaProtectionMinLoad; },
 		[](float value) { engineConfiguration->lambdaProtectionMinLoad = value; } },
 	{ 0x83342CDE, // misfireWindowFirings
 		[]() -> float { return engineConfiguration->misfireWindowFirings; },
-		[](float value) { engineConfiguration->misfireWindowFirings = value; } },
+		[](float value) { engineConfiguration->misfireWindowFirings = static_cast<uint8_t>(value); } },
 	{ 0x8346CA9E, // misfireDetectionEnabled
 		[]() -> float { return engineConfiguration->misfireDetectionEnabled; },
-		[](float value) { engineConfiguration->misfireDetectionEnabled = value; } },
+		[](float value) { engineConfiguration->misfireDetectionEnabled = value != 0; } },
 	{ 0x83A2326E, // mc33_t_hold_off
 		[]() -> float { return engineConfiguration->mc33_t_hold_off; },
-		[](float value) { engineConfiguration->mc33_t_hold_off = value; } },
+		[](float value) { engineConfiguration->mc33_t_hold_off = static_cast<uint16_t>(value); } },
 	{ 0x83A248EA, // mc33_t_hold_tot
 		[]() -> float { return engineConfiguration->mc33_t_hold_tot; },
-		[](float value) { engineConfiguration->mc33_t_hold_tot = value; } },
+		[](float value) { engineConfiguration->mc33_t_hold_tot = static_cast<uint16_t>(value); } },
 	{ 0x84065232, // gapTrackingLengthOverride
 		[]() -> float { return engineConfiguration->gapTrackingLengthOverride; },
-		[](float value) { engineConfiguration->gapTrackingLengthOverride = value; } },
+		[](float value) { engineConfiguration->gapTrackingLengthOverride = static_cast<int8_t>(value); } },
 	{ 0x840BF24C, // tcu_rangeSensorPulldown
 		[]() -> float { return engineConfiguration->tcu_rangeSensorPulldown; },
-		[](float value) { engineConfiguration->tcu_rangeSensorPulldown = value; } },
+		[](float value) { engineConfiguration->tcu_rangeSensorPulldown = value != 0; } },
+	{ 0x844E9DEB, // vvtAdvancedModeEnabled
+		[]() -> float { return engineConfiguration->vvtAdvancedModeEnabled; },
+		[](float value) { engineConfiguration->vvtAdvancedModeEnabled = value != 0; } },
 	{ 0x848C7FE6, // magicNumberAvailableForDevTricks
 		[]() -> float { return engineConfiguration->magicNumberAvailableForDevTricks; },
 		[](float value) { engineConfiguration->magicNumberAvailableForDevTricks = value; } },
@@ -1077,37 +1170,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->maxCamPhaseResolveRpm = value; } },
 	{ 0x84DE2CE0, // iacByTpsTaper
 		[]() -> float { return engineConfiguration->iacByTpsTaper; },
-		[](float value) { engineConfiguration->iacByTpsTaper = value; } },
+		[](float value) { engineConfiguration->iacByTpsTaper = static_cast<int16_t>(value); } },
 	{ 0x84E9F2EE, // ltitIntegratorThreshold
 		[]() -> float { return engineConfiguration->ltitIntegratorThreshold; },
 		[](float value) { engineConfiguration->ltitIntegratorThreshold = value; } },
+	{ 0x85F4DA43, // smWotTpsThreshold
+		[]() -> float { return engineConfiguration->smWotTpsThreshold; },
+		[](float value) { engineConfiguration->smWotTpsThreshold = static_cast<uint8_t>(value); } },
 	{ 0x86C3DC5D, // idleTimingPid.offset
 		[]() -> float { return engineConfiguration->idleTimingPid.offset; },
-		[](float value) { engineConfiguration->idleTimingPid.offset = value; } },
+		[](float value) { engineConfiguration->idleTimingPid.offset = static_cast<int16_t>(value); } },
 	{ 0x87267291, // coastingFuelCutVssHigh
 		[]() -> float { return engineConfiguration->coastingFuelCutVssHigh; },
-		[](float value) { engineConfiguration->coastingFuelCutVssHigh = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutVssHigh = static_cast<uint8_t>(value); } },
 	{ 0x878356EC, // ALSIdleAdd
 		[]() -> float { return engineConfiguration->ALSIdleAdd; },
-		[](float value) { engineConfiguration->ALSIdleAdd = value; } },
+		[](float value) { engineConfiguration->ALSIdleAdd = static_cast<int>(value); } },
 	{ 0x87952946, // fan2MaxPwm
 		[]() -> float { return engineConfiguration->fan2MaxPwm; },
-		[](float value) { engineConfiguration->fan2MaxPwm = value; } },
+		[](float value) { engineConfiguration->fan2MaxPwm = static_cast<uint8_t>(value); } },
 	{ 0x87AD569E, // complexWallModel
 		[]() -> float { return engineConfiguration->complexWallModel; },
-		[](float value) { engineConfiguration->complexWallModel = value; } },
+		[](float value) { engineConfiguration->complexWallModel = value != 0; } },
 	{ 0x87C75A65, // minimumOilPressureTimeout
 		[]() -> float { return engineConfiguration->minimumOilPressureTimeout; },
 		[](float value) { engineConfiguration->minimumOilPressureTimeout = value; } },
 	{ 0x88207184, // fan2MinPwm
 		[]() -> float { return engineConfiguration->fan2MinPwm; },
-		[](float value) { engineConfiguration->fan2MinPwm = value; } },
+		[](float value) { engineConfiguration->fan2MinPwm = static_cast<uint8_t>(value); } },
 	{ 0x88F18047, // useSeparateVeForIdle
 		[]() -> float { return engineConfiguration->useSeparateVeForIdle; },
-		[](float value) { engineConfiguration->useSeparateVeForIdle = value; } },
+		[](float value) { engineConfiguration->useSeparateVeForIdle = value != 0; } },
 	{ 0x890C3D53, // alternatorControl.periodMs
 		[]() -> float { return engineConfiguration->alternatorControl.periodMs; },
-		[](float value) { engineConfiguration->alternatorControl.periodMs = value; } },
+		[](float value) { engineConfiguration->alternatorControl.periodMs = static_cast<int16_t>(value); } },
 	{ 0x8926755F, // alternatorControl.pFactor
 		[]() -> float { return engineConfiguration->alternatorControl.pFactor; },
 		[](float value) { engineConfiguration->alternatorControl.pFactor = value; } },
@@ -1119,43 +1215,46 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->benchTestOnTime = value; } },
 	{ 0x89582FF2, // boostPwmFrequency
 		[]() -> float { return engineConfiguration->boostPwmFrequency; },
-		[](float value) { engineConfiguration->boostPwmFrequency = value; } },
+		[](float value) { engineConfiguration->boostPwmFrequency = static_cast<int>(value); } },
 	{ 0x89A87515, // yesUnderstandLocking
 		[]() -> float { return engineConfiguration->yesUnderstandLocking; },
-		[](float value) { engineConfiguration->yesUnderstandLocking = value; } },
+		[](float value) { engineConfiguration->yesUnderstandLocking = value != 0; } },
 	{ 0x8A2ED28F, // boostControlMinMap
 		[]() -> float { return engineConfiguration->boostControlMinMap; },
-		[](float value) { engineConfiguration->boostControlMinMap = value; } },
+		[](float value) { engineConfiguration->boostControlMinMap = static_cast<uint16_t>(value); } },
 	{ 0x8A2EE9C0, // boostControlMinRpm
 		[]() -> float { return engineConfiguration->boostControlMinRpm; },
-		[](float value) { engineConfiguration->boostControlMinRpm = value; } },
+		[](float value) { engineConfiguration->boostControlMinRpm = static_cast<uint16_t>(value); } },
 	{ 0x8A2EF248, // boostControlMinTps
 		[]() -> float { return engineConfiguration->boostControlMinTps; },
-		[](float value) { engineConfiguration->boostControlMinTps = value; } },
+		[](float value) { engineConfiguration->boostControlMinTps = static_cast<uint8_t>(value); } },
 	{ 0x8ADF54C2, // boostControlSafeDutyCycle
 		[]() -> float { return engineConfiguration->boostControlSafeDutyCycle; },
-		[](float value) { engineConfiguration->boostControlSafeDutyCycle = value; } },
+		[](float value) { engineConfiguration->boostControlSafeDutyCycle = static_cast<uint8_t>(value); } },
 	{ 0x8ADF9C62, // fixedModeTiming
 		[]() -> float { return engineConfiguration->fixedModeTiming; },
 		[](float value) { engineConfiguration->fixedModeTiming = value; } },
 	{ 0x8B468678, // vssToothCount
 		[]() -> float { return engineConfiguration->vssToothCount; },
-		[](float value) { engineConfiguration->vssToothCount = value; } },
+		[](float value) { engineConfiguration->vssToothCount = static_cast<uint8_t>(value); } },
+	{ 0x8BD0DFBF, // fuelPumpMaxDuty
+		[]() -> float { return engineConfiguration->fuelPumpMaxDuty; },
+		[](float value) { engineConfiguration->fuelPumpMaxDuty = static_cast<uint8_t>(value); } },
 	{ 0x8C1CF117, // invertSecondaryTriggerSignal
 		[]() -> float { return engineConfiguration->invertSecondaryTriggerSignal; },
-		[](float value) { engineConfiguration->invertSecondaryTriggerSignal = value; } },
+		[](float value) { engineConfiguration->invertSecondaryTriggerSignal = value != 0; } },
 	{ 0x8C381DE5, // stft.minPowerLoad
 		[]() -> float { return engineConfiguration->stft.minPowerLoad; },
-		[](float value) { engineConfiguration->stft.minPowerLoad = value; } },
+		[](float value) { engineConfiguration->stft.minPowerLoad = static_cast<uint16_t>(value); } },
 	{ 0x8CABD326, // alwaysInstantRpm
 		[]() -> float { return engineConfiguration->alwaysInstantRpm; },
-		[](float value) { engineConfiguration->alwaysInstantRpm = value; } },
+		[](float value) { engineConfiguration->alwaysInstantRpm = value != 0; } },
 	{ 0x8D5DF58F, // enableKnockSpectrogramFilter
 		[]() -> float { return engineConfiguration->enableKnockSpectrogramFilter; },
-		[](float value) { engineConfiguration->enableKnockSpectrogramFilter = value; } },
+		[](float value) { engineConfiguration->enableKnockSpectrogramFilter = value != 0; } },
 	{ 0x8E59CC66, // disableFan2AtSpeed
 		[]() -> float { return engineConfiguration->disableFan2AtSpeed; },
-		[](float value) { engineConfiguration->disableFan2AtSpeed = value; } },
+		[](float value) { engineConfiguration->disableFan2AtSpeed = static_cast<int8_t>(value); } },
 	{ 0x8EC9EC00, // ambientTempSensor.config.bias_resistor
 		[]() -> float { return engineConfiguration->ambientTempSensor.config.bias_resistor; },
 		[](float value) { engineConfiguration->ambientTempSensor.config.bias_resistor = value; } },
@@ -1167,19 +1266,19 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->highPressureFuel.value2 = value; } },
 	{ 0x8EF57345, // watchOutForLinearTime
 		[]() -> float { return engineConfiguration->watchOutForLinearTime; },
-		[](float value) { engineConfiguration->watchOutForLinearTime = value; } },
+		[](float value) { engineConfiguration->watchOutForLinearTime = value != 0; } },
 	{ 0x8F6E7050, // ltft.deadband
 		[]() -> float { return engineConfiguration->ltft.deadband; },
 		[](float value) { engineConfiguration->ltft.deadband = value; } },
 	{ 0x8FFF58DD, // can2ListenMode
 		[]() -> float { return engineConfiguration->can2ListenMode; },
-		[](float value) { engineConfiguration->can2ListenMode = value; } },
+		[](float value) { engineConfiguration->can2ListenMode = value != 0; } },
 	{ 0x90FEFA7E, // idleTimingPid.iFactor
 		[]() -> float { return engineConfiguration->idleTimingPid.iFactor; },
 		[](float value) { engineConfiguration->idleTimingPid.iFactor = value; } },
 	{ 0x91120AD1, // sdCardConditionalLogging
 		[]() -> float { return engineConfiguration->sdCardConditionalLogging; },
-		[](float value) { engineConfiguration->sdCardConditionalLogging = value; } },
+		[](float value) { engineConfiguration->sdCardConditionalLogging = value != 0; } },
 	{ 0x91644331, // etbMinimumPosition
 		[]() -> float { return engineConfiguration->etbMinimumPosition; },
 		[](float value) { engineConfiguration->etbMinimumPosition = value; } },
@@ -1206,10 +1305,16 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->clt.config.tempC_3 = value; } },
 	{ 0x92C75254, // isBoostControlEnabled
 		[]() -> float { return engineConfiguration->isBoostControlEnabled; },
-		[](float value) { engineConfiguration->isBoostControlEnabled = value; } },
+		[](float value) { engineConfiguration->isBoostControlEnabled = value != 0; } },
+	{ 0x92EC3BA7, // vvtIntake_iTermMax
+		[]() -> float { return engineConfiguration->vvtIntake_iTermMax; },
+		[](float value) { engineConfiguration->vvtIntake_iTermMax = static_cast<int16_t>(value); } },
+	{ 0x92EC3CA5, // vvtIntake_iTermMin
+		[]() -> float { return engineConfiguration->vvtIntake_iTermMin; },
+		[](float value) { engineConfiguration->vvtIntake_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x92EC7CD4, // launchSparkCutEnable
 		[]() -> float { return engineConfiguration->launchSparkCutEnable; },
-		[](float value) { engineConfiguration->launchSparkCutEnable = value; } },
+		[](float value) { engineConfiguration->launchSparkCutEnable = value != 0; } },
 	{ 0x93500505, // misfireEmaAlphaAccel
 		[]() -> float { return engineConfiguration->misfireEmaAlphaAccel; },
 		[](float value) { engineConfiguration->misfireEmaAlphaAccel = value; } },
@@ -1218,16 +1323,28 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->misfireEmaAlphaDecel = value; } },
 	{ 0x93B2CFAA, // useLinearCltSensor
 		[]() -> float { return engineConfiguration->useLinearCltSensor; },
-		[](float value) { engineConfiguration->useLinearCltSensor = value; } },
+		[](float value) { engineConfiguration->useLinearCltSensor = value != 0; } },
+	{ 0x93D8C08D, // vvtExhaust_iTermMax
+		[]() -> float { return engineConfiguration->vvtExhaust_iTermMax; },
+		[](float value) { engineConfiguration->vvtExhaust_iTermMax = static_cast<int16_t>(value); } },
+	{ 0x93D8C18B, // vvtExhaust_iTermMin
+		[]() -> float { return engineConfiguration->vvtExhaust_iTermMin; },
+		[](float value) { engineConfiguration->vvtExhaust_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x94018255, // knockFuelTrimAggression
 		[]() -> float { return engineConfiguration->knockFuelTrimAggression; },
 		[](float value) { engineConfiguration->knockFuelTrimAggression = value; } },
 	{ 0x94461873, // sdLogStopDelay
 		[]() -> float { return engineConfiguration->sdLogStopDelay; },
-		[](float value) { engineConfiguration->sdLogStopDelay = value; } },
+		[](float value) { engineConfiguration->sdLogStopDelay = static_cast<uint8_t>(value); } },
 	{ 0x94C727A7, // launchRpmWindow
 		[]() -> float { return engineConfiguration->launchRpmWindow; },
-		[](float value) { engineConfiguration->launchRpmWindow = value; } },
+		[](float value) { engineConfiguration->launchRpmWindow = static_cast<int>(value); } },
+	{ 0x94FA33D9, // fuelPump_iTermMax
+		[]() -> float { return engineConfiguration->fuelPump_iTermMax; },
+		[](float value) { engineConfiguration->fuelPump_iTermMax = static_cast<int16_t>(value); } },
+	{ 0x94FA34D7, // fuelPump_iTermMin
+		[]() -> float { return engineConfiguration->fuelPump_iTermMin; },
+		[](float value) { engineConfiguration->fuelPump_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x950728ED, // cel_battery_max_v
 		[]() -> float { return config->cel_battery_max_v; },
 		[](float value) { config->cel_battery_max_v = value; } },
@@ -1239,13 +1356,16 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->maxOilPressureTimeout = value; } },
 	{ 0x9581875B, // nitrousDeactivationRpmWindow
 		[]() -> float { return engineConfiguration->nitrousDeactivationRpmWindow; },
-		[](float value) { engineConfiguration->nitrousDeactivationRpmWindow = value; } },
+		[](float value) { engineConfiguration->nitrousDeactivationRpmWindow = static_cast<uint16_t>(value); } },
 	{ 0x9669D4E9, // isAlternatorControlEnabled
 		[]() -> float { return engineConfiguration->isAlternatorControlEnabled; },
-		[](float value) { engineConfiguration->isAlternatorControlEnabled = value; } },
+		[](float value) { engineConfiguration->isAlternatorControlEnabled = value != 0; } },
 	{ 0x96C5B51D, // rotationalIdleController.enabled
 		[]() -> float { return engineConfiguration->rotationalIdleController.enabled; },
-		[](float value) { engineConfiguration->rotationalIdleController.enabled = value; } },
+		[](float value) { engineConfiguration->rotationalIdleController.enabled = value != 0; } },
+	{ 0x96DC3CC5, // fuelPumpControl.maxValue
+		[]() -> float { return engineConfiguration->fuelPumpControl.maxValue; },
+		[](float value) { engineConfiguration->fuelPumpControl.maxValue = static_cast<int16_t>(value); } },
 	{ 0x9716C53F, // nitrousLuaGaugeArmingValue
 		[]() -> float { return engineConfiguration->nitrousLuaGaugeArmingValue; },
 		[](float value) { engineConfiguration->nitrousLuaGaugeArmingValue = value; } },
@@ -1254,43 +1374,46 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->tpsSecondaryMaximum = value; } },
 	{ 0x981086BE, // launchSpeedThreshold
 		[]() -> float { return engineConfiguration->launchSpeedThreshold; },
-		[](float value) { engineConfiguration->launchSpeedThreshold = value; } },
+		[](float value) { engineConfiguration->launchSpeedThreshold = static_cast<int>(value); } },
 	{ 0x9824CBF5, // idlerpmpid_iTermMax
 		[]() -> float { return engineConfiguration->idlerpmpid_iTermMax; },
-		[](float value) { engineConfiguration->idlerpmpid_iTermMax = value; } },
+		[](float value) { engineConfiguration->idlerpmpid_iTermMax = static_cast<int16_t>(value); } },
 	{ 0x9824CCF3, // idlerpmpid_iTermMin
 		[]() -> float { return engineConfiguration->idlerpmpid_iTermMin; },
-		[](float value) { engineConfiguration->idlerpmpid_iTermMin = value; } },
+		[](float value) { engineConfiguration->idlerpmpid_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x98C2770D, // wizardTps
 		[]() -> float { return config->wizardTps; },
-		[](float value) { config->wizardTps = value; } },
+		[](float value) { config->wizardTps = value != 0; } },
 	{ 0x98D50B00, // knockBankCyl10
 		[]() -> float { return engineConfiguration->knockBankCyl10; },
-		[](float value) { engineConfiguration->knockBankCyl10 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl10 = value != 0; } },
 	{ 0x98D50B01, // knockBankCyl11
 		[]() -> float { return engineConfiguration->knockBankCyl11; },
-		[](float value) { engineConfiguration->knockBankCyl11 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl11 = value != 0; } },
 	{ 0x98D50B02, // knockBankCyl12
 		[]() -> float { return engineConfiguration->knockBankCyl12; },
-		[](float value) { engineConfiguration->knockBankCyl12 = value; } },
+		[](float value) { engineConfiguration->knockBankCyl12 = value != 0; } },
 	{ 0x991B93CC, // maximumIgnitionTiming
 		[]() -> float { return engineConfiguration->maximumIgnitionTiming; },
-		[](float value) { engineConfiguration->maximumIgnitionTiming = value; } },
+		[](float value) { engineConfiguration->maximumIgnitionTiming = static_cast<int8_t>(value); } },
 	{ 0x992BA5E6, // etb_iTermMax
 		[]() -> float { return engineConfiguration->etb_iTermMax; },
-		[](float value) { engineConfiguration->etb_iTermMax = value; } },
+		[](float value) { engineConfiguration->etb_iTermMax = static_cast<int16_t>(value); } },
 	{ 0x992BA6E4, // etb_iTermMin
 		[]() -> float { return engineConfiguration->etb_iTermMin; },
-		[](float value) { engineConfiguration->etb_iTermMin = value; } },
+		[](float value) { engineConfiguration->etb_iTermMin = static_cast<int16_t>(value); } },
 	{ 0x9930832D, // enableSoftwareKnock
 		[]() -> float { return engineConfiguration->enableSoftwareKnock; },
-		[](float value) { engineConfiguration->enableSoftwareKnock = value; } },
+		[](float value) { engineConfiguration->enableSoftwareKnock = value != 0; } },
 	{ 0x99A3876F, // cranking.rpm
 		[]() -> float { return engineConfiguration->cranking.rpm; },
-		[](float value) { engineConfiguration->cranking.rpm = value; } },
+		[](float value) { engineConfiguration->cranking.rpm = static_cast<int16_t>(value); } },
+	{ 0x9AA39278, // smRpmRateWindowMs
+		[]() -> float { return engineConfiguration->smRpmRateWindowMs; },
+		[](float value) { engineConfiguration->smRpmRateWindowMs = static_cast<uint16_t>(value); } },
 	{ 0x9B7C8470, // ltft.correctionEnabled
 		[]() -> float { return engineConfiguration->ltft.correctionEnabled; },
-		[](float value) { engineConfiguration->ltft.correctionEnabled = value; } },
+		[](float value) { engineConfiguration->ltft.correctionEnabled = value != 0; } },
 	{ 0x9C5942F1, // idleMaximumAirmass
 		[]() -> float { return engineConfiguration->idleMaximumAirmass; },
 		[](float value) { engineConfiguration->idleMaximumAirmass = value; } },
@@ -1303,6 +1426,9 @@ const ConfigParameter allParameters[] = {
 	{ 0x9D57FCEF, // benchTestOffTime
 		[]() -> float { return engineConfiguration->benchTestOffTime; },
 		[](float value) { engineConfiguration->benchTestOffTime = value; } },
+	{ 0x9DC52FBD, // fuelPumpMinDuty
+		[]() -> float { return engineConfiguration->fuelPumpMinDuty; },
+		[](float value) { engineConfiguration->fuelPumpMinDuty = static_cast<uint8_t>(value); } },
 	{ 0x9DF1AAF4, // lambdaProtectionTimeout
 		[]() -> float { return engineConfiguration->lambdaProtectionTimeout; },
 		[](float value) { engineConfiguration->lambdaProtectionTimeout = value; } },
@@ -1311,10 +1437,10 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxSpeed1Multiplier = value; } },
 	{ 0x9DF7E212, // fan2PwmFrequency
 		[]() -> float { return engineConfiguration->fan2PwmFrequency; },
-		[](float value) { engineConfiguration->fan2PwmFrequency = value; } },
+		[](float value) { engineConfiguration->fan2PwmFrequency = static_cast<uint16_t>(value); } },
 	{ 0x9F4073B3, // alternatorControl.maxValue
 		[]() -> float { return engineConfiguration->alternatorControl.maxValue; },
-		[](float value) { engineConfiguration->alternatorControl.maxValue = value; } },
+		[](float value) { engineConfiguration->alternatorControl.maxValue = static_cast<int16_t>(value); } },
 	{ 0x9F481555, // ltitClampMax
 		[]() -> float { return engineConfiguration->ltitClampMax; },
 		[](float value) { engineConfiguration->ltitClampMax = value; } },
@@ -1326,19 +1452,19 @@ const ConfigParameter allParameters[] = {
 		[](float value) { config->dynoCarGearPrimaryReduction = value; } },
 	{ 0xA06DB4DD, // isSdCardEnabled
 		[]() -> float { return engineConfiguration->isSdCardEnabled; },
-		[](float value) { engineConfiguration->isSdCardEnabled = value; } },
+		[](float value) { engineConfiguration->isSdCardEnabled = value != 0; } },
 	{ 0xA19C5669, // enableLaunchRetard
 		[]() -> float { return engineConfiguration->enableLaunchRetard; },
-		[](float value) { engineConfiguration->enableLaunchRetard = value; } },
+		[](float value) { engineConfiguration->enableLaunchRetard = value != 0; } },
 	{ 0xA1E7A17B, // cylindersCount
 		[]() -> float { return engineConfiguration->cylindersCount; },
-		[](float value) { engineConfiguration->cylindersCount = value; } },
+		[](float value) { engineConfiguration->cylindersCount = static_cast<uint32_t>(value); } },
 	{ 0xA217F785, // disableFan1AtSpeed
 		[]() -> float { return engineConfiguration->disableFan1AtSpeed; },
-		[](float value) { engineConfiguration->disableFan1AtSpeed = value; } },
+		[](float value) { engineConfiguration->disableFan1AtSpeed = static_cast<int8_t>(value); } },
 	{ 0xA244D9DA, // useEeprom
 		[]() -> float { return engineConfiguration->useEeprom; },
-		[](float value) { engineConfiguration->useEeprom = value; } },
+		[](float value) { engineConfiguration->useEeprom = value != 0; } },
 	{ 0xA2B95400, // throttlePedalSecondaryUpVoltage
 		[]() -> float { return engineConfiguration->throttlePedalSecondaryUpVoltage; },
 		[](float value) { engineConfiguration->throttlePedalSecondaryUpVoltage = value; } },
@@ -1350,37 +1476,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->compressorDischargeTemperature.config.bias_resistor = value; } },
 	{ 0xA3C1AF01, // wizardNumberOfCylinders
 		[]() -> float { return config->wizardNumberOfCylinders; },
-		[](float value) { config->wizardNumberOfCylinders = value; } },
+		[](float value) { config->wizardNumberOfCylinders = value != 0; } },
 	{ 0xA400C8F8, // isPhaseSyncRequiredForIgnition
 		[]() -> float { return engineConfiguration->isPhaseSyncRequiredForIgnition; },
-		[](float value) { engineConfiguration->isPhaseSyncRequiredForIgnition = value; } },
+		[](float value) { engineConfiguration->isPhaseSyncRequiredForIgnition = value != 0; } },
 	{ 0xA4E2DFB8, // wizardInjectorOutputs
 		[]() -> float { return config->wizardInjectorOutputs; },
-		[](float value) { config->wizardInjectorOutputs = value; } },
+		[](float value) { config->wizardInjectorOutputs = value != 0; } },
 	{ 0xA4E31DCC, // artificialTestMisfire
 		[]() -> float { return engineConfiguration->artificialTestMisfire; },
-		[](float value) { engineConfiguration->artificialTestMisfire = value; } },
+		[](float value) { engineConfiguration->artificialTestMisfire = value != 0; } },
+	{ 0xA51050FB, // smDecelRateThreshold
+		[]() -> float { return engineConfiguration->smDecelRateThreshold; },
+		[](float value) { engineConfiguration->smDecelRateThreshold = static_cast<int16_t>(value); } },
 	{ 0xA69AEDCC, // wizardInjectorFlow
 		[]() -> float { return config->wizardInjectorFlow; },
-		[](float value) { config->wizardInjectorFlow = value; } },
+		[](float value) { config->wizardInjectorFlow = value != 0; } },
 	{ 0xA6D7E843, // useHardSkipInTraction
 		[]() -> float { return engineConfiguration->useHardSkipInTraction; },
-		[](float value) { engineConfiguration->useHardSkipInTraction = value; } },
+		[](float value) { engineConfiguration->useHardSkipInTraction = value != 0; } },
 	{ 0xA6F28C98, // coastingFuelCutClt
 		[]() -> float { return engineConfiguration->coastingFuelCutClt; },
-		[](float value) { engineConfiguration->coastingFuelCutClt = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutClt = static_cast<int16_t>(value); } },
 	{ 0xA6F2B5B3, // coastingFuelCutMap
 		[]() -> float { return engineConfiguration->coastingFuelCutMap; },
-		[](float value) { engineConfiguration->coastingFuelCutMap = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutMap = static_cast<int16_t>(value); } },
 	{ 0xA6F2D56C, // coastingFuelCutTps
 		[]() -> float { return engineConfiguration->coastingFuelCutTps; },
-		[](float value) { engineConfiguration->coastingFuelCutTps = value; } },
+		[](float value) { engineConfiguration->coastingFuelCutTps = static_cast<int16_t>(value); } },
 	{ 0xA70ACAC8, // engineChartSize
 		[]() -> float { return engineConfiguration->engineChartSize; },
-		[](float value) { engineConfiguration->engineChartSize = value; } },
+		[](float value) { engineConfiguration->engineChartSize = static_cast<uint32_t>(value); } },
 	{ 0xA71390EE, // isCylinderCleanupEnabled
 		[]() -> float { return engineConfiguration->isCylinderCleanupEnabled; },
-		[](float value) { engineConfiguration->isCylinderCleanupEnabled = value; } },
+		[](float value) { engineConfiguration->isCylinderCleanupEnabled = value != 0; } },
 	{ 0xA7C4AC11, // tcu_rangeSensorBiasResistor
 		[]() -> float { return engineConfiguration->tcu_rangeSensorBiasResistor; },
 		[](float value) { engineConfiguration->tcu_rangeSensorBiasResistor = value; } },
@@ -1431,25 +1560,28 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->idleTimingPid.pFactor = value; } },
 	{ 0xAC041CDA, // enableTrailingSparks
 		[]() -> float { return engineConfiguration->enableTrailingSparks; },
-		[](float value) { engineConfiguration->enableTrailingSparks = value; } },
+		[](float value) { engineConfiguration->enableTrailingSparks = value != 0; } },
 	{ 0xAC0730F2, // canSnifferIncludeBus
 		[]() -> float { return engineConfiguration->canSnifferIncludeBus; },
-		[](float value) { engineConfiguration->canSnifferIncludeBus = value; } },
+		[](float value) { engineConfiguration->canSnifferIncludeBus = value != 0; } },
 	{ 0xAC21DF18, // ltft.enabled
 		[]() -> float { return engineConfiguration->ltft.enabled; },
-		[](float value) { engineConfiguration->ltft.enabled = value; } },
+		[](float value) { engineConfiguration->ltft.enabled = value != 0; } },
 	{ 0xAC474BA9, // dynoCarWheelAspectRatio
 		[]() -> float { return config->dynoCarWheelAspectRatio; },
-		[](float value) { config->dynoCarWheelAspectRatio = value; } },
+		[](float value) { config->dynoCarWheelAspectRatio = static_cast<int8_t>(value); } },
 	{ 0xAC4A543B, // ALSSkipRatio
 		[]() -> float { return engineConfiguration->ALSSkipRatio; },
 		[](float value) { engineConfiguration->ALSSkipRatio = value; } },
 	{ 0xAC77EE11, // etbWastegatePid.minValue
 		[]() -> float { return engineConfiguration->etbWastegatePid.minValue; },
-		[](float value) { engineConfiguration->etbWastegatePid.minValue = value; } },
+		[](float value) { engineConfiguration->etbWastegatePid.minValue = static_cast<int16_t>(value); } },
+	{ 0xAD3B9E5A, // transmissionSlipRpmSourceIsInputShaftSpeed
+		[]() -> float { return engineConfiguration->transmissionSlipRpmSourceIsInputShaftSpeed; },
+		[](float value) { engineConfiguration->transmissionSlipRpmSourceIsInputShaftSpeed = value != 0; } },
 	{ 0xAE2336E5, // acrRevolutions
 		[]() -> float { return engineConfiguration->acrRevolutions; },
-		[](float value) { engineConfiguration->acrRevolutions = value; } },
+		[](float value) { engineConfiguration->acrRevolutions = static_cast<uint8_t>(value); } },
 	{ 0xAE27ABC0, // referenceMapForGenerator
 		[]() -> float { return engineConfiguration->referenceMapForGenerator; },
 		[](float value) { engineConfiguration->referenceMapForGenerator = value; } },
@@ -1458,22 +1590,25 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->fixedTiming = value; } },
 	{ 0xAF3E188D, // isIgnitionEnabled
 		[]() -> float { return engineConfiguration->isIgnitionEnabled; },
-		[](float value) { engineConfiguration->isIgnitionEnabled = value; } },
+		[](float value) { engineConfiguration->isIgnitionEnabled = value != 0; } },
 	{ 0xAFF07F11, // dynoCarCarMassKg
 		[]() -> float { return config->dynoCarCarMassKg; },
-		[](float value) { config->dynoCarCarMassKg = value; } },
+		[](float value) { config->dynoCarCarMassKg = static_cast<int16_t>(value); } },
 	{ 0xB0147E64, // launchTpsThreshold
 		[]() -> float { return engineConfiguration->launchTpsThreshold; },
-		[](float value) { engineConfiguration->launchTpsThreshold = value; } },
+		[](float value) { engineConfiguration->launchTpsThreshold = static_cast<int>(value); } },
 	{ 0xB07241AE, // etb_use_two_wires
 		[]() -> float { return engineConfiguration->etb_use_two_wires; },
-		[](float value) { engineConfiguration->etb_use_two_wires = value; } },
+		[](float value) { engineConfiguration->etb_use_two_wires = value != 0; } },
 	{ 0xB0A05920, // invertVvtControlExhaust
 		[]() -> float { return engineConfiguration->invertVvtControlExhaust; },
-		[](float value) { engineConfiguration->invertVvtControlExhaust = value; } },
+		[](float value) { engineConfiguration->invertVvtControlExhaust = value != 0; } },
 	{ 0xB1D868D0, // vbattDividerCoeff
 		[]() -> float { return engineConfiguration->vbattDividerCoeff; },
 		[](float value) { engineConfiguration->vbattDividerCoeff = value; } },
+	{ 0xB1F64B44, // smAccumulatorGain
+		[]() -> float { return engineConfiguration->smAccumulatorGain; },
+		[](float value) { engineConfiguration->smAccumulatorGain = value; } },
 	{ 0xB215FCC8, // map.sensor.lowValue
 		[]() -> float { return engineConfiguration->map.sensor.lowValue; },
 		[](float value) { engineConfiguration->map.sensor.lowValue = value; } },
@@ -1486,18 +1621,21 @@ const ConfigParameter allParameters[] = {
 	{ 0xB2A909EE, // oilTempSensor.config.resistance_3
 		[]() -> float { return engineConfiguration->oilTempSensor.config.resistance_3; },
 		[](float value) { engineConfiguration->oilTempSensor.config.resistance_3 = value; } },
+	{ 0xB2F80746, // fuelPumpReliefEngageOverpressure
+		[]() -> float { return engineConfiguration->fuelPumpReliefEngageOverpressure; },
+		[](float value) { engineConfiguration->fuelPumpReliefEngageOverpressure = static_cast<uint16_t>(value); } },
 	{ 0xB3610F4C, // fuelTempSensor.config.bias_resistor
 		[]() -> float { return engineConfiguration->fuelTempSensor.config.bias_resistor; },
 		[](float value) { engineConfiguration->fuelTempSensor.config.bias_resistor = value; } },
 	{ 0xB3723C35, // useFordRedundantPps
 		[]() -> float { return engineConfiguration->useFordRedundantPps; },
-		[](float value) { engineConfiguration->useFordRedundantPps = value; } },
+		[](float value) { engineConfiguration->useFordRedundantPps = value != 0; } },
 	{ 0xB3724D39, // useFordRedundantTps
 		[]() -> float { return engineConfiguration->useFordRedundantTps; },
-		[](float value) { engineConfiguration->useFordRedundantTps = value; } },
+		[](float value) { engineConfiguration->useFordRedundantTps = value != 0; } },
 	{ 0xB3BFE019, // useTLE8888_cranking_hack
 		[]() -> float { return engineConfiguration->useTLE8888_cranking_hack; },
-		[](float value) { engineConfiguration->useTLE8888_cranking_hack = value; } },
+		[](float value) { engineConfiguration->useTLE8888_cranking_hack = value != 0; } },
 	{ 0xB406A9B1, // lambdaProtectionRestoreLoad
 		[]() -> float { return engineConfiguration->lambdaProtectionRestoreLoad; },
 		[](float value) { engineConfiguration->lambdaProtectionRestoreLoad = value; } },
@@ -1506,34 +1644,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->idle_derivativeFilterLoss = value; } },
 	{ 0xB516E05E, // idlePositionMax
 		[]() -> float { return engineConfiguration->idlePositionMax; },
-		[](float value) { engineConfiguration->idlePositionMax = value; } },
+		[](float value) { engineConfiguration->idlePositionMax = static_cast<uint16_t>(value); } },
 	{ 0xB516E15C, // idlePositionMin
 		[]() -> float { return engineConfiguration->idlePositionMin; },
-		[](float value) { engineConfiguration->idlePositionMin = value; } },
+		[](float value) { engineConfiguration->idlePositionMin = static_cast<uint16_t>(value); } },
+	{ 0xB51A2696, // smAccelRateThreshold
+		[]() -> float { return engineConfiguration->smAccelRateThreshold; },
+		[](float value) { engineConfiguration->smAccelRateThreshold = static_cast<int16_t>(value); } },
 	{ 0xB520CB79, // hpfpCamLobes
 		[]() -> float { return engineConfiguration->hpfpCamLobes; },
-		[](float value) { engineConfiguration->hpfpCamLobes = value; } },
+		[](float value) { engineConfiguration->hpfpCamLobes = static_cast<uint8_t>(value); } },
 	{ 0xB564F0A0, // verboseTLE8888
 		[]() -> float { return engineConfiguration->verboseTLE8888; },
-		[](float value) { engineConfiguration->verboseTLE8888 = value; } },
+		[](float value) { engineConfiguration->verboseTLE8888 = value != 0; } },
+	{ 0xB58E2B95, // fuelPumpReliefRecoverOverpressure
+		[]() -> float { return engineConfiguration->fuelPumpReliefRecoverOverpressure; },
+		[](float value) { engineConfiguration->fuelPumpReliefRecoverOverpressure = static_cast<uint16_t>(value); } },
 	{ 0xB6510BCA, // measureMapOnlyInOneCylinder
 		[]() -> float { return engineConfiguration->measureMapOnlyInOneCylinder; },
-		[](float value) { engineConfiguration->measureMapOnlyInOneCylinder = value; } },
+		[](float value) { engineConfiguration->measureMapOnlyInOneCylinder = value != 0; } },
 	{ 0xB6D0EF1E, // displacement
 		[]() -> float { return engineConfiguration->displacement; },
 		[](float value) { engineConfiguration->displacement = value; } },
 	{ 0xB79B120F, // wizardDisplacement
 		[]() -> float { return config->wizardDisplacement; },
-		[](float value) { config->wizardDisplacement = value; } },
+		[](float value) { config->wizardDisplacement = value != 0; } },
 	{ 0xB891060B, // fan2PwmEnabled
 		[]() -> float { return engineConfiguration->fan2PwmEnabled; },
-		[](float value) { engineConfiguration->fan2PwmEnabled = value; } },
+		[](float value) { engineConfiguration->fan2PwmEnabled = value != 0; } },
 	{ 0xB89C0656, // nitrousFuelAdderPercent
 		[]() -> float { return engineConfiguration->nitrousFuelAdderPercent; },
-		[](float value) { engineConfiguration->nitrousFuelAdderPercent = value; } },
+		[](float value) { engineConfiguration->nitrousFuelAdderPercent = static_cast<int8_t>(value); } },
 	{ 0xB8B39E82, // enableAemXSeriesEgt
 		[]() -> float { return engineConfiguration->enableAemXSeriesEgt; },
-		[](float value) { engineConfiguration->enableAemXSeriesEgt = value; } },
+		[](float value) { engineConfiguration->enableAemXSeriesEgt = value != 0; } },
 	{ 0xB8B8DC34, // fuelTempSensor.config.resistance_1
 		[]() -> float { return engineConfiguration->fuelTempSensor.config.resistance_1; },
 		[](float value) { engineConfiguration->fuelTempSensor.config.resistance_1 = value; } },
@@ -1545,7 +1689,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->fuelTempSensor.config.resistance_3 = value; } },
 	{ 0xB8CC734A, // enableOilPressureProtect
 		[]() -> float { return engineConfiguration->enableOilPressureProtect; },
-		[](float value) { engineConfiguration->enableOilPressureProtect = value; } },
+		[](float value) { engineConfiguration->enableOilPressureProtect = value != 0; } },
 	{ 0xB903D97A, // boostPid.dFactor
 		[]() -> float { return engineConfiguration->boostPid.dFactor; },
 		[](float value) { engineConfiguration->boostPid.dFactor = value; } },
@@ -1554,7 +1698,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxTempSensor1.config.bias_resistor = value; } },
 	{ 0xB92225A4, // stepperMaxDutyCycle
 		[]() -> float { return engineConfiguration->stepperMaxDutyCycle; },
-		[](float value) { engineConfiguration->stepperMaxDutyCycle = value; } },
+		[](float value) { engineConfiguration->stepperMaxDutyCycle = static_cast<uint8_t>(value); } },
 	{ 0xBA1062DF, // misfireK
 		[]() -> float { return engineConfiguration->misfireK; },
 		[](float value) { engineConfiguration->misfireK = value; } },
@@ -1567,21 +1711,24 @@ const ConfigParameter allParameters[] = {
 	{ 0xBA99B6FA, // tpsAccelLookback
 		[]() -> float { return engineConfiguration->tpsAccelLookback; },
 		[](float value) { engineConfiguration->tpsAccelLookback = value; } },
+	{ 0xBADA8D84, // smAccelHoldMs
+		[]() -> float { return engineConfiguration->smAccelHoldMs; },
+		[](float value) { engineConfiguration->smAccelHoldMs = static_cast<uint16_t>(value); } },
 	{ 0xBB07B2D7, // stft.deadband
 		[]() -> float { return engineConfiguration->stft.deadband; },
 		[](float value) { engineConfiguration->stft.deadband = value; } },
 	{ 0xBB19CD14, // useAbsolutePressureForLagTime
 		[]() -> float { return engineConfiguration->useAbsolutePressureForLagTime; },
-		[](float value) { engineConfiguration->useAbsolutePressureForLagTime = value; } },
+		[](float value) { engineConfiguration->useAbsolutePressureForLagTime = value != 0; } },
 	{ 0xBB45D520, // launchActivateDelay
 		[]() -> float { return engineConfiguration->launchActivateDelay; },
 		[](float value) { engineConfiguration->launchActivateDelay = value; } },
 	{ 0xBB9E2462, // stepperMinDutyCycle
 		[]() -> float { return engineConfiguration->stepperMinDutyCycle; },
-		[](float value) { engineConfiguration->stepperMinDutyCycle = value; } },
+		[](float value) { engineConfiguration->stepperMinDutyCycle = static_cast<uint8_t>(value); } },
 	{ 0xBC7C3610, // disableFan1WhenStopped
 		[]() -> float { return engineConfiguration->disableFan1WhenStopped; },
-		[](float value) { engineConfiguration->disableFan1WhenStopped = value; } },
+		[](float value) { engineConfiguration->disableFan1WhenStopped = value != 0; } },
 	{ 0xBCB7E9CA, // tChargeAirIncrLimit
 		[]() -> float { return engineConfiguration->tChargeAirIncrLimit; },
 		[](float value) { engineConfiguration->tChargeAirIncrLimit = value; } },
@@ -1590,7 +1737,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { config->dynoCarCoeffOfDrag = value; } },
 	{ 0xBD58FC02, // alsMinTimeBetween
 		[]() -> float { return engineConfiguration->alsMinTimeBetween; },
-		[](float value) { engineConfiguration->alsMinTimeBetween = value; } },
+		[](float value) { engineConfiguration->alsMinTimeBetween = static_cast<uint8_t>(value); } },
 	{ 0xBE258F0F, // auxTempSensor1.config.tempC_1
 		[]() -> float { return engineConfiguration->auxTempSensor1.config.tempC_1; },
 		[](float value) { engineConfiguration->auxTempSensor1.config.tempC_1 = value; } },
@@ -1600,12 +1747,15 @@ const ConfigParameter allParameters[] = {
 	{ 0xBE258F11, // auxTempSensor1.config.tempC_3
 		[]() -> float { return engineConfiguration->auxTempSensor1.config.tempC_3; },
 		[](float value) { engineConfiguration->auxTempSensor1.config.tempC_3 = value; } },
+	{ 0xBEECD5B9, // disableFan2AtSpeedHysteresis
+		[]() -> float { return engineConfiguration->disableFan2AtSpeedHysteresis; },
+		[](float value) { engineConfiguration->disableFan2AtSpeedHysteresis = static_cast<int8_t>(value); } },
 	{ 0xBF2CC4CD, // cutSparkOnHardLimit
 		[]() -> float { return engineConfiguration->cutSparkOnHardLimit; },
-		[](float value) { engineConfiguration->cutSparkOnHardLimit = value; } },
+		[](float value) { engineConfiguration->cutSparkOnHardLimit = value != 0; } },
 	{ 0xBF4957AA, // dynoRpmStep
 		[]() -> float { return config->dynoRpmStep; },
-		[](float value) { config->dynoRpmStep = value; } },
+		[](float value) { config->dynoRpmStep = static_cast<uint8_t>(value); } },
 	{ 0xBF5EF268, // ambientTempSensor.config.resistance_1
 		[]() -> float { return engineConfiguration->ambientTempSensor.config.resistance_1; },
 		[](float value) { engineConfiguration->ambientTempSensor.config.resistance_1 = value; } },
@@ -1618,15 +1768,18 @@ const ConfigParameter allParameters[] = {
 	{ 0xBF5F7932, // mapHighValueVoltage
 		[]() -> float { return engineConfiguration->mapHighValueVoltage; },
 		[](float value) { engineConfiguration->mapHighValueVoltage = value; } },
+	{ 0xBFC53F49, // fuelPumpControl.offset
+		[]() -> float { return engineConfiguration->fuelPumpControl.offset; },
+		[](float value) { engineConfiguration->fuelPumpControl.offset = static_cast<int16_t>(value); } },
 	{ 0xBFCDC7D9, // idleStepperTotalSteps
 		[]() -> float { return engineConfiguration->idleStepperTotalSteps; },
-		[](float value) { engineConfiguration->idleStepperTotalSteps = value; } },
+		[](float value) { engineConfiguration->idleStepperTotalSteps = static_cast<int>(value); } },
 	{ 0xBFF60FF8, // multisparkEnable
 		[]() -> float { return engineConfiguration->multisparkEnable; },
-		[](float value) { engineConfiguration->multisparkEnable = value; } },
+		[](float value) { engineConfiguration->multisparkEnable = value != 0; } },
 	{ 0xC0081C0D, // verboseCan
 		[]() -> float { return engineConfiguration->verboseCan; },
-		[](float value) { engineConfiguration->verboseCan = value; } },
+		[](float value) { engineConfiguration->verboseCan = value != 0; } },
 	{ 0xC0E34FBE, // auxLinear4.value1
 		[]() -> float { return engineConfiguration->auxLinear4.value1; },
 		[](float value) { engineConfiguration->auxLinear4.value1 = value; } },
@@ -1635,13 +1788,16 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxLinear4.value2 = value; } },
 	{ 0xC10B9DDF, // verboseCan2
 		[]() -> float { return engineConfiguration->verboseCan2; },
-		[](float value) { engineConfiguration->verboseCan2 = value; } },
+		[](float value) { engineConfiguration->verboseCan2 = value != 0; } },
 	{ 0xC10E9AC3, // turboSpeedSensorMultiplier
 		[]() -> float { return engineConfiguration->turboSpeedSensorMultiplier; },
 		[](float value) { engineConfiguration->turboSpeedSensorMultiplier = value; } },
 	{ 0xC1139EC6, // verboseQuad
 		[]() -> float { return engineConfiguration->verboseQuad; },
-		[](float value) { engineConfiguration->verboseQuad = value; } },
+		[](float value) { engineConfiguration->verboseQuad = value != 0; } },
+	{ 0xC21606C5, // fan1AcPressureOn
+		[]() -> float { return engineConfiguration->fan1AcPressureOn; },
+		[](float value) { engineConfiguration->fan1AcPressureOn = static_cast<uint16_t>(value); } },
 	{ 0xC26E9CBF, // fordInjectorSmallPulseBreakPoint
 		[]() -> float { return engineConfiguration->fordInjectorSmallPulseBreakPoint; },
 		[](float value) { engineConfiguration->fordInjectorSmallPulseBreakPoint = value; } },
@@ -1656,52 +1812,61 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->iat.config.resistance_3 = value; } },
 	{ 0xC3B02309, // useSpiImu
 		[]() -> float { return engineConfiguration->useSpiImu; },
-		[](float value) { engineConfiguration->useSpiImu = value; } },
+		[](float value) { engineConfiguration->useSpiImu = value != 0; } },
 	{ 0xC3DA1B5E, // idleRpmPid.minValue
 		[]() -> float { return engineConfiguration->idleRpmPid.minValue; },
-		[](float value) { engineConfiguration->idleRpmPid.minValue = value; } },
+		[](float value) { engineConfiguration->idleRpmPid.minValue = static_cast<int16_t>(value); } },
 	{ 0xC3EAB1DB, // ltitEmaAlpha
 		[]() -> float { return engineConfiguration->ltitEmaAlpha; },
-		[](float value) { engineConfiguration->ltitEmaAlpha = value; } },
+		[](float value) { engineConfiguration->ltitEmaAlpha = static_cast<uint8_t>(value); } },
 	{ 0xC4672F65, // uartConsoleSerialSpeed
 		[]() -> float { return engineConfiguration->uartConsoleSerialSpeed; },
-		[](float value) { engineConfiguration->uartConsoleSerialSpeed = value; } },
+		[](float value) { engineConfiguration->uartConsoleSerialSpeed = static_cast<uint32_t>(value); } },
 	{ 0xC4E0F54F, // etb.minValue
 		[]() -> float { return engineConfiguration->etb.minValue; },
-		[](float value) { engineConfiguration->etb.minValue = value; } },
+		[](float value) { engineConfiguration->etb.minValue = static_cast<int16_t>(value); } },
+	{ 0xC5364637, // smSecondClutchSwitchAvailable
+		[]() -> float { return engineConfiguration->smSecondClutchSwitchAvailable; },
+		[](float value) { engineConfiguration->smSecondClutchSwitchAvailable = value != 0; } },
 	{ 0xC58982DF, // launchFuelCutEnable
 		[]() -> float { return engineConfiguration->launchFuelCutEnable; },
-		[](float value) { engineConfiguration->launchFuelCutEnable = value; } },
+		[](float value) { engineConfiguration->launchFuelCutEnable = value != 0; } },
+	{ 0xC5A52557, // wotEnrichmentEnabled
+		[]() -> float { return engineConfiguration->wotEnrichmentEnabled; },
+		[](float value) { engineConfiguration->wotEnrichmentEnabled = value != 0; } },
 	{ 0xC6718AE6, // minAcPressure
 		[]() -> float { return engineConfiguration->minAcPressure; },
-		[](float value) { engineConfiguration->minAcPressure = value; } },
+		[](float value) { engineConfiguration->minAcPressure = static_cast<uint16_t>(value); } },
 	{ 0xC67459ED, // tpsDecelEnleanmentThreshold
 		[]() -> float { return engineConfiguration->tpsDecelEnleanmentThreshold; },
 		[](float value) { engineConfiguration->tpsDecelEnleanmentThreshold = value; } },
 	{ 0xC71E359C, // launchSmoothRetard
 		[]() -> float { return engineConfiguration->launchSmoothRetard; },
-		[](float value) { engineConfiguration->launchSmoothRetard = value; } },
+		[](float value) { engineConfiguration->launchSmoothRetard = value != 0; } },
 	{ 0xC72F9219, // triggerCompSensorSatRpm
 		[]() -> float { return engineConfiguration->triggerCompSensorSatRpm; },
 		[](float value) { engineConfiguration->triggerCompSensorSatRpm = value; } },
 	{ 0xC7AC1F5A, // boostPid.periodMs
 		[]() -> float { return engineConfiguration->boostPid.periodMs; },
-		[](float value) { engineConfiguration->boostPid.periodMs = value; } },
+		[](float value) { engineConfiguration->boostPid.periodMs = static_cast<int16_t>(value); } },
 	{ 0xC80DF4C6, // knockRetardReapplyRate
 		[]() -> float { return engineConfiguration->knockRetardReapplyRate; },
 		[](float value) { engineConfiguration->knockRetardReapplyRate = value; } },
 	{ 0xC85B8AD0, // antiLagEnabled
 		[]() -> float { return engineConfiguration->antiLagEnabled; },
-		[](float value) { engineConfiguration->antiLagEnabled = value; } },
+		[](float value) { engineConfiguration->antiLagEnabled = value != 0; } },
 	{ 0xC9282473, // useStepperIdle
 		[]() -> float { return engineConfiguration->useStepperIdle; },
-		[](float value) { engineConfiguration->useStepperIdle = value; } },
+		[](float value) { engineConfiguration->useStepperIdle = value != 0; } },
 	{ 0xC9DCEB28, // acRelayAlternatorDutyAdder
 		[]() -> float { return engineConfiguration->acRelayAlternatorDutyAdder; },
-		[](float value) { engineConfiguration->acRelayAlternatorDutyAdder = value; } },
+		[](float value) { engineConfiguration->acRelayAlternatorDutyAdder = static_cast<uint8_t>(value); } },
+	{ 0xCA032942, // rollingLaunchEnabled
+		[]() -> float { return engineConfiguration->rollingLaunchEnabled; },
+		[](float value) { engineConfiguration->rollingLaunchEnabled = value != 0; } },
 	{ 0xCA12479D, // launchFuelAdderPercent
 		[]() -> float { return engineConfiguration->launchFuelAdderPercent; },
-		[](float value) { engineConfiguration->launchFuelAdderPercent = value; } },
+		[](float value) { engineConfiguration->launchFuelAdderPercent = static_cast<int8_t>(value); } },
 	{ 0xCA5AB4F0, // auxTempSensor2.config.tempC_1
 		[]() -> float { return engineConfiguration->auxTempSensor2.config.tempC_1; },
 		[](float value) { engineConfiguration->auxTempSensor2.config.tempC_1 = value; } },
@@ -1713,10 +1878,10 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxTempSensor2.config.tempC_3 = value; } },
 	{ 0xCAC06688, // mc33_t_peak_off
 		[]() -> float { return engineConfiguration->mc33_t_peak_off; },
-		[](float value) { engineConfiguration->mc33_t_peak_off = value; } },
+		[](float value) { engineConfiguration->mc33_t_peak_off = static_cast<uint16_t>(value); } },
 	{ 0xCAC07D04, // mc33_t_peak_tot
 		[]() -> float { return engineConfiguration->mc33_t_peak_tot; },
-		[](float value) { engineConfiguration->mc33_t_peak_tot = value; } },
+		[](float value) { engineConfiguration->mc33_t_peak_tot = static_cast<uint16_t>(value); } },
 	{ 0xCC2D83AD, // finalGearRatio
 		[]() -> float { return engineConfiguration->finalGearRatio; },
 		[](float value) { engineConfiguration->finalGearRatio = value; } },
@@ -1725,31 +1890,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->etbWastegatePid.dFactor = value; } },
 	{ 0xCCFF4026, // minOilPressureAfterStart
 		[]() -> float { return engineConfiguration->minOilPressureAfterStart; },
-		[](float value) { engineConfiguration->minOilPressureAfterStart = value; } },
+		[](float value) { engineConfiguration->minOilPressureAfterStart = static_cast<uint16_t>(value); } },
 	{ 0xCD22C765, // fanOnTemperature
 		[]() -> float { return engineConfiguration->fanOnTemperature; },
-		[](float value) { engineConfiguration->fanOnTemperature = value; } },
+		[](float value) { engineConfiguration->fanOnTemperature = static_cast<int16_t>(value); } },
+	{ 0xCD7A03D9, // fuelPumpPwmFrequency
+		[]() -> float { return engineConfiguration->fuelPumpPwmFrequency; },
+		[](float value) { engineConfiguration->fuelPumpPwmFrequency = static_cast<uint16_t>(value); } },
 	{ 0xCD90DF74, // canVssScaling
 		[]() -> float { return engineConfiguration->canVssScaling; },
 		[](float value) { engineConfiguration->canVssScaling = value; } },
 	{ 0xCE00CDF7, // tpsErrorDetectionTooHigh
 		[]() -> float { return engineConfiguration->tpsErrorDetectionTooHigh; },
-		[](float value) { engineConfiguration->tpsErrorDetectionTooHigh = value; } },
+		[](float value) { engineConfiguration->tpsErrorDetectionTooHigh = static_cast<int16_t>(value); } },
+	{ 0xCE0BD1A7, // transmissionSlipMinVss
+		[]() -> float { return engineConfiguration->transmissionSlipMinVss; },
+		[](float value) { engineConfiguration->transmissionSlipMinVss = static_cast<uint8_t>(value); } },
 	{ 0xCF28BCC0, // limitTorqueReductionTime
 		[]() -> float { return engineConfiguration->limitTorqueReductionTime; },
-		[](float value) { engineConfiguration->limitTorqueReductionTime = value; } },
+		[](float value) { engineConfiguration->limitTorqueReductionTime = value != 0; } },
 	{ 0xD068BF30, // vvlController.activationRpm
 		[]() -> float { return engineConfiguration->vvlController.activationRpm; },
-		[](float value) { engineConfiguration->vvlController.activationRpm = value; } },
+		[](float value) { engineConfiguration->vvlController.activationRpm = static_cast<uint16_t>(value); } },
 	{ 0xD08769D3, // wizardCltSensor
 		[]() -> float { return config->wizardCltSensor; },
-		[](float value) { config->wizardCltSensor = value; } },
+		[](float value) { config->wizardCltSensor = value != 0; } },
 	{ 0xD0A76B78, // cutFuelOnHardLimit
 		[]() -> float { return engineConfiguration->cutFuelOnHardLimit; },
-		[](float value) { engineConfiguration->cutFuelOnHardLimit = value; } },
+		[](float value) { engineConfiguration->cutFuelOnHardLimit = value != 0; } },
 	{ 0xD0CCDE9E, // etbJamDetectThreshold
 		[]() -> float { return engineConfiguration->etbJamDetectThreshold; },
-		[](float value) { engineConfiguration->etbJamDetectThreshold = value; } },
+		[](float value) { engineConfiguration->etbJamDetectThreshold = static_cast<uint8_t>(value); } },
+	{ 0xD0D6B398, // disableFan1AtSpeedHysteresis
+		[]() -> float { return engineConfiguration->disableFan1AtSpeedHysteresis; },
+		[](float value) { engineConfiguration->disableFan1AtSpeedHysteresis = static_cast<int8_t>(value); } },
 	{ 0xD0E78C29, // cel_tps_max_v
 		[]() -> float { return config->cel_tps_max_v; },
 		[](float value) { config->cel_tps_max_v = value; } },
@@ -1758,37 +1932,40 @@ const ConfigParameter allParameters[] = {
 		[](float value) { config->cel_tps_min_v = value; } },
 	{ 0xD118D533, // etbMaximumPosition
 		[]() -> float { return engineConfiguration->etbMaximumPosition; },
-		[](float value) { engineConfiguration->etbMaximumPosition = value; } },
+		[](float value) { engineConfiguration->etbMaximumPosition = static_cast<uint8_t>(value); } },
 	{ 0xD12FF36B, // mc33810Gpgd0Mode
 		[]() -> float { return engineConfiguration->mc33810Gpgd0Mode; },
-		[](float value) { engineConfiguration->mc33810Gpgd0Mode = value; } },
+		[](float value) { engineConfiguration->mc33810Gpgd0Mode = value != 0; } },
 	{ 0xD1420BEC, // mc33810Gpgd1Mode
 		[]() -> float { return engineConfiguration->mc33810Gpgd1Mode; },
-		[](float value) { engineConfiguration->mc33810Gpgd1Mode = value; } },
+		[](float value) { engineConfiguration->mc33810Gpgd1Mode = value != 0; } },
 	{ 0xD154246D, // mc33810Gpgd2Mode
 		[]() -> float { return engineConfiguration->mc33810Gpgd2Mode; },
-		[](float value) { engineConfiguration->mc33810Gpgd2Mode = value; } },
+		[](float value) { engineConfiguration->mc33810Gpgd2Mode = value != 0; } },
 	{ 0xD1663CEE, // mc33810Gpgd3Mode
 		[]() -> float { return engineConfiguration->mc33810Gpgd3Mode; },
-		[](float value) { engineConfiguration->mc33810Gpgd3Mode = value; } },
+		[](float value) { engineConfiguration->mc33810Gpgd3Mode = value != 0; } },
 	{ 0xD1BD8ECF, // launchRpm
 		[]() -> float { return engineConfiguration->launchRpm; },
-		[](float value) { engineConfiguration->launchRpm = value; } },
+		[](float value) { engineConfiguration->launchRpm = static_cast<uint16_t>(value); } },
 	{ 0xD1C0F7C6, // multisparkMaxRpm
 		[]() -> float { return engineConfiguration->multisparkMaxRpm; },
 		[](float value) { engineConfiguration->multisparkMaxRpm = value; } },
 	{ 0xD1E01E4A, // sdCardLogFrequency
 		[]() -> float { return engineConfiguration->sdCardLogFrequency; },
-		[](float value) { engineConfiguration->sdCardLogFrequency = value; } },
+		[](float value) { engineConfiguration->sdCardLogFrequency = static_cast<uint16_t>(value); } },
 	{ 0xD278BE11, // torqueReductionArmingApp
 		[]() -> float { return engineConfiguration->torqueReductionArmingApp; },
-		[](float value) { engineConfiguration->torqueReductionArmingApp = value; } },
+		[](float value) { engineConfiguration->torqueReductionArmingApp = static_cast<int>(value); } },
 	{ 0xD279065F, // torqueReductionArmingRpm
 		[]() -> float { return engineConfiguration->torqueReductionArmingRpm; },
-		[](float value) { engineConfiguration->torqueReductionArmingRpm = value; } },
+		[](float value) { engineConfiguration->torqueReductionArmingRpm = static_cast<uint16_t>(value); } },
+	{ 0xD398396A, // tpsExpAverageAlpha
+		[]() -> float { return engineConfiguration->tpsExpAverageAlpha; },
+		[](float value) { engineConfiguration->tpsExpAverageAlpha = value; } },
 	{ 0xD4637D75, // alsEtbPosition
 		[]() -> float { return engineConfiguration->alsEtbPosition; },
-		[](float value) { engineConfiguration->alsEtbPosition = value; } },
+		[](float value) { engineConfiguration->alsEtbPosition = static_cast<uint8_t>(value); } },
 	{ 0xD4A0D59E, // ppsSecondaryMaximum
 		[]() -> float { return engineConfiguration->ppsSecondaryMaximum; },
 		[](float value) { engineConfiguration->ppsSecondaryMaximum = value; } },
@@ -1800,31 +1977,31 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxLinear3.value2 = value; } },
 	{ 0xD4B7AEE5, // isWaveAnalyzerEnabled
 		[]() -> float { return engineConfiguration->isWaveAnalyzerEnabled; },
-		[](float value) { engineConfiguration->isWaveAnalyzerEnabled = value; } },
+		[](float value) { engineConfiguration->isWaveAnalyzerEnabled = value != 0; } },
 	{ 0xD4DA9DCF, // useAuxSpeedForSlipRatio
 		[]() -> float { return engineConfiguration->useAuxSpeedForSlipRatio; },
-		[](float value) { engineConfiguration->useAuxSpeedForSlipRatio = value; } },
+		[](float value) { engineConfiguration->useAuxSpeedForSlipRatio = value != 0; } },
 	{ 0xD4F38466, // is_enabled_spi_1
 		[]() -> float { return engineConfiguration->is_enabled_spi_1; },
-		[](float value) { engineConfiguration->is_enabled_spi_1 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_1 = value != 0; } },
 	{ 0xD4F38467, // is_enabled_spi_2
 		[]() -> float { return engineConfiguration->is_enabled_spi_2; },
-		[](float value) { engineConfiguration->is_enabled_spi_2 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_2 = value != 0; } },
 	{ 0xD4F38468, // is_enabled_spi_3
 		[]() -> float { return engineConfiguration->is_enabled_spi_3; },
-		[](float value) { engineConfiguration->is_enabled_spi_3 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_3 = value != 0; } },
 	{ 0xD4F38469, // is_enabled_spi_4
 		[]() -> float { return engineConfiguration->is_enabled_spi_4; },
-		[](float value) { engineConfiguration->is_enabled_spi_4 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_4 = value != 0; } },
 	{ 0xD4F3846A, // is_enabled_spi_5
 		[]() -> float { return engineConfiguration->is_enabled_spi_5; },
-		[](float value) { engineConfiguration->is_enabled_spi_5 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_5 = value != 0; } },
 	{ 0xD4F3846B, // is_enabled_spi_6
 		[]() -> float { return engineConfiguration->is_enabled_spi_6; },
-		[](float value) { engineConfiguration->is_enabled_spi_6 = value; } },
+		[](float value) { engineConfiguration->is_enabled_spi_6 = value != 0; } },
 	{ 0xD53B119B, // wizardCamTrigger
 		[]() -> float { return config->wizardCamTrigger; },
-		[](float value) { config->wizardCamTrigger = value; } },
+		[](float value) { config->wizardCamTrigger = value != 0; } },
 	{ 0xD574D29C, // fuelTempSensor.config.tempC_1
 		[]() -> float { return engineConfiguration->fuelTempSensor.config.tempC_1; },
 		[](float value) { engineConfiguration->fuelTempSensor.config.tempC_1 = value; } },
@@ -1836,13 +2013,13 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->fuelTempSensor.config.tempC_3 = value; } },
 	{ 0xD5BEB3C9, // vvlControlEnabled
 		[]() -> float { return engineConfiguration->vvlControlEnabled; },
-		[](float value) { engineConfiguration->vvlControlEnabled = value; } },
+		[](float value) { engineConfiguration->vvlControlEnabled = value != 0; } },
 	{ 0xD6498CF5, // throttlePedalSecondaryWOTVoltage
 		[]() -> float { return engineConfiguration->throttlePedalSecondaryWOTVoltage; },
 		[](float value) { engineConfiguration->throttlePedalSecondaryWOTVoltage = value; } },
 	{ 0xD68D1B63, // mc33810Maxi
 		[]() -> float { return engineConfiguration->mc33810Maxi; },
-		[](float value) { engineConfiguration->mc33810Maxi = value; } },
+		[](float value) { engineConfiguration->mc33810Maxi = static_cast<uint8_t>(value); } },
 	{ 0xD68DE1E7, // mc33810Nomi
 		[]() -> float { return engineConfiguration->mc33810Nomi; },
 		[](float value) { engineConfiguration->mc33810Nomi = value; } },
@@ -1851,10 +2028,13 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->nitrousMaximumAfr = value; } },
 	{ 0xD79D1575, // nitrousMaximumMap
 		[]() -> float { return engineConfiguration->nitrousMaximumMap; },
-		[](float value) { engineConfiguration->nitrousMaximumMap = value; } },
+		[](float value) { engineConfiguration->nitrousMaximumMap = static_cast<int16_t>(value); } },
+	{ 0xD79DCBA6, // stateBasedStft
+		[]() -> float { return engineConfiguration->stateBasedStft; },
+		[](float value) { engineConfiguration->stateBasedStft = value != 0; } },
 	{ 0xD7A42E8A, // misfireCountThreshold
 		[]() -> float { return engineConfiguration->misfireCountThreshold; },
-		[](float value) { engineConfiguration->misfireCountThreshold = value; } },
+		[](float value) { engineConfiguration->misfireCountThreshold = static_cast<uint16_t>(value); } },
 	{ 0xD7EDF0DE, // iat.config.tempC_1
 		[]() -> float { return engineConfiguration->iat.config.tempC_1; },
 		[](float value) { engineConfiguration->iat.config.tempC_1 = value; } },
@@ -1866,22 +2046,22 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->iat.config.tempC_3 = value; } },
 	{ 0xD863EC8C, // startUpFuelPumpDuration
 		[]() -> float { return engineConfiguration->startUpFuelPumpDuration; },
-		[](float value) { engineConfiguration->startUpFuelPumpDuration = value; } },
+		[](float value) { engineConfiguration->startUpFuelPumpDuration = static_cast<int16_t>(value); } },
 	{ 0xD9116013, // clt.config.bias_resistor
 		[]() -> float { return engineConfiguration->clt.config.bias_resistor; },
 		[](float value) { engineConfiguration->clt.config.bias_resistor = value; } },
 	{ 0xD96F6E19, // useTLE8888_stepper
 		[]() -> float { return engineConfiguration->useTLE8888_stepper; },
-		[](float value) { engineConfiguration->useTLE8888_stepper = value; } },
+		[](float value) { engineConfiguration->useTLE8888_stepper = value != 0; } },
 	{ 0xDA5D1348, // misfireSettleCycles
 		[]() -> float { return engineConfiguration->misfireSettleCycles; },
-		[](float value) { engineConfiguration->misfireSettleCycles = value; } },
+		[](float value) { engineConfiguration->misfireSettleCycles = static_cast<uint16_t>(value); } },
 	{ 0xDB2879FD, // torqueReductionEnabled
 		[]() -> float { return engineConfiguration->torqueReductionEnabled; },
-		[](float value) { engineConfiguration->torqueReductionEnabled = value; } },
+		[](float value) { engineConfiguration->torqueReductionEnabled = value != 0; } },
 	{ 0xDB2B5BA1, // isForcedInduction
 		[]() -> float { return engineConfiguration->isForcedInduction; },
-		[](float value) { engineConfiguration->isForcedInduction = value; } },
+		[](float value) { engineConfiguration->isForcedInduction = value != 0; } },
 	{ 0xDB30F3DC, // nitrousIgnitionRetard
 		[]() -> float { return engineConfiguration->nitrousIgnitionRetard; },
 		[](float value) { engineConfiguration->nitrousIgnitionRetard = value; } },
@@ -1902,49 +2082,52 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->ignitionDwellForCrankingMs = value; } },
 	{ 0xDCF867B3, // invertPrimaryTriggerSignal
 		[]() -> float { return engineConfiguration->invertPrimaryTriggerSignal; },
-		[](float value) { engineConfiguration->invertPrimaryTriggerSignal = value; } },
+		[](float value) { engineConfiguration->invertPrimaryTriggerSignal = value != 0; } },
 	{ 0xDD40DC05, // nitrousControlEnabled
 		[]() -> float { return engineConfiguration->nitrousControlEnabled; },
-		[](float value) { engineConfiguration->nitrousControlEnabled = value; } },
+		[](float value) { engineConfiguration->nitrousControlEnabled = value != 0; } },
+	{ 0xDD904BF5, // secondaryFpActivationLoad
+		[]() -> float { return engineConfiguration->secondaryFpActivationLoad; },
+		[](float value) { engineConfiguration->secondaryFpActivationLoad = static_cast<uint16_t>(value); } },
 	{ 0xDDE055BA, // boostPid.maxValue
 		[]() -> float { return engineConfiguration->boostPid.maxValue; },
-		[](float value) { engineConfiguration->boostPid.maxValue = value; } },
+		[](float value) { engineConfiguration->boostPid.maxValue = static_cast<int16_t>(value); } },
 	{ 0xDE1737E0, // idle.solenoidFrequency
 		[]() -> float { return engineConfiguration->idle.solenoidFrequency; },
-		[](float value) { engineConfiguration->idle.solenoidFrequency = value; } },
+		[](float value) { engineConfiguration->idle.solenoidFrequency = static_cast<int>(value); } },
 	{ 0xDE3787D3, // tChargeMinRpmMaxTps
 		[]() -> float { return engineConfiguration->tChargeMinRpmMaxTps; },
 		[](float value) { engineConfiguration->tChargeMinRpmMaxTps = value; } },
 	{ 0xDE627241, // flexCranking
 		[]() -> float { return engineConfiguration->flexCranking; },
-		[](float value) { engineConfiguration->flexCranking = value; } },
+		[](float value) { engineConfiguration->flexCranking = value != 0; } },
 	{ 0xDE84E4E3, // mapMinBufferLength
 		[]() -> float { return engineConfiguration->mapMinBufferLength; },
-		[](float value) { engineConfiguration->mapMinBufferLength = value; } },
+		[](float value) { engineConfiguration->mapMinBufferLength = static_cast<int>(value); } },
 	{ 0xDEC2D011, // tChargeMinRpmMinTps
 		[]() -> float { return engineConfiguration->tChargeMinRpmMinTps; },
 		[](float value) { engineConfiguration->tChargeMinRpmMinTps = value; } },
 	{ 0xDECE79E9, // enableKnockSpectrogram
 		[]() -> float { return engineConfiguration->enableKnockSpectrogram; },
-		[](float value) { engineConfiguration->enableKnockSpectrogram = value; } },
+		[](float value) { engineConfiguration->enableKnockSpectrogram = value != 0; } },
 	{ 0xDF980719, // rpmSoftLimitTimingRetard
 		[]() -> float { return engineConfiguration->rpmSoftLimitTimingRetard; },
 		[](float value) { engineConfiguration->rpmSoftLimitTimingRetard = value; } },
 	{ 0xE086B1B9, // idlePidRpmDeadZone
 		[]() -> float { return engineConfiguration->idlePidRpmDeadZone; },
-		[](float value) { engineConfiguration->idlePidRpmDeadZone = value; } },
+		[](float value) { engineConfiguration->idlePidRpmDeadZone = static_cast<int16_t>(value); } },
 	{ 0xE0873AFE, // canReadEnabled
 		[]() -> float { return engineConfiguration->canReadEnabled; },
-		[](float value) { engineConfiguration->canReadEnabled = value; } },
+		[](float value) { engineConfiguration->canReadEnabled = value != 0; } },
 	{ 0xE0B5E933, // idle_antiwindupFreq
 		[]() -> float { return engineConfiguration->idle_antiwindupFreq; },
 		[](float value) { engineConfiguration->idle_antiwindupFreq = value; } },
-	{ 0xE182B0B0, // fan2AcAdder
-		[]() -> float { return engineConfiguration->fan2AcAdder; },
-		[](float value) { engineConfiguration->fan2AcAdder = value; } },
+	{ 0xE11C8056, // tpsExpAverageResetTimeMs
+		[]() -> float { return engineConfiguration->tpsExpAverageResetTimeMs; },
+		[](float value) { engineConfiguration->tpsExpAverageResetTimeMs = value; } },
 	{ 0xE1A78AC7, // stepperParkingExtraSteps
 		[]() -> float { return engineConfiguration->stepperParkingExtraSteps; },
-		[](float value) { engineConfiguration->stepperParkingExtraSteps = value; } },
+		[](float value) { engineConfiguration->stepperParkingExtraSteps = static_cast<int16_t>(value); } },
 	{ 0xE1CEE07B, // ignKeyAdcDivider
 		[]() -> float { return engineConfiguration->ignKeyAdcDivider; },
 		[](float value) { engineConfiguration->ignKeyAdcDivider = value; } },
@@ -1956,7 +2139,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->oilPressure.value2 = value; } },
 	{ 0xE1E33CEE, // rotationalIdleController.max_tps
 		[]() -> float { return engineConfiguration->rotationalIdleController.max_tps; },
-		[](float value) { engineConfiguration->rotationalIdleController.max_tps = value; } },
+		[](float value) { engineConfiguration->rotationalIdleController.max_tps = static_cast<uint8_t>(value); } },
 	{ 0xE24A4145, // compressorDischargeTemperature.config.tempC_1
 		[]() -> float { return engineConfiguration->compressorDischargeTemperature.config.tempC_1; },
 		[](float value) { engineConfiguration->compressorDischargeTemperature.config.tempC_1 = value; } },
@@ -1968,7 +2151,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->compressorDischargeTemperature.config.tempC_3 = value; } },
 	{ 0xE271D6CB, // vssFilterReciprocal
 		[]() -> float { return engineConfiguration->vssFilterReciprocal; },
-		[](float value) { engineConfiguration->vssFilterReciprocal = value; } },
+		[](float value) { engineConfiguration->vssFilterReciprocal = static_cast<uint8_t>(value); } },
 	{ 0xE2B645B0, // cel_map_max_v
 		[]() -> float { return config->cel_map_max_v; },
 		[](float value) { config->cel_map_max_v = value; } },
@@ -1977,13 +2160,16 @@ const ConfigParameter allParameters[] = {
 		[](float value) { config->cel_map_min_v = value; } },
 	{ 0xE2F5D8CA, // verboseIsoTp
 		[]() -> float { return engineConfiguration->verboseIsoTp; },
-		[](float value) { engineConfiguration->verboseIsoTp = value; } },
+		[](float value) { engineConfiguration->verboseIsoTp = value != 0; } },
 	{ 0xE30490B9, // mc33_t_max_boost
 		[]() -> float { return engineConfiguration->mc33_t_max_boost; },
-		[](float value) { engineConfiguration->mc33_t_max_boost = value; } },
+		[](float value) { engineConfiguration->mc33_t_max_boost = static_cast<uint16_t>(value); } },
 	{ 0xE31618CE, // verboseKLine
 		[]() -> float { return engineConfiguration->verboseKLine; },
-		[](float value) { engineConfiguration->verboseKLine = value; } },
+		[](float value) { engineConfiguration->verboseKLine = value != 0; } },
+	{ 0xE36E3656, // secondaryFpLoadHysteresis
+		[]() -> float { return engineConfiguration->secondaryFpLoadHysteresis; },
+		[](float value) { engineConfiguration->secondaryFpLoadHysteresis = static_cast<uint16_t>(value); } },
 	{ 0xE3B341B1, // lowPressureFuel.v1
 		[]() -> float { return engineConfiguration->lowPressureFuel.v1; },
 		[](float value) { engineConfiguration->lowPressureFuel.v1 = value; } },
@@ -1992,34 +2178,43 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->lowPressureFuel.v2 = value; } },
 	{ 0xE3FD215A, // nitrousActivationRpm
 		[]() -> float { return engineConfiguration->nitrousActivationRpm; },
-		[](float value) { engineConfiguration->nitrousActivationRpm = value; } },
+		[](float value) { engineConfiguration->nitrousActivationRpm = static_cast<uint16_t>(value); } },
 	{ 0xE448FABC, // mc33810DisableRecoveryMode
 		[]() -> float { return engineConfiguration->mc33810DisableRecoveryMode; },
-		[](float value) { engineConfiguration->mc33810DisableRecoveryMode = value; } },
+		[](float value) { engineConfiguration->mc33810DisableRecoveryMode = value != 0; } },
 	{ 0xE4552AA0, // idleRpmPid.dFactor
 		[]() -> float { return engineConfiguration->idleRpmPid.dFactor; },
 		[](float value) { engineConfiguration->idleRpmPid.dFactor = value; } },
+	{ 0xE5F1E90D, // secondaryFpTpsHysteresis
+		[]() -> float { return engineConfiguration->secondaryFpTpsHysteresis; },
+		[](float value) { engineConfiguration->secondaryFpTpsHysteresis = static_cast<uint8_t>(value); } },
 	{ 0xE65ADD7C, // knockSamplingDuration
 		[]() -> float { return engineConfiguration->knockSamplingDuration; },
-		[](float value) { engineConfiguration->knockSamplingDuration = value; } },
+		[](float value) { engineConfiguration->knockSamplingDuration = static_cast<int16_t>(value); } },
 	{ 0xE68AE152, // torqueReductionActivationTemperature
 		[]() -> float { return engineConfiguration->torqueReductionActivationTemperature; },
-		[](float value) { engineConfiguration->torqueReductionActivationTemperature = value; } },
+		[](float value) { engineConfiguration->torqueReductionActivationTemperature = static_cast<int8_t>(value); } },
 	{ 0xE69BDDBF, // secondaryInjectorFuelReferencePressure
 		[]() -> float { return engineConfiguration->secondaryInjectorFuelReferencePressure; },
 		[](float value) { engineConfiguration->secondaryInjectorFuelReferencePressure = value; } },
 	{ 0xE6C30515, // etb.offset
 		[]() -> float { return engineConfiguration->etb.offset; },
-		[](float value) { engineConfiguration->etb.offset = value; } },
+		[](float value) { engineConfiguration->etb.offset = static_cast<int16_t>(value); } },
+	{ 0xE6CDCB7E, // rollingLaunchRpmWindow
+		[]() -> float { return engineConfiguration->rollingLaunchRpmWindow; },
+		[](float value) { engineConfiguration->rollingLaunchRpmWindow = static_cast<uint16_t>(value); } },
 	{ 0xE70EE490, // useSeparateIdleTablesForCrankingTaper
 		[]() -> float { return engineConfiguration->useSeparateIdleTablesForCrankingTaper; },
-		[](float value) { engineConfiguration->useSeparateIdleTablesForCrankingTaper = value; } },
+		[](float value) { engineConfiguration->useSeparateIdleTablesForCrankingTaper = value != 0; } },
 	{ 0xE74DCE76, // keepIdleSolenoidWhenStopped
 		[]() -> float { return engineConfiguration->keepIdleSolenoidWhenStopped; },
-		[](float value) { engineConfiguration->keepIdleSolenoidWhenStopped = value; } },
+		[](float value) { engineConfiguration->keepIdleSolenoidWhenStopped = value != 0; } },
+	{ 0xE75A8C83, // fuelPumpControl.minValue
+		[]() -> float { return engineConfiguration->fuelPumpControl.minValue; },
+		[](float value) { engineConfiguration->fuelPumpControl.minValue = static_cast<int16_t>(value); } },
 	{ 0xE75AA57E, // issFilterReciprocal
 		[]() -> float { return engineConfiguration->issFilterReciprocal; },
-		[](float value) { engineConfiguration->issFilterReciprocal = value; } },
+		[](float value) { engineConfiguration->issFilterReciprocal = static_cast<uint8_t>(value); } },
 	{ 0xE85FA5FC, // auxLinear2.value1
 		[]() -> float { return engineConfiguration->auxLinear2.value1; },
 		[](float value) { engineConfiguration->auxLinear2.value1 = value; } },
@@ -2037,19 +2232,22 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->wwaeTau = value; } },
 	{ 0xE8C5F995, // forceO2Heating
 		[]() -> float { return engineConfiguration->forceO2Heating; },
-		[](float value) { engineConfiguration->forceO2Heating = value; } },
+		[](float value) { engineConfiguration->forceO2Heating = value != 0; } },
 	{ 0xE9899422, // vvtBooleanForVerySpecialCases
 		[]() -> float { return engineConfiguration->vvtBooleanForVerySpecialCases; },
-		[](float value) { engineConfiguration->vvtBooleanForVerySpecialCases = value; } },
+		[](float value) { engineConfiguration->vvtBooleanForVerySpecialCases = value != 0; } },
 	{ 0xE9D83109, // mc33_i_boost
 		[]() -> float { return engineConfiguration->mc33_i_boost; },
-		[](float value) { engineConfiguration->mc33_i_boost = value; } },
+		[](float value) { engineConfiguration->mc33_i_boost = static_cast<uint16_t>(value); } },
+	{ 0xEA2CBAEA, // fuelPumpControl.iFactor
+		[]() -> float { return engineConfiguration->fuelPumpControl.iFactor; },
+		[](float value) { engineConfiguration->fuelPumpControl.iFactor = value; } },
 	{ 0xEA443CA6, // useIacPidMultTable
 		[]() -> float { return engineConfiguration->useIacPidMultTable; },
-		[](float value) { engineConfiguration->useIacPidMultTable = value; } },
+		[](float value) { engineConfiguration->useIacPidMultTable = value != 0; } },
 	{ 0xEA7E18ED, // initialIgnitionCutPercent
 		[]() -> float { return engineConfiguration->initialIgnitionCutPercent; },
-		[](float value) { engineConfiguration->initialIgnitionCutPercent = value; } },
+		[](float value) { engineConfiguration->initialIgnitionCutPercent = static_cast<int8_t>(value); } },
 	{ 0xEB56F404, // oilTempSensor.config.bias_resistor
 		[]() -> float { return engineConfiguration->oilTempSensor.config.bias_resistor; },
 		[](float value) { engineConfiguration->oilTempSensor.config.bias_resistor = value; } },
@@ -2058,19 +2256,19 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->knockDetectionWindowStart = value; } },
 	{ 0xEBD81F8C, // launchControlEnabled
 		[]() -> float { return engineConfiguration->launchControlEnabled; },
-		[](float value) { engineConfiguration->launchControlEnabled = value; } },
+		[](float value) { engineConfiguration->launchControlEnabled = value != 0; } },
 	{ 0xECA09D1A, // verboseTriggerSynchDetails
 		[]() -> float { return engineConfiguration->verboseTriggerSynchDetails; },
-		[](float value) { engineConfiguration->verboseTriggerSynchDetails = value; } },
+		[](float value) { engineConfiguration->verboseTriggerSynchDetails = value != 0; } },
 	{ 0xED6B9C53, // alternatorControl.dFactor
 		[]() -> float { return engineConfiguration->alternatorControl.dFactor; },
 		[](float value) { engineConfiguration->alternatorControl.dFactor = value; } },
 	{ 0xED6F9371, // disableFan2WhenStopped
 		[]() -> float { return engineConfiguration->disableFan2WhenStopped; },
-		[](float value) { engineConfiguration->disableFan2WhenStopped = value; } },
-	{ 0xEE3A0BD2, // enableFan1WithAc
-		[]() -> float { return engineConfiguration->enableFan1WithAc; },
-		[](float value) { engineConfiguration->enableFan1WithAc = value; } },
+		[](float value) { engineConfiguration->disableFan2WhenStopped = value != 0; } },
+	{ 0xEDDF8871, // outputShaftSpeedSensorTeeth
+		[]() -> float { return engineConfiguration->outputShaftSpeedSensorTeeth; },
+		[](float value) { engineConfiguration->outputShaftSpeedSensorTeeth = static_cast<uint8_t>(value); } },
 	{ 0xEE645A58, // globalTriggerAngleOffset
 		[]() -> float { return engineConfiguration->globalTriggerAngleOffset; },
 		[](float value) { engineConfiguration->globalTriggerAngleOffset = value; } },
@@ -2079,25 +2277,25 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->injectorSecondary.flow = value; } },
 	{ 0xEF1E7802, // anotherCiTest
 		[]() -> float { return engineConfiguration->anotherCiTest; },
-		[](float value) { engineConfiguration->anotherCiTest = value; } },
+		[](float value) { engineConfiguration->anotherCiTest = static_cast<int>(value); } },
 	{ 0xEF2DFEB7, // customSentTpsMax
 		[]() -> float { return engineConfiguration->customSentTpsMax; },
-		[](float value) { engineConfiguration->customSentTpsMax = value; } },
+		[](float value) { engineConfiguration->customSentTpsMax = static_cast<uint16_t>(value); } },
 	{ 0xEF2DFFB5, // customSentTpsMin
 		[]() -> float { return engineConfiguration->customSentTpsMin; },
-		[](float value) { engineConfiguration->customSentTpsMin = value; } },
+		[](float value) { engineConfiguration->customSentTpsMin = static_cast<uint16_t>(value); } },
 	{ 0xEFBEC371, // alternatorControl.minValue
 		[]() -> float { return engineConfiguration->alternatorControl.minValue; },
-		[](float value) { engineConfiguration->alternatorControl.minValue = value; } },
+		[](float value) { engineConfiguration->alternatorControl.minValue = static_cast<int16_t>(value); } },
 	{ 0xEFF5B301, // ltft.maxRemove
 		[]() -> float { return engineConfiguration->ltft.maxRemove; },
 		[](float value) { engineConfiguration->ltft.maxRemove = value; } },
 	{ 0xF03AF243, // useCicPidForIdle
 		[]() -> float { return engineConfiguration->useCicPidForIdle; },
-		[](float value) { engineConfiguration->useCicPidForIdle = value; } },
+		[](float value) { engineConfiguration->useCicPidForIdle = value != 0; } },
 	{ 0xF0E08A24, // alphaNUseIat
 		[]() -> float { return engineConfiguration->alphaNUseIat; },
-		[](float value) { engineConfiguration->alphaNUseIat = value; } },
+		[](float value) { engineConfiguration->alphaNUseIat = value != 0; } },
 	{ 0xF0E33A36, // etb.iFactor
 		[]() -> float { return engineConfiguration->etb.iFactor; },
 		[](float value) { engineConfiguration->etb.iFactor = value; } },
@@ -2106,7 +2304,7 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->adcVcc = value; } },
 	{ 0xF182EA1D, // tuneHidingKey
 		[]() -> float { return engineConfiguration->tuneHidingKey; },
-		[](float value) { engineConfiguration->tuneHidingKey = value; } },
+		[](float value) { engineConfiguration->tuneHidingKey = static_cast<uint16_t>(value); } },
 	{ 0xF1988373, // afr.v1
 		[]() -> float { return engineConfiguration->afr.v1; },
 		[](float value) { engineConfiguration->afr.v1 = value; } },
@@ -2115,76 +2313,82 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->afr.v2 = value; } },
 	{ 0xF1C2F2F4, // dwellDutyPercent
 		[]() -> float { return engineConfiguration->dwellDutyPercent; },
-		[](float value) { engineConfiguration->dwellDutyPercent = value; } },
+		[](float value) { engineConfiguration->dwellDutyPercent = static_cast<uint8_t>(value); } },
 	{ 0xF1EF03BA, // iacByTpsHoldTime
 		[]() -> float { return engineConfiguration->iacByTpsHoldTime; },
 		[](float value) { engineConfiguration->iacByTpsHoldTime = value; } },
 	{ 0xF2C62B99, // wizardCrankTrigger
 		[]() -> float { return config->wizardCrankTrigger; },
-		[](float value) { config->wizardCrankTrigger = value; } },
+		[](float value) { config->wizardCrankTrigger = value != 0; } },
 	{ 0xF34213DF, // vssGearRatio
 		[]() -> float { return engineConfiguration->vssGearRatio; },
 		[](float value) { engineConfiguration->vssGearRatio = value; } },
 	{ 0xF3CC33AE, // benchTestCount
 		[]() -> float { return engineConfiguration->benchTestCount; },
-		[](float value) { engineConfiguration->benchTestCount = value; } },
+		[](float value) { engineConfiguration->benchTestCount = static_cast<uint32_t>(value); } },
+	{ 0xF4537D6A, // smColdTempThreshold
+		[]() -> float { return engineConfiguration->smColdTempThreshold; },
+		[](float value) { engineConfiguration->smColdTempThreshold = static_cast<int16_t>(value); } },
 	{ 0xF45AC1C4, // useVssAsSecondWheelSpeed
 		[]() -> float { return engineConfiguration->useVssAsSecondWheelSpeed; },
-		[](float value) { engineConfiguration->useVssAsSecondWheelSpeed = value; } },
+		[](float value) { engineConfiguration->useVssAsSecondWheelSpeed = value != 0; } },
 	{ 0xF4C252B2, // gapVvtTrackingLengthOverride
 		[]() -> float { return engineConfiguration->gapVvtTrackingLengthOverride; },
-		[](float value) { engineConfiguration->gapVvtTrackingLengthOverride = value; } },
-	{ 0xF540DBCF, // fan1AcAdder
-		[]() -> float { return engineConfiguration->fan1AcAdder; },
-		[](float value) { engineConfiguration->fan1AcAdder = value; } },
+		[](float value) { engineConfiguration->gapVvtTrackingLengthOverride = static_cast<int8_t>(value); } },
 	{ 0xF58B05BA, // misfireWindowStart
 		[]() -> float { return engineConfiguration->misfireWindowStart; },
 		[](float value) { engineConfiguration->misfireWindowStart = value; } },
 	{ 0xF593C139, // airTaperRpmRange
 		[]() -> float { return engineConfiguration->airTaperRpmRange; },
-		[](float value) { engineConfiguration->airTaperRpmRange = value; } },
+		[](float value) { engineConfiguration->airTaperRpmRange = static_cast<int16_t>(value); } },
 	{ 0xF5B1A2D9, // vvlController.deactivationRpm
 		[]() -> float { return engineConfiguration->vvlController.deactivationRpm; },
-		[](float value) { engineConfiguration->vvlController.deactivationRpm = value; } },
+		[](float value) { engineConfiguration->vvlController.deactivationRpm = static_cast<uint16_t>(value); } },
 	{ 0xF7CF9644, // mapLowValueVoltage
 		[]() -> float { return engineConfiguration->mapLowValueVoltage; },
 		[](float value) { engineConfiguration->mapLowValueVoltage = value; } },
 	{ 0xF7F2A3CF, // ltitIgnitionOnDelay
 		[]() -> float { return engineConfiguration->ltitIgnitionOnDelay; },
-		[](float value) { engineConfiguration->ltitIgnitionOnDelay = value; } },
+		[](float value) { engineConfiguration->ltitIgnitionOnDelay = static_cast<uint8_t>(value); } },
 	{ 0xF9A7E2C3, // knockFuelTrim
 		[]() -> float { return engineConfiguration->knockFuelTrim; },
-		[](float value) { engineConfiguration->knockFuelTrim = value; } },
+		[](float value) { engineConfiguration->knockFuelTrim = static_cast<uint8_t>(value); } },
 	{ 0xF9CD5B64, // idleRpmPid.offset
 		[]() -> float { return engineConfiguration->idleRpmPid.offset; },
-		[](float value) { engineConfiguration->idleRpmPid.offset = value; } },
+		[](float value) { engineConfiguration->idleRpmPid.offset = static_cast<int16_t>(value); } },
 	{ 0xF9EB60A6, // vvlController.maximumAfr
 		[]() -> float { return engineConfiguration->vvlController.maximumAfr; },
 		[](float value) { engineConfiguration->vvlController.maximumAfr = value; } },
 	{ 0xF9EB930B, // vvlController.maximumMap
 		[]() -> float { return engineConfiguration->vvlController.maximumMap; },
-		[](float value) { engineConfiguration->vvlController.maximumMap = value; } },
+		[](float value) { engineConfiguration->vvlController.maximumMap = static_cast<int16_t>(value); } },
+	{ 0xFA36EA56, // gearDetectionRpmSourceIsInputShaftSpeed
+		[]() -> float { return engineConfiguration->gearDetectionRpmSourceIsInputShaftSpeed; },
+		[](float value) { engineConfiguration->gearDetectionRpmSourceIsInputShaftSpeed = value != 0; } },
+	{ 0xFA6DD5F5, // smAccumulatorUpshiftThreshold
+		[]() -> float { return engineConfiguration->smAccumulatorUpshiftThreshold; },
+		[](float value) { engineConfiguration->smAccumulatorUpshiftThreshold = static_cast<int8_t>(value); } },
 	{ 0xFA9A6B33, // stft.maxAfr
 		[]() -> float { return engineConfiguration->stft.maxAfr; },
 		[](float value) { engineConfiguration->stft.maxAfr = value; } },
 	{ 0xFB24A94C, // hpfpActivationAngle
 		[]() -> float { return engineConfiguration->hpfpActivationAngle; },
-		[](float value) { engineConfiguration->hpfpActivationAngle = value; } },
+		[](float value) { engineConfiguration->hpfpActivationAngle = static_cast<uint8_t>(value); } },
 	{ 0xFB25B371, // stft.minAfr
 		[]() -> float { return engineConfiguration->stft.minAfr; },
 		[](float value) { engineConfiguration->stft.minAfr = value; } },
 	{ 0xFB25BCBB, // stft.minClt
 		[]() -> float { return engineConfiguration->stft.minClt; },
-		[](float value) { engineConfiguration->stft.minClt = value; } },
+		[](float value) { engineConfiguration->stft.minClt = static_cast<int8_t>(value); } },
 	{ 0xFBD5D860, // sdLogMinMap
 		[]() -> float { return engineConfiguration->sdLogMinMap; },
-		[](float value) { engineConfiguration->sdLogMinMap = value; } },
+		[](float value) { engineConfiguration->sdLogMinMap = static_cast<uint16_t>(value); } },
 	{ 0xFBD5F819, // sdLogMinTps
 		[]() -> float { return engineConfiguration->sdLogMinTps; },
-		[](float value) { engineConfiguration->sdLogMinTps = value; } },
+		[](float value) { engineConfiguration->sdLogMinTps = static_cast<uint8_t>(value); } },
 	{ 0xFBD600FE, // sdLogMinVss
 		[]() -> float { return engineConfiguration->sdLogMinVss; },
-		[](float value) { engineConfiguration->sdLogMinVss = value; } },
+		[](float value) { engineConfiguration->sdLogMinVss = static_cast<uint8_t>(value); } },
 	{ 0xFC1DD11B, // auxLinear1.value1
 		[]() -> float { return engineConfiguration->auxLinear1.value1; },
 		[](float value) { engineConfiguration->auxLinear1.value1 = value; } },
@@ -2193,16 +2397,22 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->auxLinear1.value2 = value; } },
 	{ 0xFC615D4E, // invertExhaustCamVVTSignal
 		[]() -> float { return engineConfiguration->invertExhaustCamVVTSignal; },
-		[](float value) { engineConfiguration->invertExhaustCamVVTSignal = value; } },
+		[](float value) { engineConfiguration->invertExhaustCamVVTSignal = value != 0; } },
 	{ 0xFCB92AF1, // useRunningMathForCranking
 		[]() -> float { return engineConfiguration->useRunningMathForCranking; },
-		[](float value) { engineConfiguration->useRunningMathForCranking = value; } },
+		[](float value) { engineConfiguration->useRunningMathForCranking = value != 0; } },
 	{ 0xFCBFE561, // etbIdleThrottleRange
 		[]() -> float { return engineConfiguration->etbIdleThrottleRange; },
 		[](float value) { engineConfiguration->etbIdleThrottleRange = value; } },
 	{ 0xFD21BE62, // justATempTest
 		[]() -> float { return engineConfiguration->justATempTest; },
-		[](float value) { engineConfiguration->justATempTest = value; } },
+		[](float value) { engineConfiguration->justATempTest = static_cast<uint8_t>(value); } },
+	{ 0xFDB102A6, // smAccumulatorSnapTimeMs
+		[]() -> float { return engineConfiguration->smAccumulatorSnapTimeMs; },
+		[](float value) { engineConfiguration->smAccumulatorSnapTimeMs = static_cast<uint16_t>(value); } },
+	{ 0xFE58F1AE, // rollingLaunchRampOutTime
+		[]() -> float { return engineConfiguration->rollingLaunchRampOutTime; },
+		[](float value) { engineConfiguration->rollingLaunchRampOutTime = value; } },
 	{ 0xFE7848D6, // triggerCompHystMax
 		[]() -> float { return engineConfiguration->triggerCompHystMax; },
 		[](float value) { engineConfiguration->triggerCompHystMax = value; } },
@@ -2211,7 +2421,10 @@ const ConfigParameter allParameters[] = {
 		[](float value) { engineConfiguration->triggerCompHystMin = value; } },
 	{ 0xFE8D021F, // pauseEtbControl
 		[]() -> float { return engineConfiguration->pauseEtbControl; },
-		[](float value) { engineConfiguration->pauseEtbControl = value; } },
+		[](float value) { engineConfiguration->pauseEtbControl = value != 0; } },
+	{ 0xFF376421, // rollingLaunchTimingRetard
+		[]() -> float { return engineConfiguration->rollingLaunchTimingRetard; },
+		[](float value) { engineConfiguration->rollingLaunchTimingRetard = static_cast<uint8_t>(value); } },
 	{ 0xFFAEB01B, // clt.config.resistance_1
 		[]() -> float { return engineConfiguration->clt.config.resistance_1; },
 		[](float value) { engineConfiguration->clt.config.resistance_1 = value; } },

@@ -31,9 +31,10 @@ public:
 	 */
 	void handleQueryCommand(TsChannelBase* tsChannel, ts_response_format_e mode);
 	void handleExecuteCommand(TsChannelBase* tsChannel, char *data, int incomingPacketSize);
-	// contentSize: the payload bytes the packet actually carries after its page / offset / count header
 	void handleWriteChunkCommand(TsChannelBase* tsChannel, uint16_t page, uint16_t offset, uint16_t count,
-			void *content, size_t contentSize);
+			void *content);
+	// decodes a TS_CHUNK_WRITE_COMMAND frame; data points past the command byte
+	void handleWriteChunkFrame(TsChannelBase* tsChannel, char *data, int payloadSize);
 	void handleCrc32Check(TsChannelBase *tsChannel,  uint32_t page, uint32_t offset, uint32_t count);
 	void handleBurnCommand(TsChannelBase* tsChannel, uint16_t page);
 	void handlePendingBurnTimeout(TsChannelBase* tsChannel);

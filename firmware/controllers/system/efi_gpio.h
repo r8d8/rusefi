@@ -89,6 +89,7 @@ public:
 	// see acRelayPin
 	RegisteredOutputPin acRelay;
 	RegisteredOutputPin fuelPumpRelay;
+	RegisteredOutputPin fuelPumpRelay2;
 	RegisteredOutputPin nitrousRelay;
 	RegisteredOutputPin vvlRelay;
 #if EFI_HD_ACR
@@ -138,11 +139,12 @@ public:
 
 #if EFI_UNIT_TEST
 	void resetForUnitTest();
+	void updateCylinderOutputPinsForUnitTest();
 #endif
 
 private:
-	void startInjectionPins();
-	void startIgnitionPins();
+	void startInjectionPins(bool forUnitTest = false);
+	void startIgnitionPins(bool forUnitTest = false);
 	void startAuxValves();
 
 	void stopInjectionPins();

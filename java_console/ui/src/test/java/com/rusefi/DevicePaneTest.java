@@ -1,6 +1,6 @@
 package com.rusefi;
 
-import com.rusefi.core.OsUtil;
+import com.rusefi.maintenance.DfuFlasher;
 
 import org.junit.jupiter.api.Test;
 
@@ -26,24 +26,31 @@ public class DevicePaneTest {
     }
 
     @Test
-    public void dfuGuidanceMentionsDfuAndReflectsPlatformSupport() {
+    public void dfuGuidanceOffersExplicitRecoveryAndReflectsPlatformSupport() {
         String guidance = DevicePane.bootloaderGuidance(SessionState.DEVICE_IN_DFU);
-        assertTrue(guidance.contains("DFU"), guidance);
-        if (OsUtil.isLinux()) {
-            assertTrue(guidance.contains("dfu-util"), guidance);
-            assertTrue(guidance.contains("Update Firmware") || guidance.contains("Manual DFU Update"), guidance);
-        } else if (OsUtil.isWindows()) {
-            assertTrue(guidance.contains("Update Firmware") || guidance.contains("Manual DFU Update"), guidance);
+        assertTrue(guidance.contains("recovery mode"), guidance);
+        if (DfuFlasher.isDfuProgrammingSupported()) {
+            assertTrue(guidance.contains("Recover ECU"), guidance);
+            assertTrue(guidance.contains("board"), guidance);
+            assertTrue(guidance.contains("firmware"), guidance);
         } else {
             assertTrue(guidance.contains("not supported"), guidance);
         }
     }
 
     @Test
-    public void openBltGuidanceSendsUserToUpdateButton() {
+    public void detectedOpenBltGuidanceNamesTheManualUpdateAction() {
         String guidance = DevicePane.bootloaderGuidance(SessionState.DEVICE_IN_BLT);
-        assertTrue(guidance.contains("OpenBLT"), guidance);
-        assertTrue(guidance.contains("Update Firmware"), guidance);
+        assertTrue(guidance.contains("OpenBLT bootloader detected"), guidance);
+        assertTrue(guidance.contains("Manual OpenBLT Update"), guidance);
+    }
+
+    @Test
+    public void noIniConfirmationIsCancelledWhenTheDeviceSessionChanges() {
+        assertTrue(DevicePane.shouldCancelNoIniConfirmation(SessionState.CONNECTED, SessionState.DISCONNECTED));
+        assertTrue(DevicePane.shouldCancelNoIniConfirmation(SessionState.DISCONNECTED, SessionState.CONNECTED));
+        assertFalse(DevicePane.shouldCancelNoIniConfirmation(SessionState.CONNECTED, SessionState.CONNECTED));
+        assertFalse(DevicePane.shouldCancelNoIniConfirmation(null, SessionState.DISCONNECTED));
     }
 
     @Test

@@ -6,11 +6,13 @@ import com.rusefi.AutoupdateProperty;
 import com.rusefi.core.FindFileHelper;
 import com.rusefi.core.io.BundleInfo;
 import com.rusefi.core.io.BundleInfoStrategy;
+import com.rusefi.core.io.FirmwareBranch;
 import com.rusefi.core.io.ConnectedEcuTarget;
 import com.rusefi.core.io.BundleUtil;
 import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.core.FileUtil;
 import com.rusefi.core.OsUtil;
+import com.rusefi.core.SignatureHelper;
 import com.rusefi.core.net.PropertiesHolder;
 import com.rusefi.core.rusEFIVersion;
 import com.rusefi.core.ui.AutoupdateUtil;
@@ -27,11 +29,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.InvalidPathException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.UUID;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 import static com.devexperts.logging.Logging.getLogging;
@@ -77,9 +86,8 @@ import static com.rusefi.core.FindFileHelper.findFirmwareFile;
  *       bundle zip (only when server timestamp/size indicate it's newer than the local
  *       copy — see {@link #isNewerAvailable}); otherwise nothing is downloaded.</li>
  *   <li>{@link #unzipAutoUpdate} extracts the bundle over the installation.</li>
- *   <li>{@link #prefetchLastConnectedBoardFirmware} (issue #9714) refreshes firmware for
- *       the board the user last connected to, so a later in-console "Update ECU" is
- *       instant.</li>
+  *   <li>{@link #prefetchLastConnectedBoardFirmware} only has a persisted board hint, not
+  *       branch identity, so it skips branch-specific firmware prefetch.</li>
  *   <li>{@link #startConsoleAsANewProcess} launches the freshly unpacked console.</li>
  * </ol>
  *
@@ -88,21 +96,22 @@ import static com.rusefi.core.FindFileHelper.findFirmwareFile;
  * <ul>
  *   <li><b>"Update Software" ({@code updateSoftwareItem})</b> — updates the bundle
  *       (console + firmware files) from within a running console, without needing to
- *       restart via the autoupdate exe.
+ *       restart via the autoupdate exe. {@code SoftwareUpdateCoordinator} shares one update
+ *       state between the startup screen and {@code MainFrame}.
  *       <ul>
- *         <li>Disabled by default. Only when {@link #isAutoUpdateEnabled} is false (the user
- *             preference is OFF or the bundle hard-disables auto-update — i.e. the launch-time
- *             silent update did not run, see #9775) does {@code MainFrame} spawn a background
- *             thread that polls {@link #isUpdateAvailable} and enables the menu item if a newer
- *             bundle exists on the server. When auto-update is fully enabled the launch-time
- *             flow already handled it, so the menu stays disabled.</li>
+ *         <li>At launch {@code Launcher} runs {@link #checkForUpdate} in the background. The
+ *             item is enabled only when a newer bundle exists, or when a staged update waits
+ *             for a restart. When {@link #isAutoUpdateEnabled} is true the user is also asked
+ *             once per session; otherwise the update is only offered by a banner and the menu
+ *             item (#9775).</li>
  *         <li>Clicking runs {@link #runManualUpdate} which — bypassing the
  *             {@link #isAutoUpdateEnabled} gate — calls {@link #performUpdate} to
- *             download+unpack the bundle, stage {@code rusefi_console.jar} as
- *             {@link #PENDING_CONSOLE_JAR} (the running JAR cannot overwrite itself),
- *             then invokes {@link #relaunchConsole} which spawns a new JVM off the
- *             pending JAR; {@link #finalizePendingUpdate} promotes it to the real name
- *             during the next startup.</li>
+ *             download+unpack the bundle and stage {@code rusefi_console.jar} as
+ *             {@link #PENDING_CONSOLE_JAR} (the running JAR cannot overwrite itself).
+ *             Nothing restarts until the user chooses to: the UI then closes through its
+ *             normal guarded exit path and calls {@link #startUpdatedConsole}, which spawns a
+ *             new JVM off the pending JAR; {@link #finalizePendingUpdate} promotes it to the
+ *             real name during that startup.</li>
  *       </ul></li>
  *   <li><b>"Update ECU" ({@code updateEcuItem})</b> — flashes the connected ECU when
  *       its firmware signature does not match the locally cached srec. Enabled by
@@ -116,11 +125,9 @@ import static com.rusefi.core.FindFileHelper.findFirmwareFile;
  * <h3>5. "Check" vs. "Apply" are separate</h3>
  * The class deliberately splits availability check from the actual download+install:
  * <ul>
- *   <li>{@link #isUpdateAvailable} / {@link #isNewerAvailable} — read-only, network-only,
- *       safe to call from a background thread; used by {@code MainFrame} to decide
- *       whether to enable "Update Software".</li>
- *   <li>{@link #runSilentUpdate} — respects the {@link #isAutoUpdateEnabled} gate; used
- *       by callers that want the settings honored.</li>
+ *   <li>{@link #checkForUpdate} / {@link #isNewerAvailable} — read-only, network-only,
+ *       safe to call from a background thread; checks server metadata without downloading
+ *       or installing anything, whatever {@link #isAutoUpdateEnabled} says.</li>
  *   <li>{@link #runManualUpdate} — ignores the gate; used by the "Update Software"
  *       menu item because reaching that item already implies explicit user intent.</li>
  *   <li>{@link #performUpdate} — the shared apply path used by both silent and manual.</li>
@@ -131,21 +138,30 @@ import static com.rusefi.core.FindFileHelper.findFirmwareFile;
  */
 public class Autoupdate {
     private static final Logging log = getLogging(Autoupdate.class);
-    private static final int AUTOUPDATE_VERSION = 20260907; // separate from rusEFIVersion#CONSOLE_VERSION
+    private static final int AUTOUPDATE_VERSION = 20261111; // separate from rusEFIVersion#CONSOLE_VERSION
+    // Resolve before unzipping can replace our own JAR. Installed launchers bypass
+    // ConsoleExeFileLocator's default lookup, so it may not have loaded OsUtil (#10368).
+    private static final boolean IS_WINDOWS = OsUtil.isWindows();
     private static final String userHomeSubDirectory = FileUtil.RUSEFI_SETTINGS_FOLDER + "updates" + File.separator;
 
     /**
      * Filename used to stage a downloaded rusefi_console.jar before it can replace the running one.
-     * The new process launched by {@link #relaunchConsole()} finalizes the swap via
+     * The new process launched by {@link #startUpdatedConsole()} finalizes the swap via
      * {@link #finalizePendingUpdate()}.
      */
     public static final String PENDING_CONSOLE_JAR = "rusefi_console_pending.jar";
 
     public enum UpdateOutcome {
+        AVAILABLE,
         UPDATED,
         UP_TO_DATE,
         FAILED,
         SKIPPED
+    }
+
+    @FunctionalInterface
+    interface UpdateChecker {
+        boolean isAvailable(BundleInfo bundleInfo) throws Exception;
     }
 
     static class DownloadResult {
@@ -285,12 +301,12 @@ public class Autoupdate {
     }
 
     /**
-     * #9714 At startup, fetch (or refresh to the latest) the
-     * firmware of the most recently connected board so a later "Update Firmware" is instant.
+     * The persisted last-board hint has no branch identity, so it cannot authorize
+     * fetching branch-specific firmware safely.
      * <p>
      * No-op when: autoupdate is disabled, no board has ever connected, or this is a single-board
      * bundle whose own firmware is the last-connected board (already refreshed by the bundle update
-     * above). Only downloads when the server has a newer build than the local cache.
+     * above), or the persisted board has no branch identity.
      */
     private static void prefetchLastConnectedBoardFirmware() {
         try {
@@ -302,42 +318,44 @@ public class Autoupdate {
                 log.info("[universal_bundle] prefetch: no previously connected board recorded");
                 return;
             }
-            log.info("[universal_bundle] prefetch: ensuring latest firmware for last connected board " + lastBoard);
-            ensureFirmwareForTarget(lastBoard, percent -> {}, log::info);
+            log.info("[universal_bundle] prefetch skipped for " + lastBoard + ": persisted board has no branch identity");
         } catch (Throwable e) {
             log.error("[universal_bundle] prefetch error: " + e);
         }
     }
 
     /**
-     * Relaunches the console as a new process and exits the current JVM.
-     * Call this after {@link #runSilentUpdate} reports a completed update so the freshly
-     * downloaded rusefi_console.jar is picked up by the new process.
+     * Starts the console as a new process without exiting the current JVM.
+     * Call this after {@link #runManualUpdate} reports a completed update so the freshly
+     * downloaded rusefi_console.jar is picked up by the new process. UI callers start it before
+     * closing through their normal guarded exit path, so tune saving and connection cleanup
+     * still run, and keep their window open when this returns false.
      * <p>
      * Prefers a direct {@code java -jar} invocation (platform-independent) so that
      * {@code -DSKIP_ONE_INSTANCE_CHECK=true} can be passed as a JVM arg, preventing
      * the "already running" dialog that would otherwise appear before the old instance
      * releases its server socket. Falls back to the platform exe launcher when the
      * current JAR path cannot be resolved (e.g. running from an IDE class directory).
+     *
+     * @return true when a replacement process was started
      */
-    public static void relaunchConsole() {
+    public static boolean startUpdatedConsole() {
         String jarPath = getCurrentJarPath();
         if (jarPath != null) {
             // If a staged update exists, launch from it so the new code is picked up immediately.
             File pendingJar = new File(new File(jarPath).getParentFile(), PENDING_CONSOLE_JAR);
             String launchJar = pendingJar.exists() ? pendingJar.getAbsolutePath() : jarPath;
             String javaExe = Paths.get(System.getProperty("java.home"), "bin", "java").toString();
-            log.info("relaunchConsole: launching " + launchJar);
+            log.info("startUpdatedConsole: launching " + launchJar);
             try {
                 new ProcessBuilder(javaExe, "-DSKIP_ONE_INSTANCE_CHECK=true", "-jar", launchJar).start();
-                System.exit(0);
+                return true;
             } catch (IOException e) {
                 log.error("Direct relaunch failed, falling back to exe launcher: " + e);
             }
         }
         String consoleExeFileName = new ConsoleExeFileLocator().getConsoleExeFileName();
-        startConsoleAsANewProcess(consoleExeFileName, new String[0]);
-        System.exit(0);
+        return startConsoleAsANewProcess(consoleExeFileName, new String[0]);
     }
 
     /**
@@ -353,7 +371,7 @@ public class Autoupdate {
 
         File targetJar = new File(runningJar.getParentFile(), "rusefi_console.jar");
         log.info("finalizePendingUpdate: " + runningJar + " -> " + targetJar);
-        // relaunchConsole() starts this process and then System.exit(0)s the previous JVM, but that
+        // startUpdatedConsole() starts this process and then the previous JVM exits, but that
         // old JVM was running from rusefi_console.jar and may not have released its file lock yet
         // (on Windows the copy fails with "being used by another process"). Retry to wait it out -
         // giving up on the first failure leaves the pending JAR orphaned and old code running (#9727).
@@ -382,6 +400,69 @@ public class Autoupdate {
         // On Linux the pending file can be deleted even while open; on Windows this may fail silently.
         if (!runningJar.delete()) {
             log.info("finalizePendingUpdate: pending JAR will be cleaned up on next update");
+        }
+    }
+
+    /**
+     * Returns true when a staged console JAR is waiting next to the running console and has not
+     * been applied yet. A process already running from the pending JAR has applied the update and
+     * must not prompt again.
+     */
+    public static boolean hasPendingUpdate() {
+        String jarPath = getCurrentJarPath();
+        if (jarPath != null) {
+            File runningJar = new File(jarPath);
+            return hasPendingUpdate(runningJar.getParentFile(), runningJar.getName());
+        }
+        return hasPendingUpdate(new File(new File(".."), "console"), null);
+    }
+
+    static boolean hasPendingUpdate(File consoleDirectory, String runningJarName) {
+        if (PENDING_CONSOLE_JAR.equals(runningJarName)) {
+            return false;
+        }
+        File pendingJar = new File(consoleDirectory, PENDING_CONSOLE_JAR);
+        if (!pendingJar.isFile() || pendingJar.length() == 0) {
+            return false;
+        }
+        try (ZipFile jar = new ZipFile(pendingJar)) {
+            if (jar.getEntry("com/rusefi/Launcher.class") == null) {
+                return false;
+            }
+        } catch (IOException e) {
+            log.info("hasPendingUpdate: ignoring invalid staged JAR " + pendingJar + ": " + e);
+            return false;
+        }
+        // finalizePendingUpdate() copies the pending JAR over rusefi_console.jar but cannot delete it
+        // on Windows, where the process is still running from it. An identical leftover is already
+        // applied: remove it now that nothing runs from it, and do not ask for another restart.
+        File installedJar = new File(consoleDirectory, "rusefi_console.jar");
+        if (hasSameContent(pendingJar, installedJar)) {
+            if (!pendingJar.delete()) {
+                log.info("hasPendingUpdate: could not delete applied staged JAR " + pendingJar);
+            }
+            return false;
+        }
+        return true;
+    }
+
+    static boolean hasSameContent(File first, File second) {
+        if (!first.isFile() || !second.isFile() || first.length() != second.length()) {
+            return false;
+        }
+        try (InputStream a = new BufferedInputStream(Files.newInputStream(first.toPath()));
+             InputStream b = new BufferedInputStream(Files.newInputStream(second.toPath()))) {
+            int value;
+            do {
+                value = a.read();
+                if (value != b.read()) {
+                    return false;
+                }
+            } while (value != -1);
+            return true;
+        } catch (IOException e) {
+            log.info("hasSameContent: " + e);
+            return false;
         }
     }
 
@@ -431,68 +512,61 @@ public class Autoupdate {
         return null;
     }
 
-    /**
-     * Checks server metadata to determine if a newer bundle is available, without downloading anything.
-     * Safe to call from a background thread.
-     */
-    public static boolean isUpdateAvailable() {
-        try {
-            BundleInfo bundleInfo = BundleUtil.readBundleFullNameNotNull();
-            if (BundleInfo.isUndefined(bundleInfo)) {
-                return false;
-            }
-            return isNewerAvailable(bundleInfo);
-        } catch (Exception e) {
-            log.error("isUpdateAvailable error: " + e);
+    private static boolean isNewerAvailable(BundleInfo bundleInfo) throws IOException {
+        String branchUrl = BundleInfoStrategy.getDownloadUrl(bundleInfo, PropertiesHolder.getBaseUrl(), BundleInfo::getBranchName);
+        boolean isObfuscated = FindFileHelper.isObfuscated();
+        String suffix = isObfuscated ? "_obfuscated_public" : "";
+        String folderName = bundleInfo.getTarget() + "_" + bundleInfo.getBranchName();
+        String localFolder = userHomeSubDirectory + folderName + File.separator;
+        new File(localFolder).mkdirs();
+        String fileName = ConnectionAndMeta.getWhiteLabel(ConnectionAndMeta.getProperties()) + "_bundle_" + bundleInfo.getTarget() + suffix + "_autoupdate" + ".zip";
+        String localZipFileName = localFolder + fileName;
+        ConnectionAndMeta connectionAndMeta = new ConnectionAndMeta(fileName).invoke(branchUrl);
+        log.info("isNewerAvailable: local=" + localZipFileName);
+        log.info("isNewerAvailable: server size=" + connectionAndMeta.getCompleteFileSize() + " modified=" + new Date(connectionAndMeta.getLastModified()));
+        File localFile = new File(localZipFileName);
+        log.info("isNewerAvailable: local  size=" + localFile.length() + " modified=" + new Date(localFile.lastModified()));
+        boolean upToDate = AutoupdateUtil.hasExistingFile(localZipFileName, connectionAndMeta.getCompleteFileSize(), connectionAndMeta.getLastModified());
+        if (upToDate) {
+            log.info("isNewerAvailable: update NOT needed (already up to date)");
             return false;
         }
-    }
-
-    private static boolean isNewerAvailable(BundleInfo bundleInfo) {
-        try {
-            String branchUrl = BundleInfoStrategy.getDownloadUrl(bundleInfo, PropertiesHolder.getBaseUrl(), BundleInfo::getBranchName);
-            boolean isObfuscated = FindFileHelper.isObfuscated();
-            String suffix = isObfuscated ? "_obfuscated_public" : "";
-            String folderName = bundleInfo.getTarget() + "_" + bundleInfo.getBranchName();
-            String localFolder = userHomeSubDirectory + folderName + File.separator;
-            new File(localFolder).mkdirs();
-            String fileName = ConnectionAndMeta.getWhiteLabel(ConnectionAndMeta.getProperties()) + "_bundle_" + bundleInfo.getTarget() + suffix + "_autoupdate" + ".zip";
-            String localZipFileName = localFolder + fileName;
-            ConnectionAndMeta connectionAndMeta = new ConnectionAndMeta(fileName).invoke(branchUrl);
-            log.info("isNewerAvailable: local=" + localZipFileName);
-            log.info("isNewerAvailable: server size=" + connectionAndMeta.getCompleteFileSize() + " modified=" + new Date(connectionAndMeta.getLastModified()));
-            File localFile = new File(localZipFileName);
-            log.info("isNewerAvailable: local  size=" + localFile.length() + " modified=" + new Date(localFile.lastModified()));
-            boolean upToDate = AutoupdateUtil.hasExistingFile(localZipFileName, connectionAndMeta.getCompleteFileSize(), connectionAndMeta.getLastModified());
-            log.info("isNewerAvailable: update " + (upToDate ? "NOT needed (already up to date)" : "IS available"));
-            return !upToDate;
-        } catch (IOException e) {
-            log.error("isNewerAvailable error: " + e);
-            return false;
-        }
+        log.info("isNewerAvailable: update IS available");
+        return true;
     }
 
     /**
-     * Runs a silent background update from within rusefi_console: downloads and unpacks the bundle
-     * (excluding rusefi_console.jar itself, which cannot be replaced while running),
-     * @return the result of checking and, when needed, applying the update
+     * Checks for an application update without downloading or installing it. The check runs even
+     * when {@link #isAutoUpdateEnabled} is false, since it only reads server metadata; callers use
+     * that setting to decide how prominently to offer the update (#9775).
+     *
+     * @return {@link UpdateOutcome#AVAILABLE} when newer server metadata is present
      */
-    public static UpdateOutcome runSilentUpdate() {
+    public static UpdateOutcome checkForUpdate() {
+        if (hasPendingUpdate()) {
+            log.info("checkForUpdate: staged update is waiting for restart");
+            return UpdateOutcome.UPDATED;
+        }
         try {
-            log.info("runSilentUpdate: starting");
+            log.info("checkForUpdate: starting");
             BundleInfo bundleInfo = BundleUtil.readBundleFullNameNotNull();
-            log.info("runSilentUpdate: bundle=" + bundleInfo);
+            log.info("checkForUpdate: bundle=" + bundleInfo);
             if (BundleInfo.isUndefined(bundleInfo)) {
-                log.info("runSilentUpdate: no bundle info, skipping");
+                log.info("checkForUpdate: no bundle info, skipping");
                 return UpdateOutcome.SKIPPED;
             }
-            if (!isAutoUpdateEnabled()) {
-                log.info("runSilentUpdate: autoupdate is disabled");
-                return UpdateOutcome.SKIPPED;
-            }
-            return performUpdate(bundleInfo);
+            return checkForUpdate(bundleInfo, Autoupdate::isNewerAvailable);
         } catch (Throwable e) {
-            log.error("runSilentUpdate error: " + e);
+            log.error("checkForUpdate error: " + e);
+            return UpdateOutcome.FAILED;
+        }
+    }
+
+    static UpdateOutcome checkForUpdate(BundleInfo bundleInfo, UpdateChecker checker) {
+        try {
+            return checker.isAvailable(bundleInfo) ? UpdateOutcome.AVAILABLE : UpdateOutcome.UP_TO_DATE;
+        } catch (Throwable e) {
+            log.error("checkForUpdate failed", e);
             return UpdateOutcome.FAILED;
         }
     }
@@ -501,23 +575,21 @@ public class Autoupdate {
      * Performs a bundle update regardless of the AutoupdateProperty setting.
      * Intended for the "Update Software" menu item when auto-update is disabled.
      */
-    public static void runManualUpdate(Consumer<String> onComplete) {
+    public static void runManualUpdate(Consumer<UpdateOutcome> onComplete) {
         try {
             log.info("runManualUpdate: starting");
             BundleInfo bundleInfo = BundleUtil.readBundleFullNameNotNull();
             log.info("runManualUpdate: bundle=" + bundleInfo);
             if (BundleInfo.isUndefined(bundleInfo)) {
                 log.info("runManualUpdate: no bundle info, skipping");
-                onComplete.accept(null);
+                onComplete.accept(UpdateOutcome.SKIPPED);
                 return;
             }
             UpdateOutcome outcome = performUpdate(bundleInfo);
-            onComplete.accept(outcome == UpdateOutcome.UPDATED
-                ? "Update installed - please restart to apply the new console"
-                : null);
+            onComplete.accept(outcome);
         } catch (Throwable e) {
             log.error("runManualUpdate error: " + e);
-            onComplete.accept(null);
+            onComplete.accept(UpdateOutcome.FAILED);
         }
     }
 
@@ -555,7 +627,7 @@ public class Autoupdate {
         final String firmwareFile = findFirmwareFile();
         new File(srecFile == null ? firmwareFile : srecFile).setLastModified(file.lastModified);
         tryInstallTsPlugin();
-        // Stage the new console JAR under a different name so relaunchConsole() can
+        // Stage the new console JAR under a different name so startUpdatedConsole() can
         // launch from it and finalizePendingUpdate() can swap it in on next startup.
         extractConsoleJarAsPending(file.zipFileName);
     }
@@ -675,7 +747,7 @@ public class Autoupdate {
         String branchName = BundleInfo.isUndefined(local) ? "master" : local.getBranchName();
         BundleInfo wanted = new BundleInfo(branchName, null, ecuTarget);
         String baseUrl = BundleInfoStrategy.getDownloadUrl(wanted, PropertiesHolder.getBaseUrl(), BundleInfo::getBranchName);
-        String zip = downloadZipForTarget(wanted, baseUrl, progressListener, logger);
+        String zip = downloadZipForTargetContinuous(wanted, baseUrl, progressListener, logger);
         if (zip == null) {
             return false;
         }
@@ -699,11 +771,14 @@ public class Autoupdate {
     public static String downloadZipForTarget(BundleInfo info, String baseUrl,
                                               ConnectionAndMeta.DownloadProgressListener progressListener,
                                               Consumer<String> logger) {
-        // The universal console cannot know prior whether a given board ships open or obfuscated
-        // firmware. Try the public zip first and fall back to the obfuscated one - whichever the server has. #9714
-        String zip = downloadZipForTarget(info, baseUrl, progressListener, logger, false);
+        return downloadZipForTargetContinuous(info, baseUrl, progressListener, logger);
+    }
+
+    private static String downloadZipForTargetContinuous(BundleInfo info, String baseUrl,
+            ConnectionAndMeta.DownloadProgressListener progressListener, Consumer<String> logger) {
+        String zip = downloadZipForTarget(info, baseUrl, progressRange(progressListener, 0, 50), logger, false);
         if (zip == null) {
-            zip = downloadZipForTarget(info, baseUrl, progressListener, logger, true);
+            zip = downloadZipForTarget(info, baseUrl, progressRange(progressListener, 50, 50), logger, true);
         }
         return zip;
     }
@@ -743,6 +818,11 @@ public class Autoupdate {
         }
     }
 
+    private static ConnectionAndMeta.DownloadProgressListener progressRange(
+            ConnectionAndMeta.DownloadProgressListener progress, int start, int width) {
+        return percent -> progress.onPercentage(start + width * Math.max(0, Math.min(100, percent)) / 100);
+    }
+
     public static FirmwareArtifacts downloadFirmware(FirmwareRollbackResolver.Build build,
                                                       ConnectionAndMeta.DownloadProgressListener progress,
                                                       Consumer<String> logger) {
@@ -756,7 +836,7 @@ public class Autoupdate {
                       ConnectionAndMeta.DownloadProgressListener progress, Consumer<String> logger) throws IOException;
     }
 
-    static FirmwareArtifacts downloadFirmware(FirmwareRollbackResolver.Build build,
+    static synchronized FirmwareArtifacts downloadFirmware(FirmwareRollbackResolver.Build build,
                                                ConnectionAndMeta.DownloadProgressListener progress,
                                                Consumer<String> logger,
                                                Path ltsRoot,
@@ -768,30 +848,17 @@ public class Autoupdate {
                 .toAbsolutePath();
             Files.createDirectories(destination);
 
-            Path zip = downloader.download(build, destination, false, progress, logger);
+            Path zip = downloader.download(build, destination, false, progressRange(progress, 0, 50), logger);
             if (zip == null) {
-                zip = downloader.download(build, destination, true, progress, logger);
+                zip = downloader.download(build, destination, true, progressRange(progress, 50, 50), logger);
             }
             if (zip == null) {
                 logger.accept("Firmware build " + build.getSha() + " is unavailable");
                 return FirmwareArtifacts.empty();
             }
 
-            final String[] paths = new String[2];
-            FileUtil.unzip(zip.toString(), destination.toFile(), entry -> {
-                if (!isFirmwareArtifact.test(entry)) {
-                    return false;
-                }
-                String lower = entry.getName().toLowerCase();
-                String absolutePath = destination.resolve(entry.getName()).normalize().toAbsolutePath().toString();
-                if (lower.endsWith(".srec")) {
-                    paths[0] = absolutePath;
-                } else if (isDfuBin(lower)) {
-                    paths[1] = absolutePath;
-                }
-                return true;
-            });
-            FirmwareArtifacts artifacts = new FirmwareArtifacts(paths[0], paths[1]);
+            BundleInfo wanted = new BundleInfo(build.getBranch(), null, build.getBoard());
+            FirmwareArtifacts artifacts = extractBranchFirmware(zip, destination, wanted);
             if (!artifacts.getSrecPath().isPresent() && !artifacts.getBinPath().isPresent()) {
                 logger.accept("Firmware build " + build.getSha() + " contains no SREC or BIN artifact");
             }
@@ -800,6 +867,350 @@ public class Autoupdate {
             log.error("Firmware download failed for " + build.getSha() + ": " + e);
             logger.accept("Firmware download failed: " + e.getMessage());
             return FirmwareArtifacts.empty();
+        }
+    }
+
+    @FunctionalInterface
+    interface BranchFirmwareZipDownloader {
+        Path download(BundleInfo wanted, Path destination, boolean obfuscated,
+                      ConnectionAndMeta.DownloadProgressListener progress, Consumer<String> logger) throws IOException;
+    }
+
+    public static FirmwareArtifacts downloadFirmwareForBranch(BundleInfo wanted,
+            ConnectionAndMeta.DownloadProgressListener progress, Consumer<String> logger) {
+        Path cache = Paths.get(userHomeSubDirectory, "branch-firmware");
+        return downloadFirmwareForBranch(wanted, progress, logger, cache, Autoupdate::downloadBranchFirmwareZip);
+    }
+
+    static synchronized FirmwareArtifacts downloadFirmwareForBranch(BundleInfo wanted,
+            ConnectionAndMeta.DownloadProgressListener progress, Consumer<String> logger,
+            Path cacheRoot, BranchFirmwareZipDownloader downloader) {
+        try {
+            String branch = FirmwareBranch.normalize(wanted.getBranchName());
+            if (!FirmwareBranch.isSameBranch(branch, branch) || wanted.getTarget().trim().isEmpty()
+                || !wanted.getTarget().matches("[A-Za-z0-9_-]+")) {
+                return FirmwareArtifacts.empty();
+            }
+            BundleInfo normalized = new BundleInfo(branch, null, wanted.getTarget());
+            Path destination = cacheRoot.resolve(wanted.getTarget()).resolve(branch).toAbsolutePath().normalize();
+            Files.createDirectories(destination);
+            Path zip = downloader.download(normalized, destination, false, progressRange(progress, 0, 50), logger);
+            if (zip == null) {
+                zip = downloader.download(normalized, destination, true, progressRange(progress, 50, 50), logger);
+            }
+            if (zip == null) {
+                return FirmwareArtifacts.empty();
+            }
+            return extractBranchFirmware(zip, destination, normalized);
+        } catch (Exception e) {
+            log.error("Branch firmware download failed", e);
+            logger.accept("Branch firmware download failed: " + e.getMessage());
+            return FirmwareArtifacts.empty();
+        }
+    }
+
+    private static Path downloadBranchFirmwareZip(BundleInfo wanted, Path destination, boolean obfuscated,
+            ConnectionAndMeta.DownloadProgressListener progress, Consumer<String> logger) throws IOException {
+        String branchUrl = getBranchFirmwareBaseUrl(wanted, PropertiesHolder.getBaseUrl());
+        String name = getBranchFirmwareZipName(wanted, obfuscated);
+        Path zip = destination.resolve(name);
+        try {
+            ConnectionAndMeta metadata = new ConnectionAndMeta(name).invoke(branchUrl);
+            if (!AutoupdateUtil.hasExistingFile(zip.toString(), metadata.getCompleteFileSize(), metadata.getLastModified())) {
+                logger.accept("Downloading firmware for " + wanted.getTarget());
+                Path temporary = zip.resolveSibling(zip.getFileName() + ".part-" + UUID.randomUUID());
+                try {
+                    ConnectionAndMeta.downloadFile(temporary.toString(), metadata, progress);
+                    try {
+                        Files.move(temporary, zip, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                    } catch (IOException atomicMoveUnsupported) {
+                        Files.move(temporary, zip, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } finally {
+                    Files.deleteIfExists(temporary);
+                }
+            }
+            return zip;
+        } catch (IOException e) {
+            log.info("Branch firmware variant unavailable: " + e);
+            return null;
+        }
+    }
+
+    @FunctionalInterface
+    interface FirmwareMetadataReader {
+        FirmwareZipMetadata read(String baseUrl, String zipName) throws IOException;
+    }
+
+    static final class FirmwareZipMetadata {
+        final int responseCode;
+        final String contentType;
+        final long lastModified;
+
+        FirmwareZipMetadata(int responseCode, String contentType, long lastModified) {
+            this.responseCode = responseCode;
+            this.contentType = contentType;
+            this.lastModified = lastModified;
+        }
+    }
+
+    public enum DevFirmwareMetadataFailure {
+        DOWNLOAD_NOT_FOUND,
+        NO_PUBLICATION_DATE,
+        INVALID_SERVER_RESPONSE,
+        CONNECTION_FAILED
+    }
+
+    public static final class DevFirmwareMetadataException extends IOException {
+        private final DevFirmwareMetadataFailure failure;
+
+        DevFirmwareMetadataException(DevFirmwareMetadataFailure failure, String message, Throwable cause) {
+            super(message, cause);
+            this.failure = failure;
+        }
+
+        DevFirmwareMetadataException(DevFirmwareMetadataFailure failure, String message) {
+            this(failure, message, null);
+        }
+
+        public DevFirmwareMetadataFailure getFailure() {
+            return failure;
+        }
+    }
+
+    /** Reads the same per-board Dev ZIP metadata as the updater, without opening its response body. */
+    public static long getDevFirmwareLastModified(String board, String branch) throws IOException {
+        return getDevFirmwareLastModified(board, branch, PropertiesHolder.getBaseUrl(), Autoupdate::readZipMetadata);
+    }
+
+    static long getDevFirmwareLastModified(String board, String branch, String rootUrl,
+                                           FirmwareMetadataReader reader) throws IOException {
+        String normalizedBranch = FirmwareBranch.normalize(branch);
+        if (!FirmwareBranch.isSameBranch(normalizedBranch, BundleInfo.DEVELOPMENT)
+            || board == null || !board.matches("[A-Za-z0-9_-]+")) {
+            throw new IOException("Unsupported Dev firmware target");
+        }
+        BundleInfo wanted = new BundleInfo(normalizedBranch, null, board);
+        String baseUrl = getBranchFirmwareBaseUrl(wanted, rootUrl);
+        for (boolean obfuscated : new boolean[]{false, true}) {
+            FirmwareZipMetadata metadata;
+            try {
+                metadata = reader.read(baseUrl, getBranchFirmwareZipName(wanted, obfuscated));
+            } catch (IOException e) {
+                throw new DevFirmwareMetadataException(DevFirmwareMetadataFailure.CONNECTION_FAILED,
+                    "Could not read Dev firmware metadata: " + e.getMessage(), e);
+            }
+            if (metadata.responseCode == 404) {
+                if (!obfuscated) {
+                    continue;
+                }
+                break;
+            }
+            if (metadata.responseCode < 200 || metadata.responseCode >= 300) {
+                throw new DevFirmwareMetadataException(DevFirmwareMetadataFailure.INVALID_SERVER_RESPONSE,
+                    "Dev firmware metadata unavailable (HTTP " + metadata.responseCode + ")");
+            }
+            if (!isFirmwareZipContentType(metadata.contentType)) {
+                throw new DevFirmwareMetadataException(DevFirmwareMetadataFailure.INVALID_SERVER_RESPONSE,
+                    "Unexpected Dev firmware content type: " + metadata.contentType);
+            }
+            if (metadata.lastModified <= 0) {
+                throw new DevFirmwareMetadataException(DevFirmwareMetadataFailure.NO_PUBLICATION_DATE,
+                    "Dev firmware Last-Modified metadata is unavailable");
+            }
+            return metadata.lastModified;
+        }
+        throw new DevFirmwareMetadataException(DevFirmwareMetadataFailure.DOWNLOAD_NOT_FOUND,
+            "No Dev firmware download was found for " + board);
+    }
+
+    private static boolean isFirmwareZipContentType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        String mediaType = contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
+        return "application/zip".equals(mediaType)
+            || "application/octet-stream".equals(mediaType)
+            || "application/x-zip-compressed".equals(mediaType);
+    }
+
+    private static FirmwareZipMetadata readZipMetadata(String baseUrl, String zipName) throws IOException {
+        ConnectionAndMeta metadata = new ConnectionAndMeta(zipName).invokeMetadata(baseUrl);
+        try {
+            return new FirmwareZipMetadata(metadata.getResponseCode(), metadata.getContentType(), metadata.getLastModified());
+        } finally {
+            metadata.getHttpConnection().disconnect();
+        }
+    }
+
+    private static String getBranchFirmwareBaseUrl(BundleInfo wanted, String rootUrl) {
+        return BundleInfoStrategy.getDownloadUrl(wanted, rootUrl, ignored -> wanted.getBranchName());
+    }
+
+    private static String getBranchFirmwareZipName(BundleInfo wanted, boolean obfuscated) {
+        String suffix = obfuscated ? "_obfuscated_public" : "";
+        return ConnectionAndMeta.getWhiteLabel(ConnectionAndMeta.getProperties()) + "_bundle_"
+            + wanted.getTarget() + suffix + "_autoupdate.zip";
+    }
+
+    private static FirmwareArtifacts extractBranchFirmware(Path zip, Path destination, BundleInfo wanted) throws IOException {
+        destination = destination.resolve(zipDigest(zip));
+        Files.createDirectories(destination);
+        String release = null;
+        String platform = null;
+        boolean metadataSeen = false;
+        String srec = null;
+        String bin = null;
+        try (ZipInputStream input = new ZipInputStream(Files.newInputStream(zip))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                String name = entry.getName();
+                Path relative;
+                try {
+                    relative = Paths.get(name);
+                } catch (InvalidPathException e) {
+                    throw new IOException("Invalid ZIP entry path: " + name, e);
+                }
+                if (relative.isAbsolute() || name.startsWith("/") || name.startsWith("\\")
+                    || name.matches("^[A-Za-z]:.*") || name.contains("\\")
+                    || relative.normalize().startsWith("..")) {
+                    throw new IOException("Unsafe ZIP entry: " + name);
+                }
+                if ("console/release.txt".equals(name)) {
+                    if (metadataSeen) {
+                        throw new IOException("Duplicate release metadata");
+                    }
+                    metadataSeen = true;
+                    Properties properties = new Properties();
+                    try {
+                        properties.load(input);
+                    } catch (IllegalArgumentException e) {
+                        throw new IOException("Malformed release metadata", e);
+                    }
+                    release = properties.getProperty("release");
+                    platform = properties.getProperty("platform");
+                    continue;
+                }
+                if (entry.isDirectory() || name.contains("/")) {
+                    continue;
+                }
+                String lower = name.toLowerCase();
+                if (lower.endsWith(".srec") && !lower.contains("openblt")) {
+                    if (srec != null) {
+                        throw new IOException("Multiple SREC candidates");
+                    }
+                    srec = name;
+                } else if (isDfuBin(lower) && !lower.contains("openblt")) {
+                    if (bin != null) {
+                        throw new IOException("Multiple BIN candidates");
+                    }
+                    bin = name;
+                }
+            }
+        }
+        if (release == null || platform == null || !wanted.getTarget().equalsIgnoreCase(platform)
+            || !FirmwareBranch.normalize(wanted.getBranchName()).equals(FirmwareBranch.normalize(release))) {
+            return FirmwareArtifacts.empty();
+        }
+        if (srec != null) {
+            com.rusefi.core.RusEfiSignature signature = SignatureHelper.parseSrec(srec);
+            if (!isArtifactIdentityValid(signature, wanted, true)) {
+                return FirmwareArtifacts.empty();
+            }
+        }
+        if (bin != null && !"rusefi.bin".equalsIgnoreCase(bin)) {
+            com.rusefi.core.RusEfiSignature signature = SignatureHelper.parseSrec(
+                bin.substring(0, bin.length() - 4) + ".srec");
+            if (!isArtifactIdentityValid(signature, wanted, false)) {
+                return FirmwareArtifacts.empty();
+            }
+        }
+        String srecPath = copyZipEntry(zip, destination, srec);
+        String binPath = copyZipEntry(zip, destination, bin);
+        if (srecPath == null && binPath == null) {
+            return FirmwareArtifacts.empty();
+        }
+        return new FirmwareArtifacts(srecPath, binPath, wanted);
+    }
+
+    private static boolean isArtifactIdentityValid(com.rusefi.core.RusEfiSignature signature,
+                                                    BundleInfo wanted, boolean allowKansasLegacySrec) {
+        if (signature == null || !FirmwareBranch.normalize(wanted.getBranchName())
+            .equals(FirmwareBranch.normalize(signature.getBranch()))) {
+            return false;
+        }
+        if (Boolean.TRUE.equals(signature.getIsLegacyFormat())) {
+            return allowKansasLegacySrec && "lts-25kansas".equals(FirmwareBranch.normalize(wanted.getBranchName()));
+        }
+        return wanted.getTarget().equalsIgnoreCase(signature.getBundleTarget());
+    }
+
+    private static String zipDigest(Path zip) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream input = Files.newInputStream(zip)) {
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = input.read(buffer)) != -1) {
+                    digest.update(buffer, 0, count);
+                }
+            }
+            StringBuilder result = new StringBuilder();
+            for (byte value : digest.digest()) {
+                result.append(String.format("%02x", value & 0xff));
+            }
+            return result.toString();
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    private static String copyZipEntry(Path zip, Path destination, String name) throws IOException {
+        if (name == null) {
+            return null;
+        }
+        Path target = destination.resolve(name).normalize();
+        if (!target.getParent().equals(destination)) {
+            throw new IOException("Unsafe firmware path: " + name);
+        }
+        try (ZipInputStream input = new ZipInputStream(Files.newInputStream(zip))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) {
+                if (name.equals(entry.getName())) {
+                    if (Files.exists(target)) {
+                        if (!sameContents(target, input)) {
+                            throw new IOException("Existing cached artifact differs from ZIP entry: " + name);
+                        }
+                        return target.toString();
+                    }
+                    Path temporary = target.resolveSibling(target.getFileName() + ".tmp-" + UUID.randomUUID());
+                    try {
+                        Files.copy(input, temporary);
+                        try {
+                            Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE);
+                        } catch (IOException atomicMoveUnsupported) {
+                            Files.move(temporary, target);
+                        }
+                    } finally {
+                        Files.deleteIfExists(temporary);
+                    }
+                    return target.toString();
+                }
+            }
+        }
+        throw new IOException("Missing firmware entry: " + name);
+    }
+
+    private static boolean sameContents(Path file, InputStream expected) throws IOException {
+        try (InputStream actual = new BufferedInputStream(Files.newInputStream(file))) {
+            InputStream reference = new BufferedInputStream(expected);
+            int next;
+            while ((next = reference.read()) != -1) {
+                if (actual.read() != next) {
+                    return false;
+                }
+            }
+            return actual.read() == -1;
         }
     }
 
@@ -838,14 +1249,16 @@ public class Autoupdate {
     public static final class FirmwareArtifacts {
         private final Optional<String> srecPath;
         private final Optional<String> binPath;
+        private final BundleInfo bundleInfo;
 
-        private FirmwareArtifacts(String srecPath, String binPath) {
+        private FirmwareArtifacts(String srecPath, String binPath, BundleInfo bundleInfo) {
             this.srecPath = Optional.ofNullable(srecPath);
             this.binPath = Optional.ofNullable(binPath);
+            this.bundleInfo = bundleInfo;
         }
 
         private static FirmwareArtifacts empty() {
-            return new FirmwareArtifacts(null, null);
+            return new FirmwareArtifacts(null, null, null);
         }
 
         public Optional<String> getSrecPath() {
@@ -854,6 +1267,10 @@ public class Autoupdate {
 
         public Optional<String> getBinPath() {
             return binPath;
+        }
+
+        public BundleInfo getBundleInfo() {
+            return bundleInfo;
         }
     }
 
@@ -879,8 +1296,8 @@ public class Autoupdate {
      * {@link ProcessBuilder} would then fail with "Permission denied", so give it one best-effort
      * chance to fix itself. See #8360.
      */
-    private static void ensureLauncherIsExecutable(final String launcherFileName) {
-        if (OsUtil.isWindows()) {
+    static void ensureLauncherIsExecutable(final String launcherFileName) {
+        if (IS_WINDOWS) {
             return;
         }
         final File launcher = new File(launcherFileName);
@@ -896,13 +1313,13 @@ public class Autoupdate {
     /**
      * rusefi_updater.exe/invokes rusefi_console.jar - entry point is Launcher#main
      */
-    private static void startConsoleAsANewProcess(final String consoleExeFileName, final String[] args) {
+    private static boolean startConsoleAsANewProcess(final String consoleExeFileName, final String[] args) {
         if (!Files.exists(Paths.get(consoleExeFileName))) {
             log.error(String.format("File `%s` to launch isn't found", consoleExeFileName));
             if (!AutoupdateUtil.runHeadless) {
                 ErrorMessageHelper.showErrorDialog(String.format("File `%s` to launch isn't found.", consoleExeFileName), "Error");
             }
-            return;
+            return false;
         }
         log.info(String.format("File `%s` to launch is found", consoleExeFileName));
         ensureLauncherIsExecutable(consoleExeFileName);
@@ -913,6 +1330,7 @@ public class Autoupdate {
             log.info(String.format("We're starting `%s` process", consoleExeFileName));
             new ProcessBuilder(processBuilderArgs).start();
             log.info(String.format("Process `%s` is started", consoleExeFileName));
+            return true;
         } catch (final IOException e) {
             final String command = String.join(" ", processBuilderArgs);
             log.error(String.format("Failed to run `%s` command", command), e);
@@ -922,6 +1340,7 @@ public class Autoupdate {
                     command
                 ), "Error");
             }
+            return false;
         }
     }
 
@@ -1011,10 +1430,16 @@ public class Autoupdate {
      * Text of the modal shown when the bundle download fails before any UI frame exists.
      */
     static String downloadErrorMessage(IOException e) {
-        if (e instanceof UnknownHostException) {
-            // DNS failure: rusefi.com is blocked in some regions, a Java exception is not actionable for the user #10191
-            return AutoupdateUtil.CHECK_INTERNET_CONNECTION;
+        try {
+            return AutoupdateUtil.downloadErrorMessage(e);
+        } catch (LinkageError olderCoreUi) {
+            // a newer autoupdate can run against an older core_ui, see AutoupdateUtil.CHECK_INTERNET_CONNECTION
+            log.error("downloadErrorMessage: " + olderCoreUi);
+            if (e instanceof UnknownHostException) {
+                // DNS failure: rusefi.com is blocked in some regions #10191
+                return AutoupdateUtil.CHECK_INTERNET_CONNECTION;
+            }
+            return "The download did not complete. Please try again.";
         }
-        return "Error downloading " + e;
     }
 }

@@ -28,7 +28,7 @@ void setHondaObd1() {
 	engineConfiguration->globalTriggerAngleOffset = 80;
 
   // what's average displacement for Honda OBD1? :)
-  engineConfiguration->displacement = 1.645;
+  engineConfiguration->displacement = 1.645f;
 
 	// Keihin 06164-P0A-A00
 	engineConfiguration->injector.flow = 248;
@@ -46,7 +46,7 @@ void setHondaObd1() {
 #endif
 #endif // HW_HELLEN_UAEFI
 
-	strcpy(engineConfiguration->gpPwmNote[0], "VTC");
+	strcpy(config->gpPwmNote[0], "VTC");
 	gppwm_channel *vtcControl = &engineConfiguration->gppwm[0];
 	vtcControl->loadAxis = GPPWM_Map;
 	vtcControl->pwmFrequency = 0;

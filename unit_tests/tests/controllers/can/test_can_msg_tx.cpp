@@ -332,6 +332,8 @@ TEST_F(DualCanWithDisconnectedSecondaryTest, MailboxDeadlineHandlesMillisecondCl
 
 TEST_F(DualCanWithDisconnectedSecondaryTest, FullQueueDropsNewestAndResetDiscardsTraffic) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	// the drop count is a lifetime diagnostic that no reset clears: compare with where it started
+	int dropsBefore = CanTxMessage::getQueueDropCount(1);
 	for (int i = 0; i < CAN_TX_QUEUE_CAPACITY; i++) {
 		CanTxMessage message(CanCategory::SERIAL, i, 8, 1);
 		ASSERT_TRUE(message.submit());
@@ -340,7 +342,7 @@ TEST_F(DualCanWithDisconnectedSecondaryTest, FullQueueDropsNewestAndResetDiscard
 		CanTxMessage newest(CanCategory::SERIAL, 0x7ff, 8, 1);
 		EXPECT_FALSE(newest.submit());
 	}
-	EXPECT_EQ(1, CanTxMessage::getQueueDropCount(1));
+	EXPECT_EQ(dropsBefore + 1, CanTxMessage::getQueueDropCount(1));
 
 	CanTxMessage::stopBus(1);
 	EXPECT_FALSE(CanTxMessage::serviceOne(1));
@@ -476,6 +478,47 @@ TEST_F(DualCanWithDisconnectedSecondaryTest, ResetDiscardsInFlightMailboxWaitWit
 	secondaryMailboxAvailable = true;
 	EXPECT_FALSE(CanTxMessage::serviceOne(1));
 	EXPECT_EQ(1u, secondaryTransmitCount);
+}
+
+TEST_F(DualCanWithDisconnectedSecondaryTest, RemovedDeviceRejectsPeriodicTrafficAndResumesAfterRestore) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	// M74.9 diagnostics temporarily remove CAN1 while checking physical TX
+	// completion. The periodic worker can submit an RPM frame during that gap.
+	CanTxMessage::removeDevice(0);
+	{
+		CanTxMessage periodic(CanCategory::NBC, 0x186, 7, 0);
+		EXPECT_FALSE(periodic.submit());
+	}
+	EXPECT_FALSE(CanTxMessage::serviceOne(0));
+	EXPECT_EQ(0u, primaryTransmitCount);
+	CanTxMessage synchronous(CanCategory::SERIAL, 0x710, 8, 0);
+	EXPECT_EQ(MSG_RESET, synchronous.submitAndWait(TIME_MS2I(10)));
+	EXPECT_FALSE(hasFirmwareError());
+
+	// Suspending CAN1 must not stop traffic on the other bus.
+	secondaryMailboxAvailable = true;
+	{
+		CanTxMessage otherBus(CanCategory::NBC, 0x189, 8, 1);
+		EXPECT_TRUE(otherBus.submit());
+	}
+	EXPECT_TRUE(CanTxMessage::serviceOne(1));
+	EXPECT_EQ(1u, secondaryTransmitCount);
+
+	CanTxMessage::setDevice(0, &primaryCan);
+	{
+		CanTxMessage resumed(CanCategory::NBC, 0x186, 7, 0);
+		EXPECT_TRUE(resumed.submit());
+	}
+	EXPECT_TRUE(CanTxMessage::serviceOne(0));
+	EXPECT_EQ(1u, primaryTransmitCount);
+}
+
+TEST_F(DualCanWithDisconnectedSecondaryTest, UnconfiguredDeviceStillRaisesCriticalError) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	// Explicitly install no device, without an intentional removeDevice pause.
+	CanTxMessage::setDevice(0, nullptr);
+	CanTxMessage periodic(CanCategory::NBC, 0x186, 7, 0);
+	EXPECT_THROW(periodic.submit(), std::logic_error);
 }
 
 TEST_F(DualCanWithDisconnectedSecondaryTest, ResetReleasesSynchronousWaiterAndFullQueueCanProgress) {

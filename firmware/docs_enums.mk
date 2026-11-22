@@ -1,4 +1,5 @@
-# TODO: are we missing a ton of .txt file references from LiveData.yaml?!
+# [tag:docs_enums_inputs] checked by DocsEnumsInputsTest: every .txt referenced by integration/LiveData.yaml (name + folder/input_folder, prepend) and every
+# input of gen_live_documentation.sh must be listed here, otherwise editing it does not regenerate the ini
 DOCS_ENUMS_INPUTS = \
   $(PROJECT_DIR)/integration/rusefi_config.txt \
   $(PROJECT_DIR)/integration/rusefi_config_shared.txt \
@@ -6,22 +7,53 @@ DOCS_ENUMS_INPUTS = \
   $(PROJECT_DIR)/integration/config_page_3.txt \
   $(PROJECT_DIR)/integration/config_page_4.txt \
   $(PROJECT_DIR)/console/binary/output_channels.txt \
-  $(PROJECT_DIR)//tunerstudio/gauge_declarations.ini \
+  $(PROJECT_DIR)/tunerstudio/gauge_declarations.ini \
+  $(PROJECT_DIR)/controllers/actuators/vvt.txt \
   $(PROJECT_DIR)/controllers/engine_cycle/knock_controller.txt \
+  $(PROJECT_DIR)/controllers/engine_cycle/live_data_rotational_idle.txt \
   $(PROJECT_DIR)/controllers/engine_cycle/prime_injection.txt \
   $(PROJECT_DIR)/controllers/trigger/trigger_central.txt \
   $(PROJECT_DIR)/controllers/long_term_fuel_trim_state.txt \
+  $(PROJECT_DIR)/controllers/math/closed_loop_idle.txt \
+  $(PROJECT_DIR)/controllers/math/lambda_monitor.txt \
   $(PROJECT_DIR)/controllers/math/short_term_fuel_trim_state.txt \
+  $(PROJECT_DIR)/controllers/modules/fuel_pump/fuel_pump_control.txt \
   $(PROJECT_DIR)/controllers/trigger/trigger_state.txt \
   $(PROJECT_DIR)/controllers/trigger/trigger_state_primary.txt \
   $(PROJECT_DIR)/controllers/algo/shift_torque_reduction_state.txt \
+  $(PROJECT_DIR)/controllers/algo/ignition/ignition_state.txt \
+  $(PROJECT_DIR)/controllers/algo/tps_accel_state.txt \
   $(PROJECT_DIR)/controllers/algo/launch_control_state.txt \
+  $(PROJECT_DIR)/controllers/algo/antilag_system_state.txt \
+  $(PROJECT_DIR)/controllers/sensors/sent_state.txt \
+  $(PROJECT_DIR)/controllers/sensors/wideband_state.txt \
   $(PROJECT_DIR)/controllers/engine_cycle/high_pressure_fuel_pump.txt \
   $(PROJECT_DIR)/controllers/actuators/idle_state.txt \
   $(PROJECT_DIR)/controllers/actuators/electronic_throttle.txt \
   $(PROJECT_DIR)/controllers/algo/misfire_detection_state.txt \
+  $(PROJECT_DIR)/controllers/algo/wall_fuel_state.txt \
+  $(PROJECT_DIR)/controllers/algo/nitrous_control_state.txt \
   $(PROJECT_DIR)/hw_layer/drivers/gpio/mc33810_state.txt \
   $(PROJECT_DIR)/hw_layer/drivers/adc/ads7128_state.txt \
+  $(PROJECT_DIR)/controllers/algo/fuel/fuel_computer.txt \
+  $(PROJECT_DIR)/controllers/algo/fuel/injector_model.txt \
+  $(PROJECT_DIR)/controllers/algo/engine_state.txt \
+  $(PROJECT_DIR)/controllers/tcu/tcu_controller.txt \
+  $(PROJECT_DIR)/controllers/math/throttle_model.txt \
+  $(PROJECT_DIR)/controllers/actuators/boost_control.txt \
+  $(PROJECT_DIR)/controllers/actuators/ac_control.txt \
+  $(PROJECT_DIR)/controllers/actuators/main_relay.txt \
+  $(PROJECT_DIR)/controllers/actuators/dc_motors.txt \
+  $(PROJECT_DIR)/controllers/modules/fan_control/fan_control.txt \
+  $(PROJECT_DIR)/controllers/modules/example_module/live_data_example.txt \
+  $(PROJECT_DIR)/controllers/modules/vvl_controller/vvl_controller_state.txt \
+  $(PROJECT_DIR)/controllers/modules/injector_deadtime_autotune/injector_deadtime_autotune_state.txt \
+  $(PROJECT_DIR)/controllers/modules/rolling_launch/rolling_launch_state.txt \
+  $(PROJECT_DIR)/controllers/modules/burst_knock/burst_knock_state.txt \
+  $(PROJECT_DIR)/controllers/modules/engine_state_machine/engine_state_machine_state.txt \
+  $(PROJECT_DIR)/controllers/modules/wot_enrichment/wot_enrichment_state.txt \
+  $(PROJECT_DIR)/integration/rusefi_config_trigger.txt \
+  $(PROJECT_DIR)/integration/ts_protocol.txt \
   $(PROJECT_DIR)/integration/LiveData.yaml \
   $(PROJECT_DIR)/controllers/sensors/sensor_type.h \
   $(PROJECT_DIR)/controllers/trigger/decoders/sync_edge.h \
@@ -85,6 +117,11 @@ ifneq ("$(wildcard $(BOARD_DIR)/firmware/extra.txt)","")
   DOCS_ENUMS_INPUTS += $(BOARD_DIR)/firmware/extra.txt
 endif
 
+# LiveDataProcessor.extra_prepend in gen_live_documentation.sh
+ifneq ("$(wildcard $(BOARD_DIR)/prepend.txt)","")
+  DOCS_ENUMS_INPUTS += $(BOARD_DIR)/prepend.txt
+endif
+
 ifneq ("$(wildcard $(BOARD_DIR)/board_config.txt)","")
   DOCS_ENUMS_INPUTS += $(BOARD_DIR)/board_config.txt
 endif
@@ -95,7 +132,23 @@ endif
 # gen_live_documentation.sh writes shared generated files (console/binary/generated,
 # java enums, unit_tests/test-framework/trigger_meta_generated.h), so serialize against
 # other concurrent makes (firmware/simulator/unit_tests) on the shared $(FLOCK) lock.
-.docsenums-sentinel: $(DOCS_ENUMS_INPUTS) $(CONFIG_DEFINITION_BASE_JAR) $(ENUM_TO_STRING_JAR)
+# [tag:live_data_board_prepend] TGT_SENTINEL (firmware builds only) changes when the board changes,
+# so live data is regenerated with the new board's prepend even if no input file was edited.
+#
+# The sentinel runs on every build via the .docsenums-force
+# phony prereq. A git checkout/reset can stamp tracked generated outputs with a
+# fresh mtime without updating this sentinel, which would otherwise fool make
+# into skipping regeneration and building against stale outputs. Every Java
+# generator writes through LazyFile, which does not touch a file whose content
+# is unchanged — so when inputs haven't really changed, the per-file mtimes
+# stay stable even though the generator ran. The $(OBJS) prerequisite below is
+# order-only (|) so a sentinel mtime bump from a no-op regeneration does not
+# force a full recompile; .o files rebuild only when a specific generated .h
+# they include was actually rewritten by LazyFile.
+.PHONY: .docsenums-force
+.docsenums-force:
+
+.docsenums-sentinel: .docsenums-force $(DOCS_ENUMS_INPUTS) $(CONFIG_DEFINITION_BASE_JAR) $(ENUM_TO_STRING_JAR) $(TGT_SENTINEL)
 	bash $(PROJECT_DIR)/bin/detect_github.sh
 	$(FLOCK) bash $(PROJECT_DIR)/gen_live_documentation.sh
 	@touch $@
@@ -104,10 +157,9 @@ endif
 
 docs-enums: .docsenums-sentinel
 
-$(DOCS_ENUMS): .docsenums-sentinel
+$(DOCS_ENUMS): | .docsenums-sentinel
 
-# This is necessary because the ChibiOS makefile builds a .o file and generates
-#  the deps for that .o file in the same GCC call, so if the .deps aren't already
-#  in the correct state, things can fail to build because Make doesn't know it needs
-#  to build the prerequisites (in this case the generated live docs and enums) for those files ahead of time.
-$(OBJS): .docsenums-sentinel
+# Order-only so the generator runs before any .o compile (first build's .dep
+# files don't yet know about generated .h paths), but a sentinel mtime bump
+# from a no-op regeneration does not cascade a full recompile.
+$(OBJS): | .docsenums-sentinel

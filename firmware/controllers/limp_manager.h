@@ -13,7 +13,7 @@
 enum class ClearReason : uint8_t {
 	None, // 0
 	Fatal, // 1
-	Settings, // 2
+	Settings, // 2 - "setting disabled": the user turned injection or ignition off in the tune, not "the tune is bad"
 	HardLimit, // 3
 	EtbJammedRevLimit, // 4 means 1500 RPM limit in ETB jam was detected
 	BoostCut, // 5
@@ -34,6 +34,7 @@ enum class ClearReason : uint8_t {
 	FatalErrorRevLimit, // 20
 	GdiLimits, // 21
 	GdiPumpLimit, // 22
+	Immobilizer, // 23
 
 	// Keep this list in sync with fuelIgnCutCodeList in tunerstudio.template.ini!
 	// todo: add a code generator between ClearReason and fuelIgnCutCodeList in tunerstudio.template.ini
@@ -124,6 +125,7 @@ public:
 
 private:
 	void setFaultRevLimit(int limit, ClearReason rpmLimitReason);
+	bool shouldReportCutWarning(efitick_t nowNt);
 
 	Hysteresis m_revLimitHysteresis;
 	MaxLimitWithHysteresis<> m_boostCutHysteresis;
@@ -155,6 +157,9 @@ private:
 
 	// Tracks how long since a cut (ignition or fuel) was active for any reason
 	Timer m_lastCutTime;
+
+	// Shared reporting interval for boost, injector duty, lambda and ETB cuts.
+	Timer m_lastCutWarning;
 
 	// Tracks how long injector duty has been over the sustained limit
 	Timer m_injectorDutySustainedTimer;

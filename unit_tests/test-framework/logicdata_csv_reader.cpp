@@ -7,6 +7,7 @@
 
 #include "pch.h"
 #include "logicdata_csv_reader.h"
+#include "logicdata.h"
 #include "unit_test_logger.h"
 
 static char* trim(char *str) {
@@ -37,7 +38,11 @@ bool CsvReader::haveMore() {
 	bool result = fgets(buffer, sizeof(buffer), fp) != nullptr;
 	m_lineIndex++;
 	if (m_lineIndex == 0) {
-		// skip header
+		// skip header; rusEFI .teeth CSV may carry an engine phase column
+		// between the timestamp and the trigger channels
+		if (result && teethCsvHeaderHasPhase(buffer)) {
+			readingOffset++;
+		}
 		return haveMore();
 	}
 
@@ -161,12 +166,12 @@ void CsvReader::processLine(EngineTestHelper *eth) {
 	// Fill the gap
 	while (lastTimeStamp + TIME_DELTA < timeStamp) {
 		lastTimeStamp += TIME_DELTA;
-		eth->setTimeAndInvokeEventsUs(1'000'000 * lastTimeStamp);
+		eth->setTimeAndInvokeEventsUs(static_cast<int>(1'000'000 * lastTimeStamp));
 		writeUnitTestLogLine();
 	}
 #endif
 
-	eth->setTimeAndInvokeEventsUs(1'000'000 * timeStamp);
+	eth->setTimeAndInvokeEventsUs(static_cast<int>(1'000'000 * timeStamp));
 	for (size_t index = 0; index < m_triggerCount; index++) {
 		if (currentState[index] == newTriggerState[index]) {
 			continue;

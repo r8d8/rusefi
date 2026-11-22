@@ -22,6 +22,10 @@ bool mcuCanFlashWhileRunning();
 bool isStm32F42x();
 #endif // STM32F4
 
+#if defined(STM32H7XX)
+bool isStm32H7revisionV();
+#endif // STM32H7XX
+
 #if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
 void printWRPBits();
 void printOptBytes();
@@ -133,9 +137,12 @@ void HardFaultVector(void);
 #endif /* __cplusplus */
 
 // search:openblt_version
-// ascii 'BL09' in reverse LBS byte order
-#define BLT_CURRENT_VERSION 0x39304C42
-#define BLT_BIN_VERSION_ADDR              ((uint32_t)0x08000024U)       /*! 3rd reserved DWORD in vector table search:openblt_version */
+// ascii 'BL10' in reverse LBS byte order
+#define BLT_CURRENT_VERSION 0x30314C42
+#ifndef BLT_BIN_VERSION_ADDR
+// STM32: 3rd reserved DWORD in the bootloader vector table.
+#define BLT_BIN_VERSION_ADDR              ((uint32_t)0x08000024U)
+#endif
 
 #if EFI_USE_OPENBLT
 #define getOpenBltVersion() (((uint32_t *)BLT_BIN_VERSION_ADDR)[0])

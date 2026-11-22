@@ -377,7 +377,7 @@ static const char *errorHandlerGetReportName(ErrorCookie cookie, Reset_Cause_t c
 
 bool needErrorReportFile = false;
 
-void errorHandlerWriteReportFile(FIL *fd) {
+bool errorHandlerWriteReportFile(FIL *fd) {
 #if EFI_BACKUP_SRAM
 	backupErrorState *err = &lastBootError;
 	ErrorCookie cookie = err->Cookie;
@@ -425,10 +425,11 @@ void errorHandlerWriteReportFile(FIL *fd) {
 			// additional board-specific data
 			call_board_override(custom_board_onBoardWriteErrorFile, fd);
 			// todo: figure out what else would be useful
-			f_close(fd);
+			if (f_close(fd) != FR_OK) return false;
 			enginePins.warningLedPin.setValue(1);
 		}
 	}
+    return true;
 }
 
 static int errorHandlerIsReportExist(const char *reportName) {
@@ -572,11 +573,13 @@ void chDbgPanic3(const char *msg, const char * file, int line) {
 	// add some marker
 	uint32_t tmp = 0xfffffa11;
 #endif
+#if defined(CoreDebug)
 	// Attempt to break in to the debugger, if attached
 	if (CoreDebug->DHCSR & CoreDebug_DHCSR_C_DEBUGEN_Msk)
 	{
 		bkpt();
 	}
+#endif // CoreDebug, Cortex-M only
 #endif // EFI_PROD_CODE
 
 #if EFI_BACKUP_SRAM
@@ -657,7 +660,10 @@ bool warningVA(ObdCode code, bool reportToTs, const char *fmt, va_list args) {
 	size_t size = snprintf(warningBuffer, sizeof(warningBuffer), "%s%04d: ",
 		ObdCodeIsCustom(code) ? "C" : "P", (int) code);
 
-	chvsnprintf(warningBuffer + size, sizeof(warningBuffer) - size, fmt, args);
+	// fmt may be nullptr, so no additional information
+	if (fmt) {
+		chvsnprintf(warningBuffer + size, sizeof(warningBuffer) - size, fmt, args);
+	}
 
 	engine->engineState.warnings.addWarningCode(code, reportToTs ? warningBuffer : nullptr);
 #if EFI_SIMULATOR || EFI_PROD_CODE
@@ -764,7 +770,12 @@ static bool refreshRaisedConfigError = false;
 static uint32_t refreshRaisedSeq = 0;
 
 void refreshConfigErrorState() {
-	// core producers go here, worst first, before the board hook
+	// Core producers go here, worst first, before the board hook: one function per condition,
+	// chained with the same "if (!active)" pattern as the board hook below. A producer only
+	// reads state which its owner keeps up to date, calls configError() with its message while
+	// the condition holds and returns true; it must be cheap, this runs on every slow callback.
+	// Showing a message is all this does. A condition which must also stop the engine needs
+	// its own cut in LimpManager::updateState(), reading the same state.
 	bool active = checkSettingsWriteFailure();
 #if EFI_SERVO_THROTTLE
 	if (!active) {

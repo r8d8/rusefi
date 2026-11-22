@@ -22,6 +22,7 @@
 
 #include "pch.h"
 #include "bench_test.h"
+#include "speedometer.h"
 #include "tunerstudio.h"
 #include "tunerstudio_calibration_channel.h"
 #include "long_term_fuel_trim.h"
@@ -117,8 +118,8 @@ static void benchOff(OutputPin* output) {
 }
 
 static void runBench(OutputPin *output, float onTimeMs, float offTimeMs, int count, bool swapOnOff) {
-	int onTimeUs = MS2US(std::max(0.1f, onTimeMs));
-	int offTimeUs = MS2US(std::max(0.1f, offTimeMs));
+	int onTimeUs = static_cast<int>(MS2US(std::max(0.1f, onTimeMs)));
+	int offTimeUs = static_cast<int>(MS2US(std::max(0.1f, offTimeMs)));
 
 	if (onTimeUs > TOO_FAR_INTO_FUTURE_US) {
 		firmwareError(ObdCode::CUSTOM_ERR_BENCH_PARAM, "onTime above limit %dus", TOO_FAR_INTO_FUTURE_US);
@@ -381,6 +382,10 @@ void fuelPumpBench() {
 	fuelPumpBenchExt(BENCH_FUEL_PUMP_DURATION);
 }
 
+static void speedoBench() {
+	startSpeedoBenchTest(engineConfiguration->speedometerBenchTestFrequency);
+}
+
 #if EFI_VVT_PID || EFI_UNIT_TEST
 static void vvtValveBench(int vvtIndex) {
 	pinbench(BENCH_VVT_DURATION, 100.0, 1, getVvtOutputPin(vvtIndex));
@@ -529,6 +534,9 @@ void handleBenchCategory(uint16_t index) {
 	case BENCH_BOOST_VALVE:
 		boostValveBench();
 		return;
+	case BENCH_SPEEDO_TEST:
+		speedoBench();
+		return;
 	case BENCH_FUEL_PUMP:
 		// cmd_test_fuel_pump
 		fuelPumpBench();
@@ -586,6 +594,16 @@ int getSavedBenchTestPinStates(uint32_t durationsInStateMs[2]) {
 	return 0;
 #endif // EFI_SIMULATOR
 }
+
+#if EFI_SIMULATOR
+// [tag:bench_saved_pin_stats] runBench() only saves its stats when it finishes, so without this
+// reset a reader which is early gets the previous pin's stats, which look like a valid result.
+// Zero stats mean "not finished yet": SimulatorFunctionalTest.testOutputPin polls for them.
+void resetSavedBenchTestPinStates() {
+	savedPinToggleCounter = 0;
+	savedDurationsInStateMs[0] = savedDurationsInStateMs[1] = 0;
+}
+#endif // EFI_SIMULATOR
 
 // X14 actions that reconfigure the engine, move its actuators or wipe its log card
 static bool isX14ReconfiguringEngine(uint16_t index) {

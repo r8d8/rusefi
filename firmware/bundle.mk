@@ -99,10 +99,15 @@ UPDATE_CONSOLE_FOLDER_SOURCES = \
   $(TS_PLUGIN_LAUNCHER_JAR)
 
 # PCAN support is optional and excluded by default.
+# The .dll pair is PEAK's Windows driver binding; libpcanbasic_jni.dylib is the
+# macOS JNI bridge onto MacCAN's libPCBUSB (source: misc/pcanbasic_jni_macos).
+# The bundle is OS-agnostic, so both ship side by side next to rusefi_console.jar;
+# rusefi_updater.sh adds that folder to java.library.path.
 ifeq ($(BUNDLE_PCAN),yes)
   UPDATE_CONSOLE_FOLDER_SOURCES += \
     ../java_console/PCANBasic.dll \
-    ../java_console/PCANBasic_JNI.dll
+    ../java_console/PCANBasic_JNI.dll \
+    ../java_console/libpcanbasic_jni.dylib
 endif
 
 # Launchers live at the bundle root; they delegate to console/rusefi_console.jar
@@ -139,11 +144,19 @@ endif
 BOOTLOADER_BIN = bootloader/blbuild/openblt_$(PROJECT_BOARD).bin
 BOOTLOADER_HEX = bootloader/blbuild/openblt_$(PROJECT_BOARD).hex
 
+# Both OpenBLT and custom addressed images carry the same build metadata.
+SREC_NAME = rusefi_$(BRANCH_REF_FOR_BUNDLE)_$(BUNDLE_DATE)_$(BUNDLE_NAME)_$(SIGNATURE_HASH)_$(GITHUB_SHA)_update.srec
+
 # We need to put different things in the bundle depending on some meta-info flags
 ifeq ($(USE_OPENBLT),yes)
+  # A board whose resident bootloader is not built or shipped by the firmware
+  # bundle sets BUNDLE_OPENBLT_BOOTLOADER=no to keep just the update .srec and omit the staged bootloader bin/hex.
+ifneq ($(BUNDLE_OPENBLT_BOOTLOADER),no)
   BOOTLOADER_HEX_OUT = $(BOOTLOADER_HEX)
   BOOTLOADER_BIN_OUT = $(DEVICE_BIN_FOLDER)/openblt_$(BRANCH_REF_FOR_BUNDLE)_$(BUNDLE_DATE)_$(BUNDLE_NAME)_$(SIGNATURE_HASH)_$(GITHUB_SHA).bin
-  SREC_TARGET = $(FOLDER)/rusefi_$(BRANCH_REF_FOR_BUNDLE)_$(BUNDLE_DATE)_$(BUNDLE_NAME)_$(SIGNATURE_HASH)_$(GITHUB_SHA)_update.srec
+endif
+
+  SREC_TARGET = $(FOLDER)/$(SREC_NAME)
 ifneq (,$(OPENBLT_WIPE_FLASH_END_EXCLUSIVE))
   OPENBLT_WIPE_FOLDER = $(BIN_FOLDER)/wipe
   OPENBLT_WIPE_SREC = $(OPENBLT_WIPE_FOLDER)/rusefi_$(BRANCH_REF_FOR_BUNDLE)_$(BUNDLE_DATE)_$(BUNDLE_NAME)_$(SIGNATURE_HASH)_$(GITHUB_SHA)_wipe.srec
@@ -159,7 +172,7 @@ endif
 ifneq ($(BOARD_IMAGE_SCRIPT),)
   BIN_TARGET =
   BINSRC =
-  SREC_TARGET = $(FOLDER)/$(PROJECT)_update.srec
+  SREC_TARGET = $(FOLDER)/$(SREC_NAME)
   # Keep the console launchers: they start the JAR, including board-specific UI.
   # Generic flashing tools are excluded from FULL_BUNDLE_CONTENT below.
   UPDATE_FOLDER_SOURCES += $(BOARD_IMAGE_README)
@@ -202,11 +215,25 @@ FULL_BUNDLE_CONTENT = \
   $(ST_DRIVERS) \
   $(BIN_FOLDER) \
   $(ROOT_FOLDER_TARGETS) \
-  $(CONSOLE_FOLDER_TARGETS)
+  $(CONSOLE_FOLDER_TARGETS) \
+  $(BUNDLE_JRE)
 
 ifneq ($(BOARD_IMAGE_SCRIPT),)
-FULL_BUNDLE_CONTENT = $(ROOT_FOLDER_TARGETS) $(CONSOLE_FOLDER_TARGETS)
+FULL_BUNDLE_CONTENT = $(ROOT_FOLDER_TARGETS) $(CONSOLE_FOLDER_TARGETS) $(BUNDLE_JRE)
 endif
+
+# [tag:bundled_windows_jre] Full board bundles carry Java beside the launcher;
+# autoupdate archives intentionally omit it so updates cannot replace a running JVM.
+BUNDLE_JRE = $(FOLDER)/jre
+WINDOWS_JRE_CACHE ?= $(if $(XDG_CACHE_HOME),$(XDG_CACHE_HOME)/rusefi/jre,$(HOME)/.cache/rusefi/jre)
+WINDOWS_JRE_ARCHIVE ?=
+WINDOWS_JRE_MANIFEST ?=
+PYTHON ?= python3
+$(BUNDLE_JRE): .FORCE | $(FOLDER)
+	rm -rf $@
+	$(PYTHON) bin/prepare_windows_jre.py $@ --cache-dir "$(WINDOWS_JRE_CACHE)" \
+	  $(if $(WINDOWS_JRE_ARCHIVE),--archive "$(WINDOWS_JRE_ARCHIVE)") \
+	  $(if $(WINDOWS_JRE_MANIFEST),--manifest "$(WINDOWS_JRE_MANIFEST)")
 
 BUNDLE_FILES = \
   $(UPDATE_BUNDLE_FILES) \
@@ -275,6 +302,11 @@ CHECKSUM_ADDRESS = $(or $(shell \
 ifneq ($(BOARD_IMAGE_SCRIPT),)
 $(BUILDDIR)/rusefi.srec: $(BUILDDIR)/$(PROJECT).elf
 	$(PYTHON) $(BOARD_IMAGE_SCRIPT) --format srec $< $@
+else ifneq ($(CPU_ARCH),ARMCMx)
+# no Cortex-M vector table, so no image CRC slot at .vectors + 0x1C;
+# the SREC keeps the ELF load addresses
+$(BUILDDIR)/rusefi.srec: $(BUILDDIR)/$(PROJECT).elf
+	$(CP) -O srec $< $@
 else
 $(BUILDDIR)/rusefi.srec: $(BUILDDIR)/$(PROJECT).hex
 	# make sure we create the srec from a binary with crc
@@ -305,7 +337,10 @@ $(DFU) $(DBIN): .h2d-sentinel ;
 ifneq ($(BOARD_IMAGE_SCRIPT),)
 	$(error This board requires addressed HEX/SREC images; raw binary and generic DFU flashing are disabled)
 else
-ifeq ($(USE_OPENBLT),yes)
+ifneq ($(CPU_ARCH),ARMCMx)
+	# no Cortex-M vector table, so no image CRC slot and no DFU: the plain binary is the deliverable
+	cp $(BUILDDIR)/$(PROJECT).bin $(DBIN)
+else ifeq ($(USE_OPENBLT),yes)
 	$(H2D) -i $(BOOTLOADER_HEX) -i $(BUILDDIR)/$(PROJECT).hex -c $(CHECKSUM_ADDRESS) -o $(DFU) -b $(DBIN)
 	# TODO: handle .dfu file which is only used by Linux consumers!
 	bin/set_bl_bin_version.sh $(DBIN)
@@ -354,26 +389,28 @@ $(BRANCH_REF_FILE):
 
 # Check even an existing INI before packaging it. The generator also runs this
 # validator, but custom generators and cached files must pass the same gate.
+# Keep this phony check a normal ZIP prerequisite: renamed staging symlinks
+# can point to older firmware, but the archive must still get the current names.
 .PHONY: validate-bundle-ini
 validate-bundle-ini: $(INI_FILE) $(CONFIG_DEFINITION_JAR)
 	java -cp "$(CONFIG_DEFINITION_JAR)" com.rusefi.output.GeneratedIniValidator "$(INI_FILE)"
 
-$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME).zip: $(BUNDLE_FILES) $(OPENBLT_WIPE_OUTPUTS) | $(ARTIFACTS) validate-bundle-ini
+$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME).zip: $(BUNDLE_FILES) $(OPENBLT_WIPE_OUTPUTS) validate-bundle-ini | $(ARTIFACTS)
 	rm -f $@
 	zip -r $@ $(BUNDLE_FILES)
 	[ -z "$(POST_ZIP_SCRIPT)" ] || bash $(POST_ZIP_SCRIPT)
 
-$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public.zip:  $(OBFUSCATED_OUT) $(BUNDLE_FILES) $(OPENBLT_WIPE_OUTPUTS) | $(ARTIFACTS) validate-bundle-ini
+$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public.zip:  $(OBFUSCATED_OUT) $(BUNDLE_FILES) $(OPENBLT_WIPE_OUTPUTS) validate-bundle-ini | $(ARTIFACTS)
 	rm -f $@
 	zip -r $@ $(FULL_BUNDLE_CONTENT) $(MOST_COMMON_BUNDLE_FILES) $(OBFUSCATED_SREC)
 	[ -z "$(POST_O_ZIP_SCRIPT)" ] || bash $(POST_O_ZIP_SCRIPT)
 
 # The autoupdate zip doesn't have a folder with the bundle contents
-$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_autoupdate.zip: $(UPDATE_BUNDLE_FILES) | $(ARTIFACTS) validate-bundle-ini
+$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_autoupdate.zip: $(UPDATE_BUNDLE_FILES) validate-bundle-ini | $(ARTIFACTS)
 	rm -f $@
 	cd $(FOLDER) &&	zip -r ../$@ $(subst $(FOLDER)/,,$(UPDATE_BUNDLE_FILES))
 
-$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public_autoupdate.zip:  $(OBFUSCATED_OUT) $(BUNDLE_FILES) | $(ARTIFACTS) validate-bundle-ini
+$(ARTIFACTS)/$(WHITE_LABEL_BUNDLE_NAME)_obfuscated_public_autoupdate.zip:  $(OBFUSCATED_OUT) $(UPDATE_BUNDLE_FILES) validate-bundle-ini | $(ARTIFACTS)
 	cd $(FOLDER) &&	zip -r ../$@ $(subst $(FOLDER)/,,$(MOST_COMMON_BUNDLE_FILES)) $(subst $(FOLDER)/,,$(OBFUSCATED_SREC))
 
 .PHONY: bundle build_both_bundles autoupdate obfuscated bin hex dfu map elf list srec bootloader

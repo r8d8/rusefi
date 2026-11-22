@@ -179,8 +179,8 @@ static void configureGovernor() {
 	engineConfiguration->servoGovernorTargetRpm = 6000;
 	engineConfiguration->servoGovernorEngageWindow = 300;
 	engineConfiguration->servoGovernorMinRequest = 10;
-	engineConfiguration->servoGovernorPid.pFactor = 0.01;
-	engineConfiguration->servoGovernorPid.iFactor = 0.02;
+	engineConfiguration->servoGovernorPid.pFactor = 0.01f;
+	engineConfiguration->servoGovernorPid.iFactor = 0.02f;
 	engineConfiguration->servoGovernorPid.dFactor = 0;
 	engineConfiguration->servoGovernorPid.offset = 0;
 	engineConfiguration->servoGovernorPid.minValue = -20;
@@ -247,8 +247,8 @@ static void configureRunUpEngagement(int rampRpmPerS) {
 	configureGovernor();
 	engineConfiguration->servoGovernorTargetRpm = 7489;
 	engineConfiguration->servoGovernorEngageWindow = 1000;
-	engineConfiguration->servoGovernorPid.pFactor = 0.04;
-	engineConfiguration->servoGovernorPid.iFactor = 0.1;
+	engineConfiguration->servoGovernorPid.pFactor = 0.04f;
+	engineConfiguration->servoGovernorPid.iFactor = 0.1f;
 	engineConfiguration->servoGovernorEngageRampRpmPerS = rampRpmPerS;
 }
 

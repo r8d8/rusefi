@@ -213,7 +213,8 @@ DDEFS += -DSHORT_BOARD_NAME=$(SHORT_BOARD_NAME)
 # diverge from the pages the firmware actually serves (a divergence makes the firmware
 # answer reads of a page the .ini still lists with out_of_range, and TunerStudio
 # retries that page until it drops the connection).
-# Keep the list in sync with the guardFlag column of TS_PAGES in TSProjectConsumer.java.
+# Keep this list in sync with simulator/Makefile, VariableRegistry.TS_PAGE_GUARD_FLAGS and the
+# guardFlag column of TS_PAGES in TSProjectConsumer.java.
 TS_PAGE_GUARD_FLAGS = EFI_LTFT_CONTROL|EFI_LUA
 TS_PAGE_GUARD_DEFS := $(shell sed -nE 's/^#define[[:space:]]+($(TS_PAGE_GUARD_FLAGS))[[:space:]]+(TRUE|FALSE)[[:space:]]*$$/-D\1=\2/p' $(BOARD_DIR)/prepend.txt $(BOARD_DIR)/prepend_$(SHORT_BOARD_NAME).txt 2>/dev/null)
 DDEFS += $(TS_PAGE_GUARD_DEFS)
@@ -234,7 +235,9 @@ include $(CPU_PLATFORM)
 include $(CHIBIOS)/os/hal/osal/rt-nil/osal.mk
 # RTOS files (optional).
 include $(CHIBIOS)/os/rt/rt.mk
-include $(CHIBIOS)/os/common/ports/ARMv7-M/compilers/GCC/mk/port.mk
+# RT port of the CPU core; a custom platform may select another core's port
+RT_PORT_MK ?= $(CHIBIOS)/os/common/ports/ARMv7-M/compilers/GCC/mk/port.mk
+include $(RT_PORT_MK)
 # EX files (optional).
 ifeq ($(EFI_ONBOARD_MEMS_LIS2DW12),yes)
   DDEFS += -DEFI_ONBOARD_MEMS_LIS2DW12=TRUE
@@ -318,8 +321,11 @@ CSRC =  gcc_version_check.c \
   $(HW_LAYER_PORT) \
   $(HW_LAYER_DRIVERS_CORE) \
   $(HW_LAYER_DRIVERS) \
-  $(RUSEFI_LIB_C) \
-  $(PROJECT_DIR)/hw_layer/main_hardfault.c
+  $(RUSEFI_LIB_C)
+
+ifeq ($(CPU_ARCH),ARMCMx)
+  CSRC += $(PROJECT_DIR)/hw_layer/main_hardfault.c
+endif
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -357,8 +363,11 @@ TCPPSRC =
 
 # List ASM source files here
 ASMXSRC = $(ALLXASMSRC) \
-  $(RUSEFIASM) \
-  $(PROJECT_DIR)/hw_layer/main_hardfault_asm.S
+  $(RUSEFIASM)
+
+ifeq ($(CPU_ARCH),ARMCMx)
+  ASMXSRC += $(PROJECT_DIR)/hw_layer/main_hardfault_asm.S
+endif
 
 #
 # WARNING! order of variables is important here - for instance cypress own folders should go before default folders
@@ -421,7 +430,11 @@ endif
 AOPT =
 
 # THUMB-specific options here
-TOPT = -mthumb -DTHUMB
+ifeq ($(CPU_ARCH),ARMCMx)
+  TOPT = -mthumb -DTHUMB
+else
+  TOPT =
+endif
 
 # Define C warning options here
 CWARN = -Wall -Wextra -Wstrict-prototypes
@@ -450,7 +463,8 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS = -lm --specs=nano.specs -Wl,--sort-section=alignment
+# a custom platform whose libc has no nano.specs sets its own ULIBS
+ULIBS ?= -lm --specs=nano.specs -Wl,--sort-section=alignment
 
 #
 # End of user defines
@@ -485,6 +499,8 @@ CLEAN_BUNDLE_HOOK:
 
 POST_MAKE_ALL_RULE_HOOK: $(BUILDDIR)/$(PROJECT).elf $(GCC_MAP_READER_JAR)
 	@java -jar $(GCC_MAP_READER_JAR) $(BUILDDIR)/$(PROJECT).map | grep Total
+ifeq ($(CPU_ARCH),ARMCMx)
 	@$(TRGT)objdump -h $(BUILDDIR)/$(PROJECT).elf | grep -w ram4
+endif
 
 VPATH     = $(patsubst ./%,%,$(SRCPATHS))

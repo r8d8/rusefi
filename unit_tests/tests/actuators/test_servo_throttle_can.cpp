@@ -92,8 +92,8 @@ protected:
 		engineConfiguration->servoGovernorTargetRpm = 6000;
 		engineConfiguration->servoGovernorEngageWindow = 300;
 		engineConfiguration->servoGovernorMinRequest = 10;
-		engineConfiguration->servoGovernorPid.pFactor = 0.01;
-		engineConfiguration->servoGovernorPid.iFactor = 0.02;
+		engineConfiguration->servoGovernorPid.pFactor = 0.01f;
+		engineConfiguration->servoGovernorPid.iFactor = 0.02f;
 		engineConfiguration->servoGovernorPid.dFactor = 0;
 		engineConfiguration->servoGovernorPid.offset = 0;
 		engineConfiguration->servoGovernorPid.minValue = -20;
@@ -489,33 +489,40 @@ TEST_F(ServoThrottleCan, stopHoldsWhileRunStaysZero) {
 	EXPECT_TRUE(isEngineStopRequested());
 }
 
-// Counts the console lines that announce an engine stop (doScheduleStopEngine)
-class StopMessages : public priv::LoggingTestSink {
+// Counts the console lines that announce an engine stop (doScheduleStopEngine). count() drains the
+// queued console lines the way the TS text-log request does (loggingSendOutputData, at most 16 lines
+// a packet) and adds the stops among them. The queue holds 64 lines: drain before it fills.
+class StopMessages : public TsChannelBase {
 public:
-	StopMessages() : m_previous(priv::setLoggingTestSink(this)) {
+	StopMessages() : TsChannelBase("stop messages") {
+		resetLoggingForUnitTest();
 	}
 
-	~StopMessages() override {
-		priv::setLoggingTestSink(m_previous);
+	void write(const uint8_t* buffer, size_t size, bool /*isEndOfPacket*/) override {
+		m_packet.append(reinterpret_cast<const char*>(buffer), size);
 	}
 
-	LogLineBuffer* acquire() override {
-		return &m_line;
+	size_t readTimeout(uint8_t* /*buffer*/, size_t /*size*/, int /*timeout*/) override {
+		return 0;
 	}
 
-	void publish(LogLineBuffer* submitted) override {
-		// The line buffer is reused: read only up to its terminator
-		const char* end = std::find(submitted->buffer, submitted->buffer + sizeof(submitted->buffer), '\0');
-		if (std::string_view(submitted->buffer, end - submitted->buffer).find("Let's stop this engine!") != std::string_view::npos) {
-			count++;
+	int count() {
+		while (true) {
+			m_packet.clear();
+			if (loggingSendOutputData(this) == 0) {
+				break;
+			}
+			for (size_t at = m_packet.find(stopText); at != std::string::npos; at = m_packet.find(stopText, at + 1)) {
+				m_count++;
+			}
 		}
+		return m_count;
 	}
-
-	int count = 0;
 
 private:
-	LogLineBuffer m_line{};
-	priv::LoggingTestSink* m_previous;
+	static constexpr std::string_view stopText = "Let's stop this engine!";
+	std::string m_packet;
+	int m_count = 0;
 };
 
 // Every RUN = 0 frame after the stop renews its window (stopHoldsWhileRunStaysZero), but only the
@@ -527,9 +534,9 @@ TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
 
 	send(stop);
 	send(stop);
-	EXPECT_EQ(0, messages.count);
+	EXPECT_EQ(0, messages.count());
 	send(stop);
-	EXPECT_EQ(1, messages.count);
+	EXPECT_EQ(1, messages.count());
 
 	// RUN stays 0 for 1 s
 	for (int i = 0; i < 100; i++) {
@@ -537,7 +544,7 @@ TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
 		send(stop);
 	}
 	EXPECT_TRUE(isEngineStopRequested());
-	EXPECT_EQ(1, messages.count);
+	EXPECT_EQ(1, messages.count());
 	EXPECT_EQ((uint8_t)StopRequestedReason::CanCommand, engine->outputChannels.stopEngineCode);
 
 	// RUN = 1, then a new stop
@@ -545,7 +552,7 @@ TEST_F(ServoThrottleCan, stopMessageWhileRunStaysZero) {
 	send(stop);
 	send(stop);
 	send(stop);
-	EXPECT_EQ(2, messages.count);
+	EXPECT_EQ(2, messages.count());
 }
 
 // RUN = 1 after a CAN stop ends the stop window, so a new start is not fuel- and spark-cut for

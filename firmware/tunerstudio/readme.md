@@ -16,6 +16,27 @@ omit those gauges should disable the feature flag in their prepend. Check
 Keep validation enabled so misspelled or accidentally missing gauges fail
 generation.
 
+## VE blend dialogs
+
+`Fuel > VE Blends` opens one combined dialog per available blend. The correction
+table is on the left; the blend input, load-axis override, weight curve and live
+readouts are on the right. Selecting Zero disables the blend without clearing
+the table or curve. The table stays visible but editing is disabled until a
+blend input channel is selected.
+
+Blend input controls the weight curve; load-axis override independently selects
+the correction table's Y axis. Zero as an override keeps the normal VE load
+source. Changing a source does not convert its calibrated axis numbers.
+With no override, the table title identifies the effective VE load source
+(MAP, TPS, air charge or Lua) in its native units. The table retains its own
+load bins and uses the existing per-blend load telemetry for its live pointer.
+
+The input readout follows the selected channel name and uses the native units
+shown on the weight curve, such as ethanol %, EGT C or MAP kPa. A table correction
+of +10% at 50% weight produces +5% VE correction and a multiplier of 1.05.
+Final VE includes all VE corrections. Zero blend telemetry alone does not
+distinguish a real zero input from an unavailable sensor.
+
 ## Template validation
 
 Conditions (`@@if_FLAG` and `@@if_block FLAG@@` / `@@endif_block`) require
@@ -23,8 +44,10 @@ declared `true` or `false` values, ignoring case. Give optional flags explicit
 defaults in `integration/rusefi_config.txt`; board prepends can override them.
 Unknown names, invalid boolean values, malformed markers and unbalanced blocks
 fail generation with the template or included filename and line number.
-Blocks cannot be nested. Variables inside disabled blocks are not expanded,
-but condition names and marker syntax are still checked.
+Blocks cannot be nested, and a line carries at most one inline condition. To
+require two flags, put the inline condition on a line inside a block (see the
+knock gain rows in `top_level_menu.ini`). Variables inside disabled blocks are
+not expanded, but condition names and marker syntax are still checked.
 
 `0@@if_ts_show_odd_fire` is valid: the condition controls whether the line is
 emitted, and `0` remains a menu placeholder. A substitution can immediately

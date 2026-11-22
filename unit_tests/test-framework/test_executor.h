@@ -15,7 +15,8 @@ class TestExecutor : public Scheduler {
 public:
 	~TestExecutor();
 
-	void schedule(const char *msg, scheduling_s *scheduling, efitick_t timeNt, action_s const& action) override;
+	bool schedule(const char *msg, scheduling_s *scheduling, efitick_t timeNt, action_s const& action) override;
+	bool scheduleTogether(const char *msg, const TimedAction *actions, size_t count) override;
 	void cancel(scheduling_s* scheduling) override;
 
 	void clear();
@@ -25,6 +26,8 @@ public:
 	scheduling_s * getHead();
 	scheduling_s * getForUnitTest(int index);
 	int getMaxUsedPoolSlots() const { return schedulingQueue.getMaxUsedPoolSlots(); }
+	int getUsedPoolSlots() const { return schedulingQueue.getUsedPoolSlots(); }
+	int getAvailablePoolSlots() const { return schedulingQueue.getAvailablePoolSlots(); }
 
 	void setMockExecutor(Scheduler* exec);
 private:

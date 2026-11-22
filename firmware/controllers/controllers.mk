@@ -8,6 +8,7 @@ include $(PROJECT_DIR)/controllers/system/system.mk
 CONTROLLERS_DIR=$(PROJECT_DIR)/controllers
 
 CONTROLLERS_SRC_CPP = \
+	$(CONTROLLERS_DIR)/gauges/past_codes.cpp \
 	$(CONTROLLERS_DIR)/actuators/electronic_throttle.cpp \
 	$(CONTROLLERS_DIR)/actuators/servo_throttle.cpp \
 	$(CONTROLLERS_DIR)/actuators/servo_throttle_can.cpp \
@@ -42,6 +43,7 @@ CONTROLLERS_SRC_CPP = \
 	$(CONTROLLERS_DIR)/engine_cycle/rotational_idle.cpp \
 	$(CONTROLLERS_DIR)/flash_main.cpp \
 	$(CONTROLLERS_DIR)/storage.cpp \
+	$(CONTROLLERS_DIR)/storage_weaks.cpp \
 	$(CONTROLLERS_DIR)/storage_flash.cpp \
 	$(CONTROLLERS_DIR)/storage_mfs.cpp \
 	$(CONTROLLERS_DIR)/storage_sd.cpp \

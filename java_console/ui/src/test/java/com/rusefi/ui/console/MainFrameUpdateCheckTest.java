@@ -4,9 +4,9 @@ import com.rusefi.core.RusEfiSignature;
 import com.rusefi.io.ConnectionStatusValue;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import javax.swing.Icon;
-import javax.swing.JTextArea;
+import javax.swing.JMenuItem;
+import javax.swing.JTextPane;
 import javax.swing.SwingUtilities;
 import java.awt.Color;
 import java.awt.Component;
@@ -24,6 +24,17 @@ public class MainFrameUpdateCheckTest {
     private static final RusEfiSignature ECU_SIG = new RusEfiSignature(
         "development", "2026", "05", "09", "uaefi_pro", "4226383888", false
     );
+
+    @Test
+    public void installedApplicationUpdateBecomesExplicitRestartAction() {
+        JMenuItem updateItem = new JMenuItem("Update Software");
+        updateItem.setEnabled(false);
+
+        MainFrame.applySoftwareRestartRequired(updateItem);
+
+        assertEquals("Restart Application", updateItem.getText());
+        assertTrue(updateItem.isEnabled());
+    }
 
     @Test
     public void nullEcuSigReturnsFalse() {
@@ -104,6 +115,49 @@ public class MainFrameUpdateCheckTest {
     }
 
     @Test
+    public void anotherBranchIsNotAnOrdinaryUpdate() {
+        // An ordinary update preserves the ECU branch, regardless of the console's channel.
+        String srec = "rusefi_lts-26lima_2026-05-09_uaefi_pro_9999999999_hash_update.srec";
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UNABLE_TO_CHECK,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG, srec));
+    }
+
+    @Test
+    public void anotherBoardIsNotAnOrdinaryUpdate() {
+        // A different build for another board must not enable the ordinary update action.
+        String srec = "rusefi_development_2026-05-09_other_board_9999999999_hash_update.srec";
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UNABLE_TO_CHECK,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG, srec));
+    }
+
+    @Test
+    public void branchAliasesAndObfuscatedArtifactsUseTheSameUpdateRules() {
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UP_TO_DATE,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG,
+                "rusefi-master_2026-05-09_uaefi_pro_4226383888_hash_obfuscated.srec"));
+        RusEfiSignature lima = new RusEfiSignature(
+            "lts-26lima", "2026", "11", "11", "test_board", "123", false);
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.AVAILABLE,
+            MainFrame.firmwareUpdateCheckResult(lima,
+                "rusefi-lts-26lima_2026-11-11_test_board_456_hash_obfuscated.srec"));
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UNABLE_TO_CHECK,
+            MainFrame.firmwareUpdateCheckResult(lima,
+                "rusefi-master_2026-11-11_test_board_456_hash_obfuscated.srec"));
+    }
+
+    @Test
+    public void namedDfuImagesUseTheirOwnBoardAndBranch() {
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.AVAILABLE,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG,
+                "rusefi_development_2026-05-09_uaefi_pro_9999999999_hash.bin"));
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UNABLE_TO_CHECK,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG,
+                "rusefi_lts-26lima_2026-05-09_uaefi_pro_9999999999_hash.bin"));
+        assertEquals(MainFrame.FirmwareUpdateCheckResult.UNABLE_TO_CHECK,
+            MainFrame.firmwareUpdateCheckResult(ECU_SIG, "rusefi.bin"));
+    }
+
+    @Test
     public void newFormatSameDateDifferentHashReturnsTrue() {
         // Even if dates match, different numeric hash means different build → update needed
         String srec = "rusefi_development_2026-05-09_uaefi_pro_1111111111_8849742d4267db6407b1400ae917a1ed39795d32_update.srec";
@@ -166,7 +220,7 @@ public class MainFrameUpdateCheckTest {
             overlay.setActionVisible(0, false);
             overlay.setMessage("Unable to check ECU firmware", Color.RED);
             Container content = (Container) overlay.getComponent(0);
-            JTextArea message = (JTextArea) content.getComponent(0);
+            JTextPane message = (JTextPane) content.getComponent(0);
             for (int width : new int[]{800, 1280, 1916}) {
                 overlay.setSize(width, 600);
                 layoutRecursively(overlay);

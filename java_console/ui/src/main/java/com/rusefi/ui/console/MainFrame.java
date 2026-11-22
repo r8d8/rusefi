@@ -1,6 +1,9 @@
 package com.rusefi.ui.console;
 
+import com.rusefi.ui.widgets.TuningIcons;
 import com.devexperts.logging.Logging;
+import com.formdev.flatlaf.FlatClientProperties;
+import com.formdev.flatlaf.util.SystemInfo;
 import com.opensr5.ini.IniFileModel;
 import com.rusefi.*;
 import com.rusefi.autoupdate.Autoupdate;
@@ -13,6 +16,8 @@ import com.rusefi.core.SensorSubscription;
 import com.rusefi.core.OsUtil;
 import com.rusefi.core.io.BoardCompatibility;
 import com.rusefi.core.io.ConnectedEcuTarget;
+import com.rusefi.core.io.BundleUtil;
+import com.rusefi.core.io.FirmwareBranch;
 import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.core.net.PropertiesHolder;
 import com.rusefi.core.ui.AutoupdateUtil;
@@ -24,17 +29,27 @@ import com.rusefi.core.SignatureHelper;
 import com.rusefi.maintenance.VersionChecker;
 import com.rusefi.core.preferences.storage.Node;
 import com.rusefi.core.ui.FrameHelper;
+import com.rusefi.sensor_logs.LoggingProfiles;
 import com.rusefi.ui.basic.LoadTuneHelper;
+import com.rusefi.ui.basic.ApplicationUpdatePrompt;
+import com.rusefi.ui.basic.SoftwareUpdateCoordinator;
+import com.rusefi.ui.logview.LogViewerHost;
 import com.rusefi.ui.util.URLLabel;
 import com.rusefi.util.ExitUtil;
 import javax.swing.Action;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.StyleConstants;
+import javax.swing.text.StyledDocument;
 import java.awt.*;
+import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -70,9 +85,17 @@ public class MainFrame {
     }
 
     static final class FrameOverlay extends JPanel {
-        private static final Color GREEN = new Color(0, 128, 0);
-        private final JTextArea message = new JTextArea();
+        private static final int CARD_MAX_WIDTH = 760;
+        private static final int CARD_MARGIN = 56;
+        private static final int CARD_PADDING = 32;
+        private static final int CARD_MESSAGE_GAP = 24;
+        /**
+         * Centred, wrapping message: the action buttons below are centred, so a left-aligned
+         * message would start at the window edge while the buttons sit in the middle.
+         */
+        private final JTextPane message = new JTextPane();
         private final JButton[] buttons;
+        private final JPanel actionPanel;
         private final JPanel content;
         private final GridBagConstraints contentConstraints;
         // When true the overlay dims the window and floats a compact card, leaving the UI visible
@@ -85,13 +108,10 @@ public class MainFrame {
             message.setEditable(false);
             message.setOpaque(false);
             message.setFont(message.getFont().deriveFont(Font.BOLD, 32f));
-            message.setLineWrap(true);
-            message.setWrapStyleWord(true);
-            message.setColumns(50);
             setMessage(text, color);
 
             buttons = new JButton[actions.length];
-            JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
+            actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 8));
             actionPanel.setOpaque(false);
             for (int i = 0; i < actions.length; i++) {
                 OverlayAction action = actions[i];
@@ -102,8 +122,9 @@ public class MainFrame {
                 actionPanel.add(button);
             }
 
-            content = new JPanel(new BorderLayout(0, 24));
-            content.setBorder(BorderFactory.createEmptyBorder(32, 32, 32, 32));
+            content = new JPanel(new BorderLayout(0, CARD_MESSAGE_GAP));
+            content.setBorder(BorderFactory.createEmptyBorder(CARD_PADDING, CARD_PADDING,
+                CARD_PADDING, CARD_PADDING));
             content.add(message, BorderLayout.CENTER);
             content.add(actionPanel, BorderLayout.SOUTH);
             contentConstraints = new GridBagConstraints();
@@ -122,6 +143,12 @@ public class MainFrame {
             dimmed = true;
             setOpaque(false);
             content.setOpaque(false);
+            JScrollPane messageScroll = new JScrollPane(message);
+            messageScroll.setBorder(null);
+            messageScroll.setOpaque(false);
+            messageScroll.getViewport().setOpaque(false);
+            messageScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            content.add(messageScroll, BorderLayout.CENTER);
             // Compact centered card instead of a full-width band.
             contentConstraints.weightx = 0;
             contentConstraints.fill = GridBagConstraints.NONE;
@@ -133,16 +160,36 @@ public class MainFrame {
         }
 
         @Override
+        public void doLayout() {
+            if (dimmed) {
+                int margin = Math.min(CARD_MARGIN, Math.min(getWidth(), getHeight()) / 8);
+                int cardWidth = Math.min(CARD_MAX_WIDTH, Math.max(0, getWidth() - 2 * margin));
+                // Reserve scrollbar width when measuring wrapped text, even if no scrollbar is needed.
+                int textWidth = Math.max(1, cardWidth - 2 * CARD_PADDING - 18);
+                // A text component measures its wrapped height only when given a non-zero height.
+                message.setSize(textWidth, Short.MAX_VALUE);
+                int messageHeight = message.getPreferredSize().height;
+                int naturalHeight = 2 * CARD_PADDING + CARD_MESSAGE_GAP
+                    + actionPanel.getPreferredSize().height + messageHeight;
+                int cardHeight = Math.min(naturalHeight, Math.max(0, getHeight() - 2 * margin));
+                content.setPreferredSize(new Dimension(cardWidth, cardHeight));
+            }
+            super.doLayout();
+        }
+
+        @Override
         protected void paintComponent(Graphics g) {
             if (dimmed) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 // Dim the whole window so the UI shows through, then a darker rounded card behind
                 // the message for contrast.
+                // [tag:fixed_color] a black scrim and card dim the window the same way in every theme
                 g2.setColor(new Color(0, 0, 0, 140));
                 g2.fillRect(0, 0, getWidth(), getHeight());
                 Rectangle b = content.getBounds();
                 int pad = 28;
+                // [tag:fixed_color] see the scrim above
                 g2.setColor(new Color(0, 0, 0, 210));
                 g2.fillRoundRect(b.x - pad, b.y - pad, b.width + 2 * pad, b.height + 2 * pad, 28, 28);
                 g2.dispose();
@@ -150,8 +197,30 @@ public class MainFrame {
             super.paintComponent(g);
         }
 
+        /** Message text of an opaque overlay: plain, good news or a failure [tag:console_theme]. */
+        static Color plain() {
+            return themed("Console.Overlay.foreground", Color.DARK_GRAY);
+        }
+
+        static Color good() {
+            return themed("Console.Overlay.good", new Color(0, 128, 0));
+        }
+
+        static Color bad() {
+            return themed("Console.Overlay.bad", Color.RED.darker());
+        }
+
+        private static Color themed(String key, Color fallback) {
+            Color color = UIManager.getColor(key);
+            return color != null ? color : fallback;
+        }
+
         void setMessage(String text, Color color) {
             message.setText(text);
+            StyledDocument document = message.getStyledDocument();
+            SimpleAttributeSet centered = new SimpleAttributeSet();
+            StyleConstants.setAlignment(centered, StyleConstants.ALIGN_CENTER);
+            document.setParagraphAttributes(0, document.getLength(), centered, false);
             message.setForeground(color);
             message.getAccessibleContext().setAccessibleName(text);
         }
@@ -204,6 +273,8 @@ public class MainFrame {
 
     private JMenuItem loadTuneItem;
     private JMenuItem saveTuneItem;
+    private JMenuItem saveTuneAsItem;
+    private JMenuItem openLogItem;
     /**
      * user experience overview at Autoupdate.java
      */
@@ -211,21 +282,27 @@ public class MainFrame {
     private JMenuItem checkEcuUpdateItem;
     private JMenuItem updateEcuItem;
     private BinaryLoggingMenu binaryLoggingMenu;
+    private JMenu toolsMenu;
     private ShortcutsDialog shortcutsDialog;
+    private TitleBarPanel titleBarPanel;
     private Runnable updateEcuAction;
-    private Runnable exitRequestHandler;
+    private Consumer<Runnable> exitRequestHandler;
+    private LogViewerHost logViewerHost;
     private boolean firmwareUpdateInProgress;
     private boolean updateSoftwareAvailable;
+    private boolean softwareRestartRequired;
     private boolean updateEcuAvailable;
     private boolean firmwareUpdateCheckInProgress;
     private int firmwareUpdateCheckGeneration;
     private boolean unsupportedEcuBlocking;
     private final UnsupportedEcuCardHost unsupportedEcuHost;
+    private final SoftwareUpdateCoordinator softwareUpdateCoordinator;
     private FrameOverlay firmwareUpdateCheckOverlay;
     private FrameOverlay connectionFailureOverlay;
     private FrameOverlay unsavedTuneChangesOverlay;
     private boolean installerAnnouncementShown;
     private final JPanel installerBannerHost = new JPanel(new BorderLayout());
+    private final JPanel softwareUpdateBannerHost = new JPanel(new BorderLayout());
     private FrameOverlay activeOverlay;
     private FrameOverlay configErrorOverlay;
     private final ConfigErrorOverlayController configErrorController = new ConfigErrorOverlayController(
@@ -245,7 +322,7 @@ public class MainFrame {
     private Component previousFocusOwner;
 
     public MainFrame(ConsoleUI consoleUI, TabbedPanel tabbedPane) {
-        this(consoleUI, tabbedPane, null, null);
+        this(consoleUI, tabbedPane, null, null, idleUpdateCoordinator());
     }
 
     /**
@@ -253,14 +330,16 @@ public class MainFrame {
      *                   (handed off from {@link StartupFrame}) instead of creating a new window (#9715).
      */
     public MainFrame(ConsoleUI consoleUI, TabbedPanel tabbedPane, JFrame reuseFrame) {
-        this(consoleUI, tabbedPane, reuseFrame, null);
+        this(consoleUI, tabbedPane, reuseFrame, null, idleUpdateCoordinator());
     }
 
     public MainFrame(ConsoleUI consoleUI, TabbedPanel tabbedPane, JFrame reuseFrame,
-                     UnsupportedEcuCardHost unsupportedEcuHost) {
+                     UnsupportedEcuCardHost unsupportedEcuHost,
+                     SoftwareUpdateCoordinator softwareUpdateCoordinator) {
         this.consoleUI = Objects.requireNonNull(consoleUI);
         this.tabbedPane = tabbedPane;
         this.unsupportedEcuHost = unsupportedEcuHost;
+        this.softwareUpdateCoordinator = softwareUpdateCoordinator;
         listener = ConnectionStatusLogic.Listener.VOID;
         // reuseFrame == null creates a new window; non-null reuses the splash frame in place (#9715).
         this.frame = new FrameHelper(reuseFrame, JFrame.DO_NOTHING_ON_CLOSE) {
@@ -285,7 +364,10 @@ public class MainFrame {
 
         installerBannerHost.setVisible(false);
         installerBannerHost.setOpaque(false);
+        softwareUpdateBannerHost.setVisible(false);
+        softwareUpdateBannerHost.setOpaque(false);
         createMenuBar();
+        softwareUpdateCoordinator.addListener(this::applySoftwareUpdateState);
         // Keep the error bit in selective output polling on every tab, including after splash hand-off.
         configErrorSubscription = SensorCentral.getInstance().addListener(
             () -> SwingUtilities.invokeLater(this::refreshConfigErrorOverlay),
@@ -299,6 +381,11 @@ public class MainFrame {
                 refreshFirmwareUpdateExclusion();
             });
         }
+    }
+
+    private static SoftwareUpdateCoordinator idleUpdateCoordinator() {
+        return new SoftwareUpdateCoordinator(
+            CompletableFuture.completedFuture(Autoupdate.UpdateOutcome.SKIPPED));
     }
 
     private void createMenuBar() {
@@ -318,6 +405,23 @@ public class MainFrame {
         saveTuneItem.setEnabled(false);
         fileMenu.add(saveTuneItem);
 
+        saveTuneAsItem = new JMenuItem(LoadTuneHelper.SAVE_TUNE_AS_TEXT);
+        saveTuneAsItem.setMnemonic(KeyEvent.VK_A);
+        saveTuneAsItem.setEnabled(false);
+        fileMenu.add(saveTuneAsItem);
+
+        fileMenu.addSeparator();
+
+        openLogItem = new JMenuItem("Open Data Log…");
+        openLogItem.setIcon(loadMenuIcon("view"));
+        openLogItem.setMnemonic(KeyEvent.VK_D);
+        openLogItem.setToolTipText("Open an .mlg or .msl data log in the Log Viewer tab");
+        openLogItem.setEnabled(false);
+        fileMenu.add(openLogItem);
+
+        fileMenu.addSeparator();
+
+        fileMenu.add(AppearanceMenu.create(frame.getFrame()));
         fileMenu.addSeparator();
 
         JMenuItem exitItem = new JMenuItem("Exit");
@@ -337,7 +441,7 @@ public class MainFrame {
         updateSoftwareItem.addActionListener(e -> onUpdateSoftwareClicked());
         actionsMenu.add(updateSoftwareItem);
 
-        checkEcuUpdateItem = new JMenuItem("Check for ECU Firmware Updates");
+        checkEcuUpdateItem = new JMenuItem("Compare ECU with Downloaded Firmware…");
         checkEcuUpdateItem.setIcon(loadMenuIcon("refresh"));
         checkEcuUpdateItem.setEnabled(false);
         checkEcuUpdateItem.addActionListener(e -> requestFirmwareUpdateCheck(true));
@@ -356,34 +460,129 @@ public class MainFrame {
         menuBar.add(actionsMenu);
 
         binaryLoggingMenu = new BinaryLoggingMenu(consoleUI.uiContext, frame.getFrame(),
-                loadMenuIcon("player-play"), loadMenuIcon("player-stop"));
+                loadMenuIcon("player-play"), loadMenuIcon("player-stop"), loadMenuIcon("view"),
+                getConfig().getRoot().getChild("binary_logging"), LoggingProfiles.defaultFolder());
         menuBar.add(binaryLoggingMenu.getMenu());
+        // the tabs' status strips each get a Start Data Logging / Stop Logging button and the logging profile
+        // choice, driven by this menu
+        consoleUI.uiContext.recordButtonFactory = () -> ProfileButton.withRecordButton(binaryLoggingMenu);
 
-        JMenuItem shortcutsItem = new JMenuItem("Shortcuts");
-        shortcutsItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0));
+        // filled by setToolTabs(); hidden while there is nothing to open
+        toolsMenu = new JMenu("Tools");
+        toolsMenu.setMnemonic(KeyEvent.VK_T);
+        toolsMenu.setVisible(false);
+        menuBar.add(toolsMenu);
+
+        menuBar.add(new MenuBarDivider());
+
+        // The F1 badge replaces the accelerator text, so F1 is bound on the root pane instead
+        // of as the item's accelerator; both work while the main window is focused.
+        JMenuItem shortcutsItem = new JMenuItem("Shortcuts", new KeyBadgeIcon("F1"));
+        shortcutsItem.setHorizontalTextPosition(SwingConstants.LEADING);
+        shortcutsItem.setIconTextGap(8);
         shortcutsItem.setToolTipText("Show keyboard shortcuts in a separate window (F1)");
         shortcutsItem.setMaximumSize(shortcutsItem.getPreferredSize());
-        shortcutsItem.addActionListener(e -> {
-            if (shortcutsDialog == null || !shortcutsDialog.isDisplayable()) {
-                shortcutsDialog = new ShortcutsDialog(frame.getFrame());
-            }
-            shortcutsDialog.setVisible(true);
-            shortcutsDialog.toFront();
-        });
+        shortcutsItem.addActionListener(e -> showShortcutsDialog());
         menuBar.add(shortcutsItem);
+        frame.getFrame().getRootPane().registerKeyboardAction(e -> showShortcutsDialog(),
+            KeyStroke.getKeyStroke(KeyEvent.VK_F1, 0), JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        // FlatLaf embeds the menu bar in the window title bar everywhere except macOS. There the
+        // custom title replaces FlatLaf's title text; the glue on both sides centres it.
+        if (!SystemInfo.isMacOS) {
+            titleBarPanel = new TitleBarPanel();
+            menuBar.add(Box.createHorizontalGlue());
+            menuBar.add(titleBarPanel);
+            menuBar.add(Box.createHorizontalGlue());
+            frame.getFrame().getRootPane().putClientProperty(FlatClientProperties.TITLE_BAR_SHOW_TITLE, false);
+        }
 
         frame.getFrame().setJMenuBar(menuBar);
+    }
+
+    private void showShortcutsDialog() {
+        if (shortcutsDialog == null || !shortcutsDialog.isDisplayable()) {
+            shortcutsDialog = new ShortcutsDialog(frame.getFrame());
+        }
+        shortcutsDialog.setVisible(true);
+        shortcutsDialog.toFront();
+    }
+
+    /** Thin vertical line separating the menus from Shortcuts. */
+    private static class MenuBarDivider extends JComponent {
+        private static final Dimension SIZE = new Dimension(13, 18);
+
+        MenuBarDivider() {
+            setPreferredSize(SIZE);
+            setMinimumSize(SIZE);
+            setMaximumSize(SIZE);
+            setAlignmentY(CENTER_ALIGNMENT);
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Color color = UIManager.getColor("Separator.foreground");
+            g.setColor(color != null ? color : Color.LIGHT_GRAY);
+            int x = getWidth() / 2;
+            int top = (getHeight() - SIZE.height) / 2;
+            g.drawLine(x, top, x, top + SIZE.height - 1);
+        }
     }
 
     public void setUpdateEcuAction(Runnable action) {
         this.updateEcuAction = action;
     }
 
-    public void setExitRequestHandler(Runnable exitRequestHandler) {
+    /**
+     * Enables File > Open Data Log… and Binary Logging > View Last Log, and reports stopped recordings.
+     *
+     * @param viewLog          shows a log file in the Log Viewer tab
+     * @param chooseAndOpen    shows the Log Viewer tab and its file chooser
+     * @param recordingStopped told each stopped recording's file and duration in seconds
+     */
+    public void setLogViewerActions(Consumer<File> viewLog, Runnable chooseAndOpen,
+                                    BiConsumer<File, Double> recordingStopped) {
+        for (ActionListener old : openLogItem.getActionListeners()) {
+            openLogItem.removeActionListener(old);
+        }
+        openLogItem.addActionListener(e -> chooseAndOpen.run());
+        openLogItem.setEnabled(true);
+        binaryLoggingMenu.setViewLogAction(viewLog);
+        binaryLoggingMenu.addRecordingStoppedListener(recordingStopped);
+    }
+
+    /** The logging profiles data logging records with, shared with the Log Viewer's sidebar. */
+    public LoggingProfiles loggingProfiles() {
+        return binaryLoggingMenu.profiles();
+    }
+
+    /** One Tools menu item per tab kept out of the main tab row; choosing it opens that tab. */
+    public void setToolTabs(ToolTabs toolTabs) {
+        toolsMenu.removeAll();
+        for (String title : toolTabs.getTitles()) {
+            JMenuItem item = new JMenuItem(title);
+            item.setIcon(TabbedPanel.loadTabIcon(title));
+            item.setMnemonic(title.charAt(0));
+            item.setToolTipText("Open the " + title + " tab");
+            item.addActionListener(e -> toolTabs.open(title));
+            toolsMenu.add(item);
+        }
+        toolsMenu.setVisible(toolsMenu.getItemCount() > 0);
+    }
+
+    public void setExitRequestHandler(Consumer<Runnable> exitRequestHandler) {
         this.exitRequestHandler = exitRequestHandler;
     }
 
+    public void setLogViewerHost(LogViewerHost logViewerHost) {
+        this.logViewerHost = logViewerHost;
+    }
+
     private void requestExit() {
+        requestExit(() -> frame.getFrame().dispose());
+    }
+
+    private void requestExit(Runnable exitAction) {
         if (firmwareUpdateInProgress) {
             int choice = JOptionPane.showConfirmDialog(
                 frame.getFrame(),
@@ -396,10 +595,13 @@ public class MainFrame {
                 return;
             }
         }
+        if (logViewerHost != null && !logViewerHost.confirmExit()) {
+            return;
+        }
         if (exitRequestHandler == null) {
-            frame.getFrame().dispose();
+            exitAction.run();
         } else {
-            exitRequestHandler.run();
+            exitRequestHandler.accept(exitAction);
         }
     }
 
@@ -408,8 +610,13 @@ public class MainFrame {
         if (ecuSig == null || srecName == null) {
             return FirmwareUpdateCheckResult.UNABLE_TO_CHECK;
         }
-        RusEfiSignature srecSig = SignatureHelper.parseSrec(srecName);
-        if (srecSig == null) {
+        String identityName = srecName.endsWith(".bin")
+            ? srecName.substring(0, srecName.length() - ".bin".length()) + ".srec" : srecName;
+        RusEfiSignature srecSig = SignatureHelper.parseSrec(identityName);
+        if (srecSig == null
+            || !FirmwareBranch.isSameBranch(ecuSig.getBranch(), srecSig.getBranch())
+            || (!srecSig.getIsLegacyFormat()
+                && !ecuSig.getBundleTarget().equalsIgnoreCase(srecSig.getBundleTarget()))) {
             return FirmwareUpdateCheckResult.UNABLE_TO_CHECK;
         }
         boolean needsUpdate;
@@ -438,10 +645,12 @@ public class MainFrame {
             log.info("checkFirmwareUpdate: could not parse ECU signature");
             return FirmwareUpdateCheckResult.UNABLE_TO_CHECK;
         }
-        String srecPath = FindFileHelper.findSrecFileForConnectedBoard(
-            consoleUI.uiContext.getLinkManager().getConnectedEcuTarget());
+        // ECU firmware follows the live ECU channel, not this console's software channel.
+        Autoupdate.FirmwareArtifacts artifacts = Autoupdate.downloadFirmwareForBranch(
+            ecuSig.asBundleInfo(), percent -> {}, log::info);
+        String srecPath = artifacts.getSrecPath().orElse(artifacts.getBinPath().orElse(null));
         if (srecPath == null) {
-            log.info("checkFirmwareUpdate: no srec file found");
+            log.info("checkFirmwareUpdate: no identifiable firmware artifact found");
             return FirmwareUpdateCheckResult.UNABLE_TO_CHECK;
         }
         String srecName = new File(srecPath).getName();
@@ -534,7 +743,7 @@ public class MainFrame {
         closeUnsavedTuneChangesOverlay();
         closeConnectionFailureOverlay();
         closeFirmwareUpdateCheckOverlay();
-        firmwareUpdateCheckOverlay = new FrameOverlay("Checking ECU firmware...", Color.DARK_GRAY,
+        firmwareUpdateCheckOverlay = new FrameOverlay("Checking ECU firmware...", FrameOverlay.plain(),
             new OverlayAction("Update ECU Firmware", KeyEvent.VK_U, () -> {
                 closeFirmwareUpdateCheckOverlay();
                 if (updateEcuItem.isEnabled() && updateEcuAction != null) {
@@ -557,7 +766,7 @@ public class MainFrame {
         Runnable onDownload = errorMessage.contains(RUSEFI_WIKI_DOWNLOAD_PAGE)
             ? () -> URLLabel.open(RUSEFI_WIKI_DOWNLOAD_PAGE)
             : null;
-        connectionFailureOverlay = new FrameOverlay(errorMessage, Color.DARK_GRAY,
+        connectionFailureOverlay = new FrameOverlay(errorMessage, FrameOverlay.plain(),
             new OverlayAction("Open Download Page", KeyEvent.VK_O, () -> {
                 if (onDownload != null) {
                     onDownload.run();
@@ -578,7 +787,7 @@ public class MainFrame {
         closeFirmwareUpdateCheckOverlay();
         closeConnectionFailureOverlay();
         closeUnsavedTuneChangesOverlay();
-        unsavedTuneChangesOverlay = new FrameOverlay(message, Color.DARK_GRAY,
+        unsavedTuneChangesOverlay = new FrameOverlay(message, FrameOverlay.plain(),
             new OverlayAction(saveText, KeyEvent.VK_S, () -> saveAndThen.accept(() -> {
                 closeUnsavedTuneChangesOverlay();
                 discardAndExit.run();
@@ -593,7 +802,7 @@ public class MainFrame {
         closeFirmwareUpdateCheckOverlay();
         closeConnectionFailureOverlay();
         closeUnsavedTuneChangesOverlay();
-        FrameOverlay overlay = new FrameOverlay(message, Color.DARK_GRAY,
+        FrameOverlay overlay = new FrameOverlay(message, FrameOverlay.plain(),
             new OverlayAction("Close", KeyEvent.VK_C, () -> closeOverlay(activeOverlay)));
         showOverlay(overlay);
     }
@@ -624,7 +833,8 @@ public class MainFrame {
     }
 
     private void showConfigErrorOverlay(String message) {
-        // Bright red so it stays readable on the dark translucent card.
+        // Bright red so it stays readable on the dark translucent card, which is black in every theme.
+        // [tag:fixed_color]
         configErrorOverlay = new FrameOverlay("Config Error\n\n" + message, new Color(255, 96, 96),
             new OverlayAction("Close", KeyEvent.VK_C, this::closeConfigErrorOverlay)).asDimmedOverlay();
         showOverlay(configErrorOverlay);
@@ -691,14 +901,14 @@ public class MainFrame {
 
     private void showInstallerAnnouncementBanner(String installerUrl) {
         JPanel banner = new JPanel(new BorderLayout(12, 0));
-        banner.setBackground(new Color(255, 243, 205));
+        banner.setBackground(FrameOverlay.themed("Console.InstallerBanner.background", new Color(255, 243, 205)));
         banner.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(180, 140, 50)),
+            BorderFactory.createMatteBorder(0, 0, 1, 0, FrameOverlay.themed("Console.InstallerBanner.borderColor", new Color(180, 140, 50))),
             BorderFactory.createEmptyBorder(6, 12, 6, 6)
         ));
 
         URLLabel link = new URLLabel(
-            "You're running rusEFI from an extracted bundle. Install Universal Updater for automatic console and ECU firmware updates.",
+            "You're running " + UiProperties.getDisplayName() + " from an extracted bundle. Use the " + UiProperties.getDisplayName() + " installer for automatic software and ECU firmware updates.",
             installerUrl
         );
         link.setFont(link.getFont().deriveFont(Font.BOLD));
@@ -725,9 +935,13 @@ public class MainFrame {
         installerBannerHost.repaint();
     }
 
-    public JComponent wrapContentWithInstallerBanner(JComponent content) {
+    public JComponent wrapContentWithBanners(JComponent content) {
         JPanel wrapper = new JPanel(new BorderLayout());
-        wrapper.add(installerBannerHost, BorderLayout.NORTH);
+        JPanel banners = new JPanel();
+        banners.setLayout(new BoxLayout(banners, BoxLayout.Y_AXIS));
+        banners.add(softwareUpdateBannerHost);
+        banners.add(installerBannerHost);
+        wrapper.add(banners, BorderLayout.NORTH);
         wrapper.add(content, BorderLayout.CENTER);
         return wrapper;
     }
@@ -765,15 +979,15 @@ public class MainFrame {
     private void showFirmwareUpdateCheckResult(FirmwareUpdateCheckResult result) {
         switch (result) {
             case AVAILABLE:
-                firmwareUpdateCheckOverlay.setMessage("ECU firmware update available", FrameOverlay.GREEN);
+                firmwareUpdateCheckOverlay.setMessage("ECU firmware update available", FrameOverlay.good());
                 firmwareUpdateCheckOverlay.setActionVisible(0, true);
                 break;
             case UP_TO_DATE:
-                firmwareUpdateCheckOverlay.setMessage("ECU already matches the local firmware image", FrameOverlay.GREEN);
+                firmwareUpdateCheckOverlay.setMessage("ECU already matches the local firmware image", FrameOverlay.good());
                 firmwareUpdateCheckOverlay.setActionVisible(0, false);
                 break;
             default:
-                firmwareUpdateCheckOverlay.setMessage("Unable to check ECU firmware", Color.RED.darker());
+                firmwareUpdateCheckOverlay.setMessage("Unable to check ECU firmware", FrameOverlay.bad());
                 firmwareUpdateCheckOverlay.setActionVisible(0, false);
                 break;
         }
@@ -781,15 +995,134 @@ public class MainFrame {
     }
 
     private void onUpdateSoftwareClicked() {
-        setUpdateSoftwareAvailable(false);
-        Thread updateThread = new Thread(() ->
-            Autoupdate.runManualUpdate(msg -> {
-                if (msg != null) {
-                    Autoupdate.relaunchConsole();
+        if (softwareRestartRequired) {
+            restartApplication();
+            return;
+        }
+        softwareUpdateCoordinator.install();
+    }
+
+    private void applySoftwareUpdateState(SoftwareUpdateCoordinator.State state) {
+        switch (state) {
+            case CHECKING:
+                updateSoftwareItem.setText("Checking for Software Updates…");
+                setUpdateSoftwareAvailable(false);
+                break;
+            case AVAILABLE:
+                softwareRestartRequired = false;
+                updateSoftwareItem.setText("Update Software");
+                setUpdateSoftwareAvailable(true);
+                hideSoftwareUpdateBanner();
+                SwingUtilities.invokeLater(() ->
+                    ApplicationUpdatePrompt.show(frame.getFrame(), softwareUpdateCoordinator));
+                break;
+            case AVAILABLE_DEFERRED:
+                softwareRestartRequired = false;
+                updateSoftwareItem.setText("Update Software");
+                setUpdateSoftwareAvailable(true);
+                showDeferredSoftwareUpdate();
+                break;
+            case INSTALLING:
+                softwareRestartRequired = false;
+                updateSoftwareItem.setText("Updating Software…");
+                setUpdateSoftwareAvailable(false);
+                showSoftwareUpdateBanner("Downloading application update…");
+                break;
+            case RESTART_REQUIRED:
+                showSoftwareRestartRequired();
+                break;
+            case FAILED:
+                softwareRestartRequired = false;
+                updateSoftwareItem.setText("Retry Software Update");
+                setUpdateSoftwareAvailable(true);
+                showSoftwareUpdateFailed();
+                break;
+            default:
+                softwareRestartRequired = false;
+                updateSoftwareItem.setText("Update Software");
+                hideSoftwareUpdateBanner();
+                // The check runs whatever the auto-update setting, so idle means nothing to offer.
+                setUpdateSoftwareAvailable(false);
+                break;
+        }
+    }
+
+    private void showDeferredSoftwareUpdate() {
+        JButton update = new JButton("Update now");
+        update.addActionListener(e -> softwareUpdateCoordinator.install());
+        showSoftwareUpdateBanner("Application update available.", update);
+    }
+
+    private void showSoftwareUpdateFailed() {
+        JButton later = new JButton("Later");
+        later.addActionListener(e -> softwareUpdateCoordinator.later());
+        JButton retry = new JButton("Retry");
+        retry.addActionListener(e -> softwareUpdateCoordinator.install());
+        showSoftwareUpdateBanner("Application update failed. You can retry.", later, retry);
+    }
+
+    private void showSoftwareUpdateBanner(String text, JButton... buttons) {
+        JPanel banner = new JPanel(new BorderLayout(12, 0));
+        banner.setBackground(FrameOverlay.themed("Console.InstallerBanner.background", new Color(255, 243, 205)));
+        banner.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0,
+                FrameOverlay.themed("Console.InstallerBanner.borderColor", new Color(180, 140, 50))),
+            BorderFactory.createEmptyBorder(6, 12, 6, 6)
+        ));
+        JLabel message = new JLabel(text);
+        message.setFont(message.getFont().deriveFont(Font.BOLD));
+        banner.add(message, BorderLayout.CENTER);
+        if (buttons.length > 0) {
+            JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            actions.setOpaque(false);
+            for (int i = 0; i < buttons.length; i++) {
+                if (i > 0) {
+                    actions.add(Box.createHorizontalStrut(5));
                 }
-            }), "manual-update");
-        updateThread.setDaemon(true);
-        updateThread.start();
+                JButton button = buttons[i];
+                actions.add(button);
+            }
+            banner.add(actions, BorderLayout.EAST);
+        }
+        softwareUpdateBannerHost.removeAll();
+        softwareUpdateBannerHost.add(banner, BorderLayout.CENTER);
+        softwareUpdateBannerHost.setVisible(true);
+        softwareUpdateBannerHost.revalidate();
+        softwareUpdateBannerHost.repaint();
+    }
+
+    private void hideSoftwareUpdateBanner() {
+        softwareUpdateBannerHost.setVisible(false);
+        softwareUpdateBannerHost.removeAll();
+        softwareUpdateBannerHost.revalidate();
+        softwareUpdateBannerHost.repaint();
+    }
+
+    private void showSoftwareRestartRequired() {
+        softwareRestartRequired = true;
+        setUpdateSoftwareAvailable(true);
+        applySoftwareRestartRequired(updateSoftwareItem);
+
+        JButton later = new JButton("Restart later");
+        later.addActionListener(e -> later.setVisible(false));
+        JButton restart = new JButton("Restart now");
+        restart.addActionListener(e -> restartApplication());
+        showSoftwareUpdateBanner("Application update ready. Restart to finish updating.", later, restart);
+    }
+
+    static void applySoftwareRestartRequired(JMenuItem updateItem) {
+        updateItem.setText("Restart Application");
+        updateItem.setEnabled(true);
+    }
+
+    private void restartApplication() {
+        requestExit(() -> {
+            if (Autoupdate.startUpdatedConsole()) {
+                frame.getFrame().dispose();
+            } else {
+                showMessageOverlay("The updated application could not be started. Please try restarting manually.");
+            }
+        });
     }
 
     private void windowOpenedHandler() {
@@ -799,19 +1132,8 @@ public class MainFrame {
         // [tag:offline_tune] Refresh the OFFLINE title when offline mode toggles (e.g. Load Tune while
         // disconnected) — otherwise the title would lag until the next connection event. #9730
         consoleUI.uiContext.addOfflineModeListener(o -> SwingUtilities.invokeLater(this::setTitle));
+        consoleUI.uiContext.addTuneFileListener(() -> SwingUtilities.invokeLater(this::setTitle));
 
-        // Offer manual update whenever the launch-time silent update did not run - either because
-        // the user preference is off or because the bundle hard-disables auto-update (#9775).
-        if (!Autoupdate.isAutoUpdateEnabled()) {
-            Thread checkThread = new Thread(() -> {
-                boolean available = Autoupdate.isUpdateAvailable();
-                if (available) {
-                    SwingUtilities.invokeLater(() -> setUpdateSoftwareAvailable(true));
-                }
-            }, "update-availability-check");
-            checkThread.setDaemon(true);
-            checkThread.start();
-        }
         ConnectionStatusLogic.INSTANCE.addListener(isConnected -> {
             SwingUtilities.invokeLater(() -> {
                 ConnectionStatusValue status = ConnectionStatusLogic.INSTANCE.getValue();
@@ -900,7 +1222,7 @@ public class MainFrame {
         binaryLoggingMenu.refresh();
     }
 
-    public void setTuneActions(Action loadAction, Action saveAction) {
+    public void setTuneActions(Action loadAction, Action saveAction, Action saveAsAction) {
         loadTuneItem.setAction(loadAction);
         loadTuneItem.setIcon(loadMenuIcon("folder-open"));
         loadTuneItem.setText(LoadTuneHelper.LOAD_TUNE_TEXT);
@@ -909,13 +1231,19 @@ public class MainFrame {
         saveTuneItem.setIcon(loadMenuIcon("floppy"));
         saveTuneItem.setText(LoadTuneHelper.SAVE_TUNE_TEXT);
         saveTuneItem.setMnemonic(KeyEvent.VK_S);
+        saveTuneItem.setToolTipText("Save to the current tune file, or choose one if there is none yet");
+        saveTuneAsItem.setAction(saveAsAction);
+        saveTuneAsItem.setText(LoadTuneHelper.SAVE_TUNE_AS_TEXT);
+        saveTuneAsItem.setMnemonic(KeyEvent.VK_A);
+        saveTuneAsItem.setToolTipText("Save the tune to a new file and keep working on that file");
         loadAction.addPropertyChangeListener(e -> refreshActionsAfterActionStateChange(e.getPropertyName()));
         saveAction.addPropertyChangeListener(e -> refreshActionsAfterActionStateChange(e.getPropertyName()));
+        saveAsAction.addPropertyChangeListener(e -> refreshActionsAfterActionStateChange(e.getPropertyName()));
         refreshFirmwareUpdateExclusion();
     }
 
     static Icon loadMenuIcon(String name) {
-        ImageIcon icon = AutoupdateUtil.loadIcon("icons/tuning/" + name + "48.png");
+        ImageIcon icon = TuningIcons.load(name);
         if (icon == null) {
             return null;
         }
@@ -950,10 +1278,14 @@ public class MainFrame {
     private void refreshFirmwareUpdateExclusion() {
         Action loadAction = loadTuneItem.getAction();
         Action saveAction = saveTuneItem.getAction();
+        Action saveAsAction = saveTuneAsItem.getAction();
         boolean applicationActionsAllowed = !firmwareUpdateInProgress && !unsupportedEcuBlocking;
         loadTuneItem.setEnabled(applicationActionsAllowed && loadAction != null && loadAction.isEnabled());
         saveTuneItem.setEnabled(applicationActionsAllowed && saveAction != null && saveAction.isEnabled());
+        saveTuneAsItem.setEnabled(applicationActionsAllowed && saveAsAction != null && saveAsAction.isEnabled());
         updateSoftwareItem.setEnabled(applicationActionsAllowed && updateSoftwareAvailable);
+        // DevicePane disables these tabs while flashing; a tab opened now would miss that
+        toolsMenu.setEnabled(applicationActionsAllowed);
         BinaryProtocol bp = consoleUI.uiContext.getBinaryProtocol();
         boolean firmwareConnectionReady = isFirmwareUpdateConnectionReady(ConnectionStatusLogic.INSTANCE.getValue());
         checkEcuUpdateItem.setEnabled(applicationActionsAllowed
@@ -972,27 +1304,62 @@ public class MainFrame {
     }
 
     private void setTitle() {
-        String consoleVersion = "Console " + Launcher.CONSOLE_VERSION;
+        String softwareVersion = Launcher.CONSOLE_VERSION + " · console "
+            + BundleUtil.readBundleFullNameNotNull().getBranchName();
+        String consoleVersion = UiProperties.getDisplayName() + " " + softwareVersion;
         String frameTitle;
+        // the title bar shows the same state as short labels; the full text stays in its tooltip
+        java.util.List<String> chips;
+        String connectedBranch = null;
         Object bootloaderMode = tabbedPane.tabbedPane.getClientProperty("bootloaderMode");
         if (Boolean.TRUE.equals(tabbedPane.tabbedPane.getClientProperty("isUpdating"))) {
             frameTitle = "UPDATING " + consoleVersion;
+            chips = java.util.Collections.singletonList("UPDATING");
         } else if (bootloaderMode != null) {
             // Board sitting in a bootloader [tag:better_ux_for_flashing] — not connected, but not a plain "disconnected" state.
             frameTitle = bootloaderMode + " BOOTLOADER " + consoleVersion;
+            chips = java.util.Collections.singletonList(bootloaderMode + " BOOTLOADER");
         } else if (ConnectionStatusLogic.INSTANCE.isConnected()) {
             BinaryProtocol bp = consoleUI.uiContext.getBinaryProtocol();
             String signature = bp == null ? "not loaded" : bp.signature;
+            RusEfiSignature ecuSignature = SignatureHelper.parse(signature);
+            connectedBranch = ecuSignature == null || bp.isClosed()
+                || !isFirmwareUpdateConnectionReady(ConnectionStatusLogic.INSTANCE.getValue())
+                ? null : ecuSignature.getBranch();
             frameTitle = consoleVersion + "; firmware=" + Launcher.firmwareVersion.get() + "@" + consoleUI.getPort() + " " + signature;
+            chips = java.util.Arrays.asList(TitleBarPanel.firmwareLabel(signature),
+                TitleBarPanel.connectionLabel(Launcher.firmwareVersion.get(), consoleUI.getPort()));
         } else if (consoleUI.uiContext.isOfflineMode()) {
             // [tag:offline_tune] no ECU — title reflects the loaded tune's signature
             IniFileModel ini = consoleUI.uiContext.iniFileState.getIniFileModel();
             String signature = ini != null ? ini.getSignature() : "no INI";
             frameTitle = "OFFLINE " + consoleVersion + " " + signature;
+            chips = java.util.Arrays.asList("OFFLINE", TitleBarPanel.firmwareLabel(signature));
         } else {
             frameTitle = "DISCONNECTED " + consoleVersion;
+            chips = java.util.Collections.singletonList("DISCONNECTED");
+        }
+        String tuneFile = tuneFileLabel(consoleUI.uiContext.getTuneFilePath());
+        if (tuneFile != null && !Boolean.TRUE.equals(tabbedPane.tabbedPane.getClientProperty("isUpdating"))
+                && bootloaderMode == null) {
+            // first, so a narrow title bar drops the firmware and port labels before the file name
+            frameTitle = tuneFile + " - " + frameTitle;
+            chips = new java.util.ArrayList<>(chips);
+            chips.add(0, tuneFile);
         }
         frame.getFrame().setTitle(frameTitle);
+        if (titleBarPanel != null) {
+            titleBarPanel.setConnectedBranch(connectedBranch);
+            titleBarPanel.update(softwareVersion, chips, frameTitle);
+        }
+    }
+
+    /** "base.msq" for the title bar; null when no tune file is loaded. */
+    static String tuneFileLabel(String tuneFilePath) {
+        if (tuneFilePath == null || tuneFilePath.isEmpty()) {
+            return null;
+        }
+        return new java.io.File(tuneFilePath).getName();
     }
 
     private void showConnectionFailedDialog(String errorMessage) {
@@ -1000,6 +1367,7 @@ public class MainFrame {
     }
 
     private void windowClosedHandler() {
+        consoleUI.closeAssistant();
         configErrorSubscription.remove();
         configErrorHealTimer.stop();
         ConnectionStatusLogic.INSTANCE.removeListener(configErrorConnectionListener);
@@ -1009,7 +1377,7 @@ public class MainFrame {
         SimulatorHelper.onWindowClosed();
         Node root = getConfig().getRoot();
         root.setProperty("version", Launcher.CONSOLE_VERSION);
-        root.setProperty(ConsoleUI.TAB_INDEX, tabbedPane.tabbedPane.getSelectedIndex());
+        SavedTab.save(root, tabbedPane.tabbedPane);
         consoleUI.uiContext.DetachedRepositoryINSTANCE.saveConfig();
         getConfig().save();
         binaryLoggingMenu.stop();

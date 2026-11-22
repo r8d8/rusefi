@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,7 +26,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.devexperts.logging.Logging.getLogging;
-import static com.rusefi.core.ByteBufferUtil.littleEndianWrap;
 
 public interface ISensorHolder {
     Logging log = getLogging(ISensorHolder.class);
@@ -115,7 +115,7 @@ public interface ISensorHolder {
             if (!snapshot.isRangeValid(field.getOffset(), field.getSize())) {
                 return null;
             }
-            Double value = readFieldValue(response, channel, field);
+            Double value = readFieldValue(response, channel, field, ini.getByteOrder());
             if (value != null) {
                 context.put(channel, value);
                 setValue(value, channel);
@@ -173,7 +173,7 @@ public interface ISensorHolder {
     static Double tryReadOutputChannel(byte[] response, String label, IniFileModel ini, String channelName) {
         try {
             IniField field = ini.getOutputChannel(channelName);
-            return readFieldValue(response, label, field);
+            return readFieldValue(response, label, field, ini.getByteOrder());
         } catch (IniMemberNotFound e) {
             return null;
         } catch (IllegalArgumentException e) {
@@ -189,7 +189,7 @@ public interface ISensorHolder {
         if (field == null || !snapshot.isRangeValid(field.getOffset(), field.getSize())) {
             return null;
         }
-        return readFieldValue(response, label, field);
+        return readFieldValue(response, label, field, ini.getByteOrder());
     }
 
     /**
@@ -256,12 +256,13 @@ public interface ISensorHolder {
      * @return the scaled value, or null if the field type is not supported
      */
     @Nullable
-    static Double readFieldValue(byte[] response, String label, IniField field) {
-        ByteBuffer bb = getByteBuffer(response, label, field.getOffset(), field.getSize());
+    static Double readFieldValue(byte[] response, String label, IniField field, ByteOrder order) {
+        ByteBuffer bb = getByteBuffer(response, label, field.getOffset(), field.getSize(), order);
         if (field instanceof ScalarIniField) {
             ScalarIniField scalarField = (ScalarIniField) field;
             double rawValue = scalarField.getType().readRawValue(bb);
-            return rawValue * scalarField.getMultiplier();
+            // TunerStudio: userValue = (raw + translate) * scale
+            return (rawValue + scalarField.getSerializationOffset()) * scalarField.getMultiplier();
         } else if (field instanceof EnumIniField) {
             EnumIniField enumField = (EnumIniField) field;
             int rawValue = (int) enumField.getType().readRawValue(bb);
@@ -276,13 +277,7 @@ public interface ISensorHolder {
     // This avoids allocating a new HeapByteBuffer for every output channel read per ECU frame.
     ThreadLocal<ByteBuffer[]> RESPONSE_BB_HOLDER = ThreadLocal.withInitial(() -> new ByteBuffer[1]);
 
-    // Legacy overload: callers that always read a full 32-bit word (e.g. CustomBinaryLogEntry
-    // masks a getInt(), PanamaHelper reads a 4-byte serial) rely on the fixed 4-byte window.
-    static @NotNull ByteBuffer getByteBuffer(byte[] response, String message, int fieldOffset) {
-        return getByteBuffer(response, message, fieldOffset, 4);
-    }
-
-    static @NotNull ByteBuffer getByteBuffer(byte[] response, String message, int fieldOffset, int size) {
+    static @NotNull ByteBuffer getByteBuffer(byte[] response, String message, int fieldOffset, int size, ByteOrder order) {
         int offset = fieldOffset + 1; // first byte is response code
         // Use the field's actual storage size (1/2/4 bytes) rather than assuming 4: a 1- or 2-byte
         // channel at the very end of the output block would otherwise fail this bounds check and read as null.
@@ -293,9 +288,11 @@ public interface ISensorHolder {
         ByteBuffer[] holder = RESPONSE_BB_HOLDER.get();
         ByteBuffer bb = holder[0];
         if (bb == null || bb.array() != response) {
-            bb = littleEndianWrap(response, 0, response.length);
+            bb = ByteBufferUtil.wrap(response, 0, response.length, order);
             holder[0] = bb;
         }
+        // the cached buffer may have been wrapped for a different-endian connection
+        bb.order(order);
         bb.limit(offset + size);
         bb.position(offset);
         return bb;
@@ -333,8 +330,10 @@ public interface ISensorHolder {
 
             if (resolvedTitle != null || resolvedUnits != null) {
                 result.put(e.getKey(), new ResolvedGaugeLabels(
-                    resolvedTitle != null ? resolvedTitle : gauge.getTitle(),
-                    resolvedUnits != null ? resolvedUnits : gauge.getUnits()
+                    TsStringFunction.containsStringFunction(gauge.getTitle())
+                        ? (resolvedTitle != null ? resolvedTitle : "") : gauge.getTitle(),
+                    TsStringFunction.containsStringFunction(gauge.getUnits())
+                        ? (resolvedUnits != null ? resolvedUnits : "") : gauge.getUnits()
                 ));
             }
         }

@@ -16,6 +16,7 @@ DDEFS += -DEFI_SOFTWARE_KNOCK=TRUE -DSTM32_ADC_USE_ADC3=TRUE
 # and refusal log left this board a few hundred bytes over, 2026-10-19)
 DDEFS += -DEFI_LOGIC_ANALYZER=FALSE
 
+
 DDEFS += -DSTATIC_BOARD_ID=STATIC_BOARD_ID_HELLEN_121NISSAN
 
 include $(BOARDS_DIR)/hellen/hellen-common144.mk

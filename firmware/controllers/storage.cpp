@@ -12,6 +12,13 @@
 #include "extra_flash_pages.h"
 #include "board_overrides.h"
 
+#if IS_WINDOWS_COMPILER
+// COFF weak externals need the fallback in the calling translation unit.
+// A separate weak body leaves the call unresolved (or zero with a weak
+// declaration). ELF/ARM keeps defaults separate so LTO honors board overrides.
+#include "storage_board_hooks.inc"
+#endif
+
 #if EFI_CONFIGURATION_STORAGE
 #include "mpu_util.h"
 #endif
@@ -133,6 +140,10 @@ static bool storageWriteID(uint32_t id) {
 	} else if (id == EFI_LUA_PAGE_RECORD_ID) {
 		burnExtraFlashPage(EFI_LUA_PAGE_RECORD_ID);
 		return true;
+	} else if (id == EFI_TOOTH_PROFILE_RECORD_ID) {
+		return toothProfileStorageWrite();
+	} else if (id == EFI_VR_MODEL_RECORD_ID) {
+		return vrModelStorageWrite();
 	} else {
 		efiPrintf("Requested to write unknown record id %ld", id);
 		// to clear pending bit
@@ -158,6 +169,10 @@ static bool storageReadID(uint32_t id) {
 	} else if (id == EFI_LUA_PAGE_RECORD_ID) {
 		loadExtraPage(EFI_LUA_PAGE_RECORD_ID);
 		return true;
+	} else if (id == EFI_TOOTH_PROFILE_RECORD_ID) {
+		return toothProfileStorageRead();
+	} else if (id == EFI_VR_MODEL_RECORD_ID) {
+		return vrModelStorageRead();
 	} else {
 		efiPrintf("Requested to read unknown record id %ld", id);
 		// to clear pending bit
