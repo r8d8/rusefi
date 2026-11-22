@@ -2033,3 +2033,47 @@ following the hand throttle), PD14 none.
 Open: the drill test's TunerStudio list shrinks to the hand throttle, governor, cranking.rpm, IAT curve
 and injector flow (design's sheet); clearwater HZ-27 and hcu/README.md 2.3 can state that the hardwired
 stop works at any engine speed once this is in the aircraft's image.
+
+## 2026-11-18 - DLE presets: a cranking fuel base sized for their displacement
+
+HITL bench (clearwater simulation, image J 6b0c672c160, DLE_60_TWIN): rusEFI injected about once in 3.6
+revolutions while the plant cranked at ~1356 rpm, with a spark every revolution. Read-only TunerStudio reads on
+the bench: `actualLastInjection` 44.55 ms throughout the crank, injector duty 96 - 104 %,
+`crankingCycleBaseFuel` 27.0 mg in all cells, CLT failed (shown as 0.0).
+
+Cause: the DLE presets never set the cranking fuel, so rusEFI's default base of 27 mg a cycle applied; it is
+sized for cylinders of about half a litre. A failed CLT cranks as 20 C (x1.55 on the default curve): ~41.9 mg,
+over 8x stoichiometric for the DLE-60's 61 cc. Image J's 80 cc/min injector (100 cc/min before) delivers
+0.96 mg/ms at rusEFI's 0.72 g/cc: 43.6 ms plus ~1 ms dead time, longer than the 44.2 ms revolution at
+1356 rpm. `InjectorOutputPin` stays high while pulses overlap (`overlappingCounter`), so the plant counted
+fewer, longer pulses. On the engine the same tune would flood it.
+
+Fix (user decision 2026-11-18): the presets set the base by displacement.
+
+Preset values changed (procedure of 2026-10-28; every board, the HITL Nucleo included):
+
+| Field | New value | Was |
+|---|---|---|
+| `crankingCycleBaseFuel` (all cells), DLE-60 | 5 mg | 27 mg (rusEFI default) |
+| `crankingCycleBaseFuel` (all cells), DLE-120 | 10 mg | 27 mg (rusEFI default) |
+
+At 20 C that is ~7.8 / ~15.5 mg, ~1.6x stoichiometric; the DLE-60 pulse is ~9 ms at 1356 rpm. A starting
+point, to be tuned on the engine. A stored tune keeps 27 mg until the base is set by hand in TunerStudio or the
+preset is re-applied (`set engine_type 106` / `107`, which resets the whole tune) - the HITL bench's included.
+
+| Change | Content |
+|---|---|
+| coverage | `DleTwin.dle60CrankingFuel`, `dle120CrankingFuel` (cranking on the 36-1 wheel with the CLT failed): base 27 mg; the DLE-60 over 8x stoichiometric with a pulse longer than a revolution at 1356 rpm; the DLE-120 over 4x |
+| fix | `setDle60Twin()` / `setDle120Twin()` set the base; the tests expect 5 / 10 mg, 1.2 - 2.5x stoichiometric, the pulse within a quarter of a revolution |
+
+Validation: coverage - DleTwin 22 / 22 on the old preset; fix - DleTwin 22 / 22, all unit tests 1479 / 1479
+(GCC, WSL, 8 jobs). No firmware build: preset values only.
+On the HITL bench (clearwater simulation, the user's OK, 2026-11-18) the base was set to 5.0 mg by hand in
+TunerStudio on image J (all 32 cells, burned at rest, read back): cranking at 1355 rpm `actualLastInjection`
+9.03 ms, injector duty 20.5 % (CLT failed), the injector at 1 / rev in step with both coils, and the plant's
+engine started on its own combustion; running 1798 rpm 5.23 ms, 3075 rpm 3.95 ms, 4305 rpm 3.13 ms.
+
+Not this change: coil 2 (PF15) was silent on the same bench. The stored tune had `enableTrailingSparks` on
+and `trailingCoilPins[0]` = PF15 (97), and the console's `pins` listed PF15 as "Trail 1" beside coil 1 on PD15:
+the firmware side was fine. The D2 (PF15) -> plant A1 (PA1) jumper had never been fitted (clearwater
+simulation/hitl/bench_hcu.md, 2026-10-28: "Jumper not fitted yet"); the user fitted it on 2026-11-18.

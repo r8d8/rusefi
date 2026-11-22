@@ -771,25 +771,31 @@ static float stoichFuelMg(float displacementCc) {
 }
 
 /**
- * Clearwater HITL bench, 2026-11-18: the DLE presets leave rusEFI's default cranking base,
- * crankingCycleBaseFuel 27 mg, sized for a far larger cylinder. With the head sensor failed (20 C, x1.55)
- * the DLE-60 asks ~42 mg a revolution, over 8x stoichiometric for its 61 cc, and on the 80 cc/min injector
- * the pulse outlasts a revolution at the bench's 1356 rpm cranking speed. The injector output stays high
- * while pulses overlap, so the bench saw an injection only every ~3.6 revolutions.
+ * Clearwater HITL bench, 2026-11-18: rusEFI's default cranking base, crankingCycleBaseFuel 27 mg, is
+ * sized for a far larger cylinder. With the head sensor failed (20 C, x1.55) it gave the DLE-60 ~42 mg a
+ * revolution, over 8x stoichiometric for its 61 cc, and on the 80 cc/min injector a pulse longer than a
+ * revolution at the bench's 1356 rpm cranking speed. The injector output stays high while pulses overlap,
+ * so the bench saw an injection only every ~3.6 revolutions. The preset sets 5 mg (user decision):
+ * ~1.6x stoichiometric, within a quarter of a revolution.
  */
 TEST(DleTwin, dle60CrankingFuel) {
 	auto fuel = crankingFuelWithHeadSensorFailed(engine_type_e::DLE_60_TWIN, 1356);
-	EXPECT_NEAR(27, fuel.baseMg, 0.01) << "rusEFI's default";
-	EXPECT_NEAR(27 * 1.55, fuel.fuelMg, 0.1);
-	EXPECT_GT(fuel.fuelMg / stoichFuelMg(61), 8);
-	EXPECT_GT(fuel.pulseMs, 60000 / 1356.0f) << "longer than a revolution";
+	EXPECT_NEAR(5, fuel.baseMg, 0.01);
+	EXPECT_NEAR(5 * 1.55, fuel.fuelMg, 0.05);
+	float stoichRatio = fuel.fuelMg / stoichFuelMg(61);
+	EXPECT_GT(stoichRatio, 1.2);
+	EXPECT_LT(stoichRatio, 2.5);
+	EXPECT_LT(fuel.pulseMs, 0.25f * 60000 / 1356.0f) << "within a quarter of a revolution";
 }
 
-// The DLE-120 the same: rusEFI's default base, over 4x stoichiometric for its 120 cc
+// The DLE-120 scaled by displacement: 10 mg, ~1.6x stoichiometric for its 120 cc
 TEST(DleTwin, dle120CrankingFuel) {
 	auto fuel = crankingFuelWithHeadSensorFailed(engine_type_e::DLE_120_TWIN, 800);
-	EXPECT_NEAR(27, fuel.baseMg, 0.01) << "rusEFI's default";
-	EXPECT_GT(fuel.fuelMg / stoichFuelMg(120), 4);
+	EXPECT_NEAR(10, fuel.baseMg, 0.01);
+	float stoichRatio = fuel.fuelMg / stoichFuelMg(120);
+	EXPECT_GT(stoichRatio, 1.2);
+	EXPECT_LT(stoichRatio, 2.5);
+	EXPECT_LT(fuel.pulseMs, 0.25f * 60000 / 800.0f);
 }
 
 // ---- Stage 1.0 ignition: a passive coil per cylinder (clearwater, user decision 2026-10-27) ----

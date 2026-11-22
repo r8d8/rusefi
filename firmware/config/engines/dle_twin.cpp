@@ -293,6 +293,12 @@ void setDle60Twin() {
 	// until the engine has fired and run past the starter; idle below it then stays running. The hybrid
 	// controller counts the engine as started at 1800 (clearwater design 2026-10-27, user decision)
 	engineConfiguration->cranking.rpm = 1700;
+	// Cranking fuel base (clearwater HITL bench 2026-11-18, user decision): rusEFI's default, 27 mg a
+	// cycle, is sized for a far larger cylinder - ~42 mg a revolution at 20 C (a failed head sensor cranks
+	// as 20 C), over 8x stoichiometric for 61 cc, and on the 80 cc/min injector a pulse longer than a
+	// revolution at cranking speed, so pulses ran together. 5 mg, scaled by displacement: x1.55 at 20 C
+	// is ~7.8 mg (~1.6x stoichiometric), ~9 ms at 1356 rpm. A starting point: tune it on the engine
+	setTable(config->crankingCycleBaseFuel, 5);
 	engineConfiguration->rpmHardLimit = 9000;
 	engineConfiguration->servoThrottleOverspeedRpm = 8700;
 	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated, as for the DLE-120
@@ -317,6 +323,9 @@ void setDle120Twin() {
 	engineConfiguration->injector.flow = 180;
 
 	engineConfiguration->cranking.rpm = 900;
+	// Cranking fuel base scaled by displacement as for the DLE-60 (rusEFI's default 27 mg is over 4x
+	// stoichiometric for 120 cc): x1.55 at 20 C is ~15.5 mg, ~1.6x stoichiometric. Tune on the engine
+	setTable(config->crankingCycleBaseFuel, 10);
 	engineConfiguration->rpmHardLimit = 8500;
 	engineConfiguration->servoThrottleOverspeedRpm = 8200;
 	// Fallback governor target when the HCU sends TARGET_RPM 0: 90 % of rated (7500 rpm), the engine
